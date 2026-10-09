@@ -1,17 +1,18 @@
-# fly.toml app configuration file generated for eaa-chapter-site-lfhcfw on 2026-10-09T17:39:12Z
+# fly.toml app configuration file generated for eaa-chapter-site-lfhcfw on 2026-10-09T18:54:34Z
 #
 # See https://docs.fly.io/reference/configuration for information about how to use this file.
 #
 
 app = 'eaa-chapter-site-lfhcfw'
 primary_region = 'iad'
+console_command = 'npm run seed'
 
 [build]
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
