@@ -77,10 +77,11 @@
       <h2>Visiting</h2>
       <p>
         Fly in or drive in — both are equally welcome, and roughly half of
-        every breakfast crowd arrives by road. If you are flying in, check
-        {{ site.airport.ident }} in your favourite app for current field
-        conditions; it is a working grass-and-asphalt field, not an airline
-        hub, and it rewards a pass overhead before you commit.
+        every breakfast crowd arrives by road. If you are flying in,
+        {{ site.airport.ident }} has a single paved runway, 01/19: 2,853 feet
+        of asphalt, 60 feet wide, with low-intensity edge lights. Traffic is
+        left-hand off both 01 and 19, and the CTAF is {{ site.airport.ctaf }}.
+        Expect birds on and around the field, and check NOTAMs before you go.
       </p>
       <p>
         If you are driving, put
@@ -98,6 +99,7 @@
             <li><span class="label">Ident</span><span class="mono">{{ site.airport.ident }}</span></li>
             <li><span class="label">Runway</span><span>{{ site.airport.runway }}</span></li>
             <li><span class="label">Fuel</span><span>{{ site.airport.fuel }}</span></li>
+            <li><span class="label">CTAF</span><span>{{ site.airport.ctaf }}</span></li>
             <li><span class="label">Address</span><span>{{ site.airport.street }}<br>{{ site.airport.city }}, {{ site.airport.state }} {{ site.airport.zip }}</span></li>
           </ul>
           <a class="btn btn-outline btn-block btn-sm" href="{{ site.airport | maplink }}" target="_blank" rel="noopener noreferrer">Open in maps</a>

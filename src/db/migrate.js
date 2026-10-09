@@ -464,6 +464,35 @@ const migrations = [
     );
     `,
   },
+  {
+    version: 6,
+    name: 'demo content: 4B0 has a paved runway',
+    sql: `
+    -- The demo content described South Albany as a grass field. 4B0 has one
+    -- paved runway, 01/19, 2,853 x 60 ft asphalt. Sites seeded before this
+    -- fix still carry the old wording in their database, so correct it here.
+    --
+    -- Each REPLACE matches an exact sentence from the old seed, so it changes
+    -- nothing a member has since written or edited, and does nothing at all on
+    -- a site seeded after the fix.
+    UPDATE events SET
+      body_md = REPLACE(body_md,
+        'Aircraft parking on the grass north of the hangars. Car parking in the usual field — follow the signs and the person waving.',
+        'Volunteers will direct you to aircraft parking once you are clear of the runway. Car parking is signposted — follow the signs and the person waving.'),
+      body_html = REPLACE(body_html,
+        'Aircraft parking on the grass north of the hangars. Car parking in the usual field — follow the signs and the person waving.',
+        'Volunteers will direct you to aircraft parking once you are clear of the runway. Car parking is signposted — follow the signs and the person waving.');
+
+    UPDATE events SET poster_alt = REPLACE(poster_alt,
+      'flying low over a grass field while families wave', 'flying low over green fields while families wave');
+    UPDATE events SET poster_alt = REPLACE(poster_alt,
+      'taildragger flying over a grass field beside a pancake', 'taildragger flying over green fields beside a pancake');
+
+    UPDATE contact_messages SET message = REPLACE(message,
+      'What are the current field conditions and is there room on the grass for a nosewheel aircraft? First time in.',
+      'Is there transient parking for a Cherokee, and is self-serve fuel available on a Sunday morning? First time in.');
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

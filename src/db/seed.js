@@ -804,7 +804,7 @@ Fly in or drive in — both are equally welcome. There is parking on the field f
       externalUrl: 'https://www.aopa.org/destinations/event/1817',
       posterPath: poster.fullPath,
       posterAlt:
-        'Cartoon of a yellow and blue taildragger flying low over a grass field while families wave from a pancake breakfast tent beside a red barn marked South Albany Airport 4B0',
+        'Cartoon of a yellow and blue taildragger flying low over green fields while families wave from a pancake breakfast tent beside a red barn marked South Albany Airport 4B0',
     },
     {
       title: 'Young Eagles Rally',
@@ -864,14 +864,14 @@ Fly in or drive in — both are equally welcome. There is parking on the field f
       endHour: 12,
       summary: 'Pancakes, sausage, coffee and airplanes. Fly in or drive in — both welcome.',
       bodyMd:
-        'Our end-of-season breakfast, and traditionally the best-attended one, because the air is cool and the leaves are turning and everybody wants an excuse to fly.\n\nAttendance is free; breakfast is $10. Kids under 10 eat free.\n\nAircraft parking on the grass north of the hangars. Car parking in the usual field — follow the signs and the person waving.',
+        'Our end-of-season breakfast, and traditionally the best-attended one, because the air is cool and the leaves are turning and everybody wants an excuse to fly.\n\nAttendance is free; breakfast is $10. Kids under 10 eat free.\n\nVolunteers will direct you to aircraft parking once you are clear of the runway. Car parking is signposted — follow the signs and the person waving.',
       cost: '$10',
       rainDays: 45,
       contactName: 'Chapter events team',
       contactEmail: 'events@eaa1699.org',
       posterPath: poster.fullPath,
       posterAlt:
-        'Cartoon of a yellow and blue taildragger flying over a grass field beside a pancake breakfast tent at South Albany Airport',
+        'Cartoon of a yellow and blue taildragger flying over green fields beside a pancake breakfast tent at South Albany Airport',
     },
     {
       title: 'VMC Club Night',
@@ -1183,7 +1183,7 @@ If you want your project featured, tell me. If you had a moment in the air that 
       email: 'frank.d@example.com',
       topic: 'Visiting / fly-in',
       message:
-        'Planning to fly in from Massachusetts for the fall breakfast in the Cherokee. What are the current field conditions and is there room on the grass for a nosewheel aircraft? First time in.',
+        'Planning to fly in from Massachusetts for the fall breakfast in the Cherokee. Is there transient parking for a Cherokee, and is self-serve fuel available on a Sunday morning? First time in.',
       days: 4,
     },
     {

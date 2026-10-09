@@ -255,7 +255,9 @@ export const config = {
       zip: '12158',
       latitude: 42.5632613,
       longitude: -73.8356388,
-      runway: '2,853 ft turf/asphalt',
+      // FAA data (AirNav, Oct 2026): one paved runway, low-intensity edge lights.
+      runway: '01/19, 2,853 × 60 ft asphalt, lighted',
+      ctaf: '122.9',
       fuel: '100LL and Jet A',
     },
     contactEmail: process.env.CONTACT_EMAIL || 'info@eaa1699.org',
