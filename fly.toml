@@ -1,11 +1,10 @@
-# fly.toml app configuration file generated for eaa-chapter-site-lfhcfw on 2026-10-09T19:29:49Z
+# fly.toml app configuration file generated for eaa-chapter-site-lfhcfw on 2026-10-09T19:31:46Z
 #
 # See https://docs.fly.io/reference/configuration for information about how to use this file.
 #
 
 app = 'eaa-chapter-site-lfhcfw'
 primary_region = 'iad'
-console_command = 'npm run seed'
 
 [build]
 
@@ -22,3 +21,7 @@ console_command = 'npm run seed'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
+
+[deploy]
+  release_command = 'npm run seed'
+  strategy = 'rolling'
