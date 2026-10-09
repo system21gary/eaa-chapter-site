@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -7,11 +8,22 @@ import { fileURLToPath } from 'node:url';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = path.join(rootDir, 'src');
 
-// Everything the app writes lives here; see config.dataDir below.
-const dataDir = process.env.DATA_DIR || path.join(rootDir, 'data');
-
 const env = process.env.NODE_ENV || 'development';
 const isProd = env === 'production';
+
+/**
+ * Everything the app writes lives here; see config.dataDir below.
+ *
+ * In production, with no DATA_DIR set, use the volume at /data when there is
+ * one. fly.toml sets DATA_DIR, and scripts/start.sh falls back to /data too,
+ * but a command run any other way -- `fly ssh console -C "npm run seed"`, say
+ * -- may not see either, and would otherwise write to the container's own
+ * disk: a database the site never reads, wiped on the next restart. Only in
+ * production, so a developer's unrelated /data directory is never touched.
+ */
+const dataDir =
+  process.env.DATA_DIR ||
+  (isProd && fs.existsSync('/data') ? '/data' : path.join(rootDir, 'data'));
 
 /**
  * Secrets must be supplied in production. In development we generate an

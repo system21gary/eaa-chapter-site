@@ -38,6 +38,12 @@ and password hash.
 You need `flyctl` (`curl -L https://fly.io/install.sh | sh`, then
 `fly auth login`). Run these from the project folder.
 
+**On Windows, in Git Bash:** Git Bash rewrites any argument starting with `/`
+into a Windows path, so `fly ssh console -C "/app/scripts/start.sh …"` arrives
+on the server as `C:/Program Files/Git/app/…` and fails. Either put
+`MSYS_NO_PATHCONV=1` in front of those commands, or open a shell with
+`fly ssh console` and type the command at the server's prompt instead.
+
 **1. Save anything on the current machine.** Before the volume, the database
 lived inside the container, so the next deploy deletes it. If there is real
 content on the live site, download it first:
