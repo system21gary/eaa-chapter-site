@@ -217,6 +217,30 @@ export const config = {
 
   mail: mailConfig(),
 
+  /**
+   * The nightly backup report: an email saying whether the backup is working,
+   * proved by actually restoring it. See src/lib/backup-report.js.
+   */
+  backup: {
+    // On in production, off in development, so a laptop or test container
+    // does not email the chapter's admins a PROBLEM report every morning
+    // about a backup it was never meant to have. BACKUP_REPORT=1 or 0
+    // overrides either way. Only ever runs from server.js, never from tests or
+    // scripts that merely import the app.
+    reportEnabled: process.env.BACKUP_REPORT ? process.env.BACKUP_REPORT !== '0' : isProd,
+    // Comma-separated. Empty means every active administrator.
+    reportTo: (process.env.BACKUP_REPORT_TO || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    // Hour of the day, chapter time (Eastern), at or after which it is sent.
+    reportHour: Math.min(23, Math.max(0, int('BACKUP_REPORT_HOUR', 6))),
+    // Set by scripts/start.sh when a Tigris bucket (or other replica) is
+    // attached. Unset means the database is not being backed up at all.
+    replicaUrl: process.env.LITESTREAM_REPLICA_URL || '',
+    litestreamConfig: process.env.LITESTREAM_CONFIG || path.join(rootDir, 'litestream.yml'),
+  },
+
   site: {
     name: 'EAA Chapter 1699',
     tagline: 'Builders, pilots, and dreamers at South Albany Airport',

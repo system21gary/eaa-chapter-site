@@ -1,6 +1,7 @@
 import config from './src/config.js';
 import { createApp } from './src/app.js';
 import { startMailWorker, stopMailWorker, closeMailTransport, outboxHealth } from './src/lib/mailer.js';
+import { startBackupReporter, stopBackupReporter, describeReplica } from './src/lib/backup-report.js';
 
 const app = createApp();
 
@@ -20,6 +21,17 @@ const server = app.listen(config.port, config.host, () => {
     console.log('  Mail: queued to the database only — nothing is delivered (MAIL_TRANSPORT=outbox).\n');
   }
 
+  if (config.backup.replicaUrl) {
+    console.log(`  Backup: Litestream to ${describeReplica(config.backup.replicaUrl)}`);
+  } else {
+    console.log('  Backup: NONE. The database is not being backed up (see DEPLOY.md).');
+  }
+  if (startBackupReporter()) {
+    console.log(`  Backup report: emailed daily after ${config.backup.reportHour}:00 Eastern\n`);
+  } else {
+    console.log(`  Backup report: off (${config.isProd ? 'BACKUP_REPORT=0' : 'development; BACKUP_REPORT=1 turns it on'})\n`);
+  }
+
   if (config.isDev) {
     console.log('  Seed the demo content with:  npm run seed');
     console.log('  Queued email (invites, resets) prints to this console.\n');
@@ -31,6 +43,7 @@ const server = app.listen(config.port, config.host, () => {
 function shutdown(signal) {
   console.log(`\n[${signal}] shutting down…`);
   stopMailWorker();
+  stopBackupReporter();
   server.close(async () => {
     // Closing the pool sends QUIT instead of dropping the connection, which
     // some relays count against you.

@@ -14,7 +14,8 @@
     "seed": "node src/db/seed.js",
     "reset": "node src/db/reset.js",
     "mail:check": "node scripts/mail-check.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "backup:report": "node scripts/backup-report.mjs"
   },
   "dependencies": {
     "compression": "^1.7.5",

@@ -1,6 +1,175 @@
 # Deploying
 
-## Read this first: Cloud Run will lose the chapter's data
+The site runs on **Fly.io**. The first section below is how it is set up and
+looked after there. The Cloud Run and VM notes further down are kept for
+reference, in case it ever moves.
+
+## Fly.io
+
+### Where the data lives, and how it is backed up
+
+A Fly machine's own disk is rebuilt from the Docker image on **every deploy and
+every restart**, so nothing the site stores can live there. Instead:
+
+| What | Where | Backup |
+|---|---|---|
+| Database (members, posts, tools, builds, events, everything typed in) | `/data/eaa1699.sqlite` on the Fly volume `eaa_data` | **Litestream** copies every change to a Tigris bucket within about a second, with 30 days of history. Any moment in those 30 days can be restored. |
+| Uploaded photos | `/data/uploads/` on the same volume | **Fly volume snapshots**, daily, kept 30 days. |
+
+On top of that:
+
+- **If the volume is ever lost**, the site restores the database from the
+  bucket by itself the next time it starts (`scripts/start.sh`).
+- **Every morning after 6:00 Eastern**, the site emails the administrators a
+  backup report. It does not just check that Litestream is running: it restores
+  the latest copy from the bucket into a scratch file, checks SQLite's
+  integrity, and checks the copy holds everything the live site had recorded.
+  The subject says **PROBLEM** when something needs doing. Run it on demand:
+
+  ```bash
+  fly ssh console -C "/app/scripts/start.sh npm run backup:report -- --send"
+  ```
+
+The database itself is never emailed. It holds every member's contact details
+and password hash.
+
+### Setting it up
+
+You need `flyctl` (`curl -L https://fly.io/install.sh | sh`, then
+`fly auth login`). Run these from the project folder.
+
+**1. Save anything on the current machine.** Before the volume, the database
+lived inside the container, so the next deploy deletes it. If there is real
+content on the live site, download it first:
+
+```bash
+fly ssh sftp get /app/data/eaa1699.sqlite ./eaa1699-before-volume.sqlite
+```
+
+**2. Create the volume**, in the same region as the app:
+
+```bash
+fly volumes create eaa_data --region iad --size 1
+```
+
+It warns that a single volume has no redundancy. That is expected: the bucket
+backup and the snapshots are the redundancy. Answer yes.
+
+**3. Create the backup bucket:**
+
+```bash
+fly storage create
+```
+
+Pick a name such as `eaa1699-backups`. This creates a private Tigris bucket and
+sets `BUCKET_NAME` and the `AWS_*` credentials as app secrets. `start.sh`
+picks them up; nothing else to configure.
+
+**4. Set the secrets.** These are never in a file in the repository.
+
+```bash
+fly secrets set \
+  SESSION_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")" \
+  CSRF_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")"
+
+fly secrets set MAIL_TRANSPORT=smtp SMTP_HOST=smtp.ionos.com SMTP_PORT=587 SMTP_SECURE=0 \
+  SMTP_USER='the mailbox address' SMTP_PASS='its password' \
+  MAIL_FROM='EAA Chapter 1699 <the same mailbox address>'
+
+# Optional: who gets the morning backup report. Default: every active admin.
+fly secrets set BACKUP_REPORT_TO=gary.jones@hawthorncs.com
+```
+
+`fly secrets list` shows which are set, never their values.
+
+**5. Deploy and keep it to one machine:**
+
+```bash
+fly deploy
+fly scale count 1
+```
+
+One machine, always. SQLite lives on one volume attached to one machine; a
+second machine would have its own, separate database.
+
+**6. Seed a brand-new site** (skip this if you are restoring data):
+
+```bash
+fly ssh console -C "/app/scripts/start.sh npm run seed"
+```
+
+It prints a link to set the admin password. Always run one-off commands
+through `start.sh`: `fly ssh console` logs in as root, and a command run as
+root leaves files on the volume the site cannot write to.
+
+**7. Check it.** `fly logs` should show `Backup: Litestream to s3://…` at
+startup. Give it a minute after the deploy, then send yourself a report:
+
+```bash
+fly ssh console -C "/app/scripts/start.sh npm run backup:report -- --send"
+```
+
+### What changed in fly.toml, and why
+
+- **`[mounts]`**: the volume, with snapshots kept 30 days instead of 5, and
+  automatic growth (1 GB more at 80% full, up to 5 GB) so photo uploads do not
+  start failing when it fills.
+- **`DATA_DIR = '/data'`**: puts the database and uploads on the volume.
+- **`release_command` removed.** It ran `npm run seed` on a temporary machine
+  that Fly creates without the volume and then deletes, so it seeded a copy
+  nobody ever saw.
+- **`PORT = '3000'`** to match `internal_port`. The Dockerfile defaults to 8080.
+- **`TRUST_PROXY = '1'`** and **`BASE_URL`**: Fly's proxy handles HTTPS, and
+  emailed links need the public address. Change `BASE_URL` if the site moves to
+  its own domain.
+
+### Restoring
+
+**The volume or the machine is lost.** Create a new volume with the same name
+(step 2) and deploy. The site finds no database, restores the latest copy from
+the bucket, and starts.
+
+**Something was deleted or changed by mistake.** Roll the database back to a
+moment before it happened. Times are UTC: 10:30 Eastern in October is 14:30Z.
+
+```bash
+# 1. Restore that moment to a side file. The site keeps running.
+fly ssh console -C "/app/scripts/start.sh litestream restore -config /app/litestream.yml -timestamp 2026-10-09T14:30:00Z -o /data/restore.sqlite /data/eaa1699.sqlite"
+
+# 2. Restart. start.sh swaps the restored copy in before the site opens it.
+fly apps restart
+```
+
+The database it replaces is kept on the volume as
+`eaa1699.sqlite.before-restore-<time>`, in case the rollback itself was the
+mistake. Anything entered between the chosen moment and the rollback is not in
+the restored copy. The backup carries on from the rolled-back state.
+
+**Photos.** Fly's daily snapshots cover them: `fly volumes list`, then
+`fly volumes snapshots list <volume id>`. Restoring a snapshot means creating
+a new volume from it ([Fly's guide](https://fly.io/docs/volumes/snapshots/)).
+One catch: the database on a snapshot can be up to a day old, older than the
+one in the bucket. Before the site first starts on a restored volume, the
+database files on it should be removed, so the latest database comes back from
+the bucket instead. It is a rare and fiddly job; ask before doing it.
+
+### Credentials that were published
+
+`.env.example` is a template and is public. If real values ever go into it,
+they are published with the repository and stay in its Git history even after
+the file is fixed. Treat them as known to anyone and change them:
+
+1. **The mailbox password**: change it in IONOS, then update `SMTP_PASS` in
+   `fly secrets` and in any local `.env`.
+2. **`SESSION_SECRET` and `CSRF_SECRET`**: set new ones (step 4). Everyone is
+   signed out once, which is the point.
+
+Real values belong in `fly secrets` for the live site, and in `.env` (which Git
+ignores) on a development machine.
+
+## Other hosts (kept for reference)
+
+### Cloud Run will lose the chapter's data
 
 `gcloud run deploy --source .` will work. The site will come up, look perfect,
 and then quietly throw away everything anyone types into it.
@@ -31,7 +200,7 @@ follow.
 
 ---
 
-## Option A — one small VM, no code changes  ← the plan
+### Option A — one small VM, no code changes
 
 Best fit for a chapter site. The app was built as one process and one file on
 disk; a VM with a persistent disk is exactly that, and nothing needs porting.
@@ -136,7 +305,7 @@ relay through a provider on 587 or 465 anyway. Those ports are open.
 
 ---
 
-## Option B — Cloud Run, done properly
+### Option B — Cloud Run, done properly
 
 Managed, scales to zero, no VM to patch. It needs both stateful things moved
 off local disk first:
@@ -161,7 +330,7 @@ off local disk first:
 If you want this, say so and I will do the port. It is a real change, not a
 config tweak, so I have not made it speculatively.
 
-### Once storage is sorted, deploying is:
+#### Once storage is sorted, deploying is:
 
 ```bash
 gcloud run deploy eaa1699 --source . \

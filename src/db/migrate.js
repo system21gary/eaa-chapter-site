@@ -449,6 +449,21 @@ const migrations = [
     -- sending can be requeued one row at a time from the activity log.
     `,
   },
+  {
+    version: 5,
+    name: 'app state',
+    sql: `
+    -- Small bits of state the server keeps for itself, such as the date the
+    -- nightly backup report last went out. Kept in the database rather than
+    -- in memory so a restart or a deploy does not send the same day's report
+    -- twice.
+    CREATE TABLE app_state (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

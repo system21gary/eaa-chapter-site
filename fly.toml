@@ -8,6 +8,36 @@ primary_region = 'iad'
 
 [build]
 
+# Settings that are not secret. Anything set with `fly secrets set` under the
+# same name overrides these.
+[env]
+  # Must match internal_port below. The Dockerfile defaults to 8080 for Cloud
+  # Run, which would leave Fly's proxy knocking on a port nobody answers.
+  PORT = '3000'
+  # The database and uploaded photos live on the volume mounted below, not in
+  # the container, whose filesystem is rebuilt on every deploy and restart.
+  DATA_DIR = '/data'
+  # Fly's proxy terminates HTTPS; trust it for the client IP and protocol, or
+  # secure cookies and rate limiting misbehave.
+  TRUST_PROXY = '1'
+  # The public address, used in every link the site emails out. Change this
+  # if the site moves to its own domain.
+  BASE_URL = 'https://eaa-chapter-site-lfhcfw.fly.dev'
+
+# The persistent disk. Create it once with:
+#   fly volumes create eaa_data --region iad --size 1
+[mounts]
+  source = 'eaa_data'
+  destination = '/data'
+  # Fly snapshots the whole volume -- database and photos -- every day. Kept
+  # for 30 days rather than the default 5.
+  snapshot_retention = 30
+  # Photos are what will fill it. Grow automatically instead of failing
+  # uploads: +1 GB at 80% full, up to 5 GB.
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = '1GB'
+  auto_extend_size_limit = '5GB'
+
 [http_service]
   internal_port = 3000
   force_https = true
@@ -23,5 +53,8 @@ primary_region = 'iad'
   memory_mb = 256
 
 [deploy]
-  release_command = 'npm run seed'
+  # No release_command. Fly runs it on a throwaway machine without the volume,
+  # so `npm run seed` there seeded a copy that was then deleted. Seed once, on
+  # the real machine, with:
+  #   fly ssh console -C "/app/scripts/start.sh npm run seed"
   strategy = 'rolling'

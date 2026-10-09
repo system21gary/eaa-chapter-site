@@ -1,0 +1,30 @@
+# Litestream: continuous backup of the SQLite database to object storage.
+#
+# Every committed change is streamed to the replica within about a second, so
+# losing the machine -- or the volume -- costs at most the last second or so.
+# scripts/start.sh supplies both values below:
+#
+#   DB_FILE                 the live database, on the Fly volume
+#   LITESTREAM_REPLICA_URL  built from the Tigris bucket Fly injects
+#                           (BUCKET_NAME); can be set directly to point at any
+#                           S3-compatible store, or at file:///some/path to test
+#
+# Credentials are not in this file. Litestream reads AWS_ACCESS_KEY_ID and
+# AWS_SECRET_ACCESS_KEY from the environment, which `fly storage create` sets
+# as app secrets.
+#
+# This covers the database only. Uploaded photos live on the volume beside it
+# and are covered by Fly's daily volume snapshots (see fly.toml).
+
+dbs:
+  - path: ${DB_FILE}
+    replica:
+      url: ${LITESTREAM_REPLICA_URL}
+
+# How far back a restore can go. The default keeps one day, which is not a
+# backup so much as an undo button: a mistake noticed on Monday morning that
+# happened on Friday would already be unrecoverable. Thirty days, with a full
+# snapshot daily and finer-grained points in between.
+snapshot:
+  interval: 24h
+  retention: 720h
