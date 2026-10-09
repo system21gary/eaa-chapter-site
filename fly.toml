@@ -46,11 +46,14 @@ primary_region = 'iad'
   min_machines_running = 1
   processes = ['app']
 
+# 512 MB. The site uses about 110 MB, Litestream a little more, and the seed
+# or a large photo upload adds 150-175 MB on top; 256 MB got the seed killed
+# (exit 137). Set it in one place only: this previously said both 1gb and
+# memory_mb = 256, and the 256 won.
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256
 
 [deploy]
   # No release_command. Fly runs it on a throwaway machine without the volume,
