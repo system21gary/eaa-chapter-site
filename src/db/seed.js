@@ -1,3 +1,4 @@
+import { localDaysFromToday } from '../lib/localtime.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import config from '../config.js';
@@ -30,11 +31,10 @@ const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'gary.jones@hawthorncs.com';
 
 /* Dates are anchored to "now" so the demo never looks stale. */
 const now = new Date();
+// In chapter time: setHours() would use the server's zone, and on Fly (UTC)
+// the 8 AM breakfast would come out at 4 AM.
 function daysAgo(n, hour = 12, minute = 0) {
-  const d = new Date(now);
-  d.setDate(d.getDate() - n);
-  d.setHours(hour, minute, 0, 0);
-  return d.toISOString();
+  return localDaysFromToday(-n, hour, minute, now).toISOString();
 }
 function daysAhead(n, hour = 12, minute = 0) {
   return daysAgo(-n, hour, minute);

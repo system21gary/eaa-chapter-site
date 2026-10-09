@@ -255,6 +255,9 @@ export const config = {
 
   site: {
     name: 'EAA Chapter 1699',
+    // The chapter's local time. Every date anyone types or reads on the site
+    // is in this zone, whatever zone the server itself runs in (Fly: UTC).
+    timeZone: 'America/New_York',
     tagline: 'Builders, pilots, and dreamers at South Albany Airport',
     chapterNumber: 1699,
     baseUrl: process.env.BASE_URL || `http://localhost:${int('PORT', 3000)}`,

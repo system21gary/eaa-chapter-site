@@ -4,7 +4,7 @@ import config from '../config.js';
 import { withBase, absoluteUrl } from '../middleware/base-path.js';
 import { renderMarkdown, excerpt } from '../lib/markdown.js';
 
-const TZ = 'America/New_York'; // the chapter's local time; 4B0 is in Eastern
+import { TZ, toLocalInput, toLocalDateInput } from '../lib/localtime.js';
 
 function fmt(value, options) {
   if (!value) return '';
@@ -29,6 +29,10 @@ export function registerFilters(env) {
   env.addFilter('day', (v) => fmt(v, { day: 'numeric' }));
   env.addFilter('year', (v) => fmt(v, { year: 'numeric' }));
   env.addFilter('isodate', (v) => (v ? new Date(v).toISOString() : ''));
+  // Values for date and datetime-local inputs, in chapter time, so a form
+  // shows what was typed into it rather than the stored UTC.
+  env.addFilter('localinput', (v) => toLocalInput(v));
+  env.addFilter('localdate', (v) => toLocalDateInput(v));
 
   /** "9:00 AM – 12:00 PM" or "All day" */
   env.addFilter('timerange', (start, end, allDay) => {

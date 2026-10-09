@@ -8,6 +8,7 @@
 import * as Users from '../src/models/users.js';
 import { get, run } from '../src/db/index.js';
 import config from '../src/config.js';
+import { parseLocal, toLocalInput, toLocalDateInput } from '../src/lib/localtime.js';
 
 /**
  * This suite submits the contact form, requests an account, and triggers a
@@ -572,6 +573,29 @@ console.log('\nApplication review');
 /* ------------------------------------------------------------- cleanup */
 // The suite must leave the demo data exactly as it found it, so the records
 // it just created are removed through the real delete routes.
+console.log('\nChapter time');
+{
+  // Event times are typed in chapter (Eastern) time and must not depend on the
+  // server's own zone. Fly runs in UTC; a developer's machine usually does
+  // not, which is how 7 PM once became 3 PM on the live site unnoticed. So
+  // force UTC here, whatever zone this suite runs in.
+  const saved = process.env.TZ;
+  process.env.TZ = 'UTC';
+  const winter = parseLocal('2026-12-10T19:00')?.toISOString();
+  const summer = parseLocal('2026-07-04T19:00')?.toISOString();
+  record(winter === '2026-12-11T00:00:00.000Z', '7 PM in December is stored as 7 PM Eastern', `-> ${winter}`);
+  record(summer === '2026-07-04T23:00:00.000Z', '7 PM in July is stored as 7 PM Eastern', `-> ${summer}`);
+  record(toLocalInput(winter) === '2026-12-10T19:00', 'the edit form shows the time that was typed', `-> ${toLocalInput(winter)}`);
+  record(
+    toLocalDateInput(parseLocal('2026-12-11')?.toISOString()) === '2026-12-11',
+    'a date-only field keeps its day',
+    `-> ${toLocalDateInput(parseLocal('2026-12-11')?.toISOString())}`
+  );
+  record(parseLocal('2026-02-30') === null, 'an impossible date is rejected');
+  if (saved === undefined) delete process.env.TZ;
+  else process.env.TZ = saved;
+}
+
 console.log('\nCleanup');
 {
   const { text } = await req('/members/builds');

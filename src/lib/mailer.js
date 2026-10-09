@@ -1,4 +1,5 @@
 import config from '../config.js';
+import { TZ } from './localtime.js';
 import { run, all, get, nowIso } from '../db/index.js';
 
 /**
@@ -420,7 +421,6 @@ export function borrowRequestEmail({
 
 /** "Aug 20, 9:00 AM – Aug 23, 5:00 PM", in the chapter's local time. */
 function dateRange(from, to) {
-  const TZ = 'America/New_York'; // 4B0 is Eastern; matches the site's filters
   const fmt = (v) =>
     new Intl.DateTimeFormat('en-US', {
       timeZone: TZ,

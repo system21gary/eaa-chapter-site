@@ -36,19 +36,19 @@
           <div class="field">
             <label for="starts_at">Starts</label>
             <input type="datetime-local" id="starts_at" name="starts_at" required
-                   value="{{ event.starts_at | isodate | truncate(16) if event.starts_at else '' }}"
+                   value="{{ event.starts_at | localinput }}"
                    aria-invalid="{{ 'true' if errors.starts_at }}">
             {{ err(errors, 'starts_at') }}
           </div>
           <div class="field">
             <label for="ends_at">Ends</label>
             <input type="datetime-local" id="ends_at" name="ends_at"
-                   value="{{ event.ends_at | isodate | truncate(16) if event.ends_at else '' }}">
+                   value="{{ event.ends_at | localinput }}">
           </div>
           <div class="field">
             <label for="rain_date">Rain date</label>
             <input type="date" id="rain_date" name="rain_date"
-                   value="{{ event.rain_date | isodate | truncate(10) if event.rain_date else '' }}">
+                   value="{{ event.rain_date | localdate }}">
           </div>
         </div>
 

@@ -97,12 +97,12 @@
           <div class="field">
             <label for="started_on">Started</label>
             <input type="date" id="started_on" name="started_on"
-                   value="{{ build.started_on | isodate | truncate(10) if build.started_on else '' }}">
+                   value="{{ build.started_on | localdate }}">
           </div>
           <div class="field">
             <label for="first_flight_on">First flight <span class="muted">(if it has flown)</span></label>
             <input type="date" id="first_flight_on" name="first_flight_on"
-                   value="{{ build.first_flight_on | isodate | truncate(10) if build.first_flight_on else '' }}">
+                   value="{{ build.first_flight_on | localdate }}">
           </div>
           <div class="field">
             <label for="hangar">Where it lives</label>

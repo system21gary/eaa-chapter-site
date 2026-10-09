@@ -1,3 +1,5 @@
+import { parseLocal } from './localtime.js';
+
 /**
  * Small allow-list validator.
  *
@@ -113,11 +115,9 @@ export const f = {
     return (value, name) => {
       const raw = String(value ?? '').trim();
       if (!raw && optional) return null;
-      if (!/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?)?$/.test(raw)) {
-        throw `${label || name} must be a valid date.`;
-      }
-      const d = new Date(raw.length === 10 ? `${raw}T00:00:00` : raw);
-      if (Number.isNaN(d.getTime())) throw `${label || name} must be a valid date.`;
+      // Read as chapter time, not the server's: see lib/localtime.js.
+      const d = parseLocal(raw);
+      if (!d) throw `${label || name} must be a valid date.`;
       return d.toISOString();
     };
   },

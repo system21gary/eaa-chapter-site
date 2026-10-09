@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import config from '../config.js';
 import { get, all, run, nowIso } from '../db/index.js';
 import { sendMail, outboxHealth } from './mailer.js';
+import { TZ } from './localtime.js';
 
 /**
  * The nightly backup report.
@@ -24,7 +25,6 @@ import { sendMail, outboxHealth } from './mailer.js';
  */
 
 const execFileAsync = promisify(execFile);
-const TZ = 'America/New_York'; // 4B0 is Eastern; matches the site's filters
 
 /** Tables summarised in the report, with the label used for each. */
 const TRACKED = [
@@ -245,10 +245,12 @@ export async function buildReport() {
   const report = {
     generatedAt: nowIso(),
     backup: await verifyBackup(),
-    // The main file only. Litestream holds checkpoints back while it copies,
-    // so the -wal beside it is routinely several times larger and says more
-    // about timing than about how much the chapter has stored.
-    database: { bytes: fileSize(config.dbFile) },
+    // Pages in use times page size: the database's real size, wherever its
+    // pages currently sit. Neither file on disk says this. Recent changes live
+    // in the -wal until a checkpoint, so the main file alone can read as a few
+    // KB on a database holding everything, and the -wal alone grows while
+    // Litestream holds checkpoints back.
+    database: { bytes: get('PRAGMA page_count').page_count * get('PRAGMA page_size').page_size },
     uploads: directoryUsage(config.uploadDir),
     newToday: {},
     warnings: [],
@@ -324,18 +326,18 @@ export function formatReport(report) {
     const extra = [];
     if (added) extra.push(`${added} new in the last day`);
     if (restored != null && restored !== live) extra.push(`${restored} in the backup`);
-    lines.push(`  ${label.padEnd(22)} ${String(live).padStart(5)}${extra.length ? `   (${extra.join(', ')})` : ''}`);
+    lines.push(`  ${label}: ${live}${extra.length ? ` (${extra.join(', ')})` : ''}`);
   }
   lines.push(
     '',
-    `  Database               ${formatBytes(report.database.bytes)}`,
-    `  Uploaded photos        ${report.uploads.files} files, ${formatBytes(report.uploads.bytes)}`
+    `  Database: ${formatBytes(report.database.bytes)}`,
+    `  Uploaded photos: ${report.uploads.files} files, ${formatBytes(report.uploads.bytes)}`
   );
   if (report.disk) {
-    lines.push(`  Volume free space      ${formatBytes(report.disk.free)} of ${formatBytes(report.disk.total)}`);
+    lines.push(`  Volume free space: ${formatBytes(report.disk.free)} of ${formatBytes(report.disk.total)}`);
   }
   if (b.restoredLatest) {
-    lines.push(`  Last change backed up  ${localStamp(b.restoredLatest)}`);
+    lines.push(`  Last change backed up: ${localStamp(b.restoredLatest)}`);
   }
 
   lines.push(

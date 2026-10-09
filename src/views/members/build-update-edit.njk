@@ -37,7 +37,7 @@
         <div class="field">
           <label for="posted_at">Date</label>
           <input type="date" id="posted_at" name="posted_at"
-                 value="{{ entry.posted_at | isodate | truncate(10) if entry.posted_at else '' }}">
+                 value="{{ entry.posted_at | localdate }}">
           <span class="hint">Back-date it if you are catching up.</span>
         </div>
 
