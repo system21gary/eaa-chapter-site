@@ -130,6 +130,29 @@ function describeReplica(url) {
 
 /* ------------------------------------------------------------ the checks */
 
+/**
+ * Whether the data directory is on a disk of its own, i.e. a mounted volume.
+ *
+ * On Fly, the container's own filesystem is rebuilt from the image on every
+ * deploy and restart; only a volume survives. A data directory on the same
+ * device as / is therefore erased on the next deploy. This happens quietly
+ * when something overrides DATA_DIR -- a Fly secret beats fly.toml -- so it is
+ * checked rather than assumed. Returns null where it cannot tell.
+ */
+export function storageProblem() {
+  if (!config.isProd) return null;
+  try {
+    if (fs.statSync(config.dataDir).dev !== fs.statSync('/').dev) return null;
+  } catch {
+    return null;
+  }
+  return (
+    `The database and photos are in ${config.dataDir}, on the container's own disk, ` +
+    'not on the volume. Everything is erased on the next deploy or restart. ' +
+    'Check `fly secrets list` for DATA_DIR, DB_FILE or UPLOAD_DIR overriding fly.toml.'
+  );
+}
+
 /** Row counts per tracked table, from either database. */
 function countRows(query) {
   const out = {};
@@ -260,7 +283,9 @@ export async function buildReport() {
     );
   }
 
-  report.status = !report.backup.ok ? 'PROBLEM' : report.warnings.length ? 'WARNING' : 'OK';
+  report.storageProblem = storageProblem();
+  report.status =
+    !report.backup.ok || report.storageProblem ? 'PROBLEM' : report.warnings.length ? 'WARNING' : 'OK';
   return report;
 }
 
@@ -273,7 +298,9 @@ export function formatReport(report) {
   const lines = [];
 
   if (report.status === 'PROBLEM') {
-    lines.push('ACTION NEEDED', '', b.problem, '');
+    lines.push('ACTION NEEDED', '');
+    if (report.storageProblem) lines.push(report.storageProblem, '');
+    if (!b.ok) lines.push(b.problem, '');
   } else {
     lines.push(
       'The backup is working.',

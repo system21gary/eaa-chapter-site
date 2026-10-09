@@ -1,7 +1,7 @@
 import config from './src/config.js';
 import { createApp } from './src/app.js';
 import { startMailWorker, stopMailWorker, closeMailTransport, outboxHealth } from './src/lib/mailer.js';
-import { startBackupReporter, stopBackupReporter, describeReplica } from './src/lib/backup-report.js';
+import { startBackupReporter, stopBackupReporter, describeReplica, storageProblem } from './src/lib/backup-report.js';
 
 const app = createApp();
 
@@ -19,6 +19,12 @@ const server = app.listen(config.port, config.host, () => {
     );
   } else {
     console.log('  Mail: queued to the database only — nothing is delivered (MAIL_TRANSPORT=outbox).\n');
+  }
+
+  console.log(`  Data: ${config.dataDir}`);
+  const storage = storageProblem();
+  if (storage) {
+    console.error(`\n  !!! WARNING: ${storage}\n`);
   }
 
   if (config.backup.replicaUrl) {
