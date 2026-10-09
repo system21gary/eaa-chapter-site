@@ -15,7 +15,8 @@
     "reset": "node src/db/reset.js",
     "mail:check": "node scripts/mail-check.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "backup:report": "node scripts/backup-report.mjs"
+    "backup:report": "node scripts/backup-report.mjs",
+    "fix:times": "node scripts/fix-times.mjs"
   },
   "dependencies": {
     "compression": "^1.7.5",

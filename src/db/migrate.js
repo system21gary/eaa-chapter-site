@@ -493,6 +493,22 @@ const migrations = [
       'Is there transient parking for a Cherokee, and is self-serve fuel available on a Sunday morning? First time in.');
     `,
   },
+  {
+    version: 7,
+    name: 'chapter time cutoff',
+    sql: `
+    -- Dates typed into forms used to be read in the server's own time zone.
+    -- On Fly that is UTC, so 7 PM was stored as 7 PM UTC and shown as 3 PM
+    -- Eastern. Form text is now read as chapter time (lib/localtime.js).
+    --
+    -- Rows saved before this point may carry the old error; rows saved after
+    -- it do not. Record the moment -- this migration runs the first time the
+    -- fixed code starts -- so scripts/fix-times.mjs can correct exactly the
+    -- former and never touch the latter.
+    INSERT OR IGNORE INTO app_state (key, value, updated_at)
+    VALUES ('chapter_time_since', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

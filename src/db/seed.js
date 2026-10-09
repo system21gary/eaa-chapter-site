@@ -1267,6 +1267,15 @@ If you want your project featured, tell me. If you had a moment in the air that 
   }
   console.log(`[seed] ${applications.length} membership requests awaiting review`);
 
+  // Every time above was built in chapter time, so there is nothing for
+  // scripts/fix-times.mjs to correct. Say so: the demo content is backdated,
+  // which would otherwise look to that script like data saved before the fix.
+  run(
+    `INSERT OR IGNORE INTO app_state (key, value, updated_at)
+     VALUES ('chapter_time_fixed', 'seeded in chapter time', ?)`,
+    [nowIso()]
+  );
+
   /* ------------------------------------------------- admin access link */
 
   const admin = Users.findByEmail(ADMIN_EMAIL);
