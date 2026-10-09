@@ -1,0 +1,39 @@
+{#
+  Accessible image carousel.
+  Expects `photos` (array with full_path / thumb_path / caption or alt) and a
+  unique `carouselId`. Works without JavaScript: the track simply shows the
+  first slide and the thumbnails below link to the full images.
+#}
+<div class="carousel" data-carousel id="{{ carouselId }}" tabindex="0"
+     role="group" aria-roledescription="carousel" aria-label="Photos">
+
+  <div class="carousel-viewport">
+    <div class="carousel-track">
+      {% for photo in photos %}
+        <div class="carousel-slide" role="group" aria-roledescription="slide"
+             aria-label="Photo {{ loop.index }} of {{ photos.length }}">
+          <img src="{{ photo.full_path | media }}"
+               alt="{{ photo.caption or photo.alt or '' }}"
+               loading="{{ 'eager' if loop.first else 'lazy' }}">
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if photos.length > 1 %}
+    <button type="button" class="carousel-btn carousel-prev" aria-label="Previous photo" hidden>‹</button>
+    <button type="button" class="carousel-btn carousel-next" aria-label="Next photo">›</button>
+    <span class="carousel-count" aria-hidden="true"><span class="current">1</span>/{{ photos.length }}</span>
+
+    <div class="carousel-dots" role="tablist" aria-label="Choose photo">
+      {% for photo in photos %}
+        <button type="button" role="tab" aria-label="Photo {{ loop.index }}"
+                aria-current="{{ 'true' if loop.first else 'false' }}"></button>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+{% if photos[0].caption %}
+  <p class="small muted carousel-caption">{{ photos[0].caption }}</p>
+{% endif %}

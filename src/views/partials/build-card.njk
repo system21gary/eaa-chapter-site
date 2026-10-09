@@ -1,0 +1,47 @@
+<a class="card card-link build-card" href="{{ '' | url }}/builds/{{ build.slug }}">
+  <div class="shot">
+    {% if build.cover_path %}
+      <img src="{{ build.cover_path | media }}" alt="{{ build.cover_alt or build.aircraft_type }}" loading="lazy">
+    {% else %}
+      <span class="noshot">{{ icon("plane", 60) }}</span>
+    {% endif %}
+    {% if build.visibility == 'members' %}
+      <span class="count">Members only</span>
+    {% endif %}
+  </div>
+
+  <div class="card-body">
+    <div class="pill-row" style="margin-bottom:.55rem">
+      <span class="pill pill-{{ 'green' if build.status == 'flying' else 'amber' }}">
+        {{ statusLabels[build.status] | safe }}
+      </span>
+      {% if build.tail_number %}<span class="pill pill-grey mono">{{ build.tail_number }}</span>{% endif %}
+    </div>
+
+    <h3 style="margin-bottom:.15rem">{{ build.title }}</h3>
+    <p class="small muted" style="margin:0 0 .7rem">{{ build.aircraft_type }}</p>
+
+    {% if build.status != 'flying' %}
+      <div class="progress" title="{{ build.percent_complete }}% complete">
+        <span style="width: {{ build.percent_complete }}%"></span>
+      </div>
+      <p class="tiny muted" style="margin:.35rem 0 0">{{ build.percent_complete }}% complete</p>
+    {% endif %}
+
+    {% if build.summary %}
+      <p class="small muted" style="margin:.8rem 0 0">{{ build.summary | truncate(110) }}</p>
+    {% endif %}
+
+    <div class="owner">
+      {% if build.owner_avatar %}
+        <img src="{{ build.owner_avatar | media }}" alt="" class="avatar" width="28" height="28">
+      {% else %}
+        <span class="avatar avatar-initials" aria-hidden="true">{{ build | initials }}</span>
+      {% endif %}
+      <span>{{ build.owner_display or (build.owner_first ~ ' ' ~ build.owner_last) }}</span>
+      <span style="margin-left:auto" class="tiny muted">
+        {{ build.update_count or 0 }} update{{ 's' if build.update_count != 1 }}
+      </span>
+    </div>
+  </div>
+</a>

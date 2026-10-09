@@ -1,0 +1,108 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Administrators</span>
+    <h1>Membership requests</h1>
+    <p class="muted" style="max-width:65ch">
+      Submitted through the public <a href="{{ '/join' | url }}">request an account</a> form.
+      Approving creates the account and emails a one-time link — you never pick
+      a password for anybody.
+    </p>
+
+    {% if pending %}
+      <div class="notice" style="margin:1.5rem 0">
+        <strong>{{ pending }} request{{ 's' if pending != 1 }} waiting on you.</strong>
+      </div>
+    {% endif %}
+
+    {% if applications.length %}
+      <div class="stack" style="margin-top:2rem">
+        {% for a in applications %}
+          <article class="card">
+            <div class="card-body">
+              <div class="pill-row" style="margin-bottom:.7rem">
+                <span class="pill pill-{{ 'green' if a.status == 'approved' else ('red' if a.status == 'declined' else 'amber') }}">
+                  {{ a.status }}
+                </span>
+                {% if a.eaa_number %}<span class="pill">EAA #{{ a.eaa_number }}</span>{% endif %}
+                {% if a.interest %}<span class="pill pill-grey">{{ a.interest }}</span>{% endif %}
+              </div>
+
+              <h3 style="margin-bottom:.2rem">{{ a.first_name }} {{ a.last_name }}</h3>
+              <p class="small muted" style="margin:0 0 1rem">
+                <a href="mailto:{{ a.email }}">{{ a.email }}</a>
+                {%- if a.phone %} · <a href="tel:{{ a.phone }}">{{ a.phone | phone }}</a>{% endif %}
+                · asked {{ a.created_at | relative }}
+              </p>
+
+              {% if a.aircraft or a.home_base %}
+                <ul class="factlist" style="margin-bottom:1rem">
+                  {% if a.aircraft %}<li><span class="label">Flies</span><span>{{ a.aircraft }}</span></li>{% endif %}
+                  {% if a.home_base %}<li><span class="label">Based</span><span>{{ a.home_base }}</span></li>{% endif %}
+                </ul>
+              {% endif %}
+
+              <p style="white-space:pre-wrap">{{ a.message }}</p>
+
+              {% if a.status == 'pending' %}
+                <div class="split" style="gap:1.2rem; margin-top:1.4rem">
+                  <form method="post" action="{{ '' | url }}/members/admin/applications/{{ a.id }}/approve"
+                        data-confirm="Approve {{ a.first_name }} {{ a.last_name }} and send an invitation?">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <div class="field">
+                      <label for="role-{{ a.id }}">Approve as</label>
+                      <select id="role-{{ a.id }}" name="role">
+                        <option value="member">Member — locker, builds, blog</option>
+                        <option value="editor">Editor — also posts and events</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="anote-{{ a.id }}">Note for your records <span class="muted">(optional)</span></label>
+                      <input type="text" id="anote-{{ a.id }}" name="note" maxlength="500"
+                             placeholder="Came to the June breakfast, Bill vouches for him.">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Approve and invite</button>
+                  </form>
+
+                  <form method="post" action="{{ '' | url }}/members/admin/applications/{{ a.id }}/decline"
+                        data-confirm="Decline this request?">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <div class="field">
+                      <label for="dnote-{{ a.id }}">Reason</label>
+                      <input type="text" id="dnote-{{ a.id }}" name="note" maxlength="500"
+                             placeholder="Included in the email if you tell them.">
+                    </div>
+                    <div class="check">
+                      <input type="checkbox" id="notify-{{ a.id }}" name="notify" value="1" checked>
+                      <label for="notify-{{ a.id }}">Let them know, kindly</label>
+                    </div>
+                    <button type="submit" class="btn btn-outline btn-block">Decline</button>
+                  </form>
+                </div>
+              {% else %}
+                <p class="small muted" style="margin:1rem 0 0">
+                  {{ a.status | capitalize }} by
+                  {{ a.reviewer_first }} {{ a.reviewer_last }},
+                  {{ a.reviewed_at | relative }}.
+                  {%- if a.review_note %} “{{ a.review_note }}”{% endif %}
+                </p>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("doc", 44) }}</div>
+        <h3>No requests yet</h3>
+        <p>
+          When somebody fills in the <a href="{{ '/join' | url }}">request an account</a> form,
+          it will appear here for you to approve.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

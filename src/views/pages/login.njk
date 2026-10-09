@@ -1,0 +1,59 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <div style="text-align:center; margin-bottom:2rem">
+      <span class="eyebrow" style="justify-content:center">Members Corner</span>
+      <h1>Welcome back</h1>
+      <p class="muted">
+        The blog, the Tool Locker and your build log live behind this door.
+      </p>
+    </div>
+
+    <form method="post" action="{{ '/login' | url }}" class="form-card">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      {% if error %}
+        <div class="flash flash-error" style="margin:0 0 1.5rem" role="alert">
+          <span class="flash-icon" aria-hidden="true">!</span>
+          <p>{{ error }}</p>
+        </div>
+      {% endif %}
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required maxlength="254"
+               autocomplete="username" autofocus value="{{ form.email or '' }}">
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required
+               autocomplete="current-password" maxlength="200">
+        <span class="hint"><a href="{{ '/forgot' | url }}">Forgotten it?</a> We will email you a link.</span>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+      </div>
+    </form>
+
+    <div class="card" style="margin-top:1.5rem">
+      <div class="card-body">
+        <h3>No account yet?</h3>
+        <p class="small muted">
+          Ask for one. A chapter officer reads every request and, if it is
+          approved, emails you a link to choose your own password.
+        </p>
+        <a class="btn btn-outline btn-block btn-sm" href="{{ '/join' | url }}">Request an account</a>
+        <p class="tiny muted" style="margin:.9rem 0 0">
+          Not a member yet? Come to a <a href="{{ '/events' | url }}">breakfast</a> first —
+          much more fun than a signup form, and you can follow every
+          <a href="{{ '/builds' | url }}">build log</a> without an account anyway.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

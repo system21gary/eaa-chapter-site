@@ -1,0 +1,113 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Administrators</span>
+    <h1>Activity log</h1>
+    <p class="muted" style="max-width:65ch">
+      Security-relevant actions, newest first. Client IP addresses are stored
+      only as a keyed digest — enough to spot the same source hammering the
+      login form, not enough to be a pile of personal data.
+    </p>
+
+    <div class="split" style="margin-top:2rem">
+      <div>
+        <h2>Recent activity</h2>
+        <div class="table-wrap" style="margin-top:1rem">
+          <table class="data">
+            <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead>
+            <tbody>
+              {% for e in entries %}
+                <tr>
+                  <td class="tiny muted" style="white-space:nowrap">{{ e.created_at | datetime }}</td>
+                  <td class="tiny">
+                    {% if e.first_name %}{{ e.first_name }} {{ e.last_name }}{% else %}<span class="muted">anonymous</span>{% endif %}
+                  </td>
+                  <td>
+                    <span class="pill {{ 'pill-red' if 'failed' in e.action or 'locked' in e.action }}{{ 'pill-green' if 'success' in e.action }}">
+                      {{ e.action }}
+                    </span>
+                  </td>
+                  <td class="tiny muted">
+                    {{ e.detail or '' }}
+                    {%- if e.entity %} <span class="mono">{{ e.entity }}#{{ e.entity_id }}</span>{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="card">
+          <div class="card-body">
+            <h3>Mail queue</h3>
+            {% if mailLive %}
+              <p class="small muted">
+                Sending over SMTP. Messages are queued here first and delivered
+                by a background worker, so a relay problem never breaks the page
+                somebody was on — it just retries.
+              </p>
+            {% else %}
+              <p class="small muted">
+                <strong>Nothing is being delivered.</strong> With no SMTP
+                transport configured, invitation and reset links land here —
+                which is how you bootstrap the first accounts, but it means no
+                member can receive one.
+              </p>
+            {% endif %}
+
+            {% if mailHealth.abandoned %}
+              <div class="notice" style="margin:1rem 0">
+                <strong>{{ mailHealth.abandoned }} message{{ 's' if mailHealth.abandoned != 1 }} could not be delivered</strong>
+                after every retry. Fix the cause, then use Retry below.
+              </div>
+            {% endif %}
+
+            <ul class="plain small" style="margin-top:1rem">
+              {% for m in outbox %}
+                <li style="padding-bottom:.6rem; border-bottom:1px solid var(--line); margin-bottom:.6rem">
+                  <a href="{{ '' | url }}/members/admin/log/mail/{{ m.id }}">{{ m.subject }}</a><br>
+                  <span class="tiny muted mono">{{ m.to_addr }}</span><br>
+                  <span class="tiny muted">
+                    {{ m.created_at | relative }} ·
+                    {% if m.sent_at %}
+                      sent
+                    {% elif m.error and m.next_attempt_at %}
+                      <span style="color:var(--red)">attempt {{ m.attempts }} failed, retrying</span>
+                    {% elif m.error %}
+                      <span style="color:var(--red)">gave up after {{ m.attempts }} attempts</span>
+                    {% elif m.next_attempt_at %}
+                      queued
+                    {% else %}
+                      held (no transport when it was written)
+                    {% endif %}
+                  </span>
+
+                  {% if m.error %}
+                    {# The reason, which is a server message and never contains a
+                       credential — the mailer strips those before storing. #}
+                    <br><span class="tiny mono muted">{{ m.error }}</span>
+                  {% endif %}
+
+                  {% if not m.sent_at %}
+                    <form method="post" action="{{ '' | url }}/members/admin/log/mail/{{ m.id }}/retry"
+                          style="margin-top:.4rem">
+                      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                      <button type="submit" class="btn btn-outline btn-sm">Retry now</button>
+                    </form>
+                  {% endif %}
+                </li>
+              {% else %}
+                <li class="muted">Nothing queued.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

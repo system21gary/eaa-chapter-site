@@ -1,0 +1,119 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap split">
+    <article>
+      <p class="crumbs"><a href="{{ '/members/blog' | url }}">Chapter blog</a> <span aria-hidden="true">›</span> {{ post.title }}</p>
+
+      <div class="pill-row" style="margin-bottom:.8rem">
+        {% if post.status == 'draft' %}<span class="pill pill-grey">Draft — not visible to members yet</span>{% endif %}
+        {% if post.visibility == 'public' %}<span class="pill">Public post</span>{% endif %}
+        {% for tag in post.tags %}<span class="pill pill-amber">{{ tag }}</span>{% endfor %}
+      </div>
+
+      <h1>{{ post.title }}</h1>
+
+      <div style="display:flex; align-items:center; gap:.7rem; margin:1.2rem 0 2rem">
+        {% if post.author_avatar %}
+          <img src="{{ post.author_avatar | media }}" alt="" class="avatar">
+        {% else %}
+          <span class="avatar avatar-initials" aria-hidden="true">{{ post | initials }}</span>
+        {% endif %}
+        <p class="small muted" style="margin:0">
+          {{ post.author_display or (post.author_first ~ ' ' ~ post.author_last) }} ·
+          <time datetime="{{ (post.published_at or post.created_at) | isodate }}">
+            {{ (post.published_at or post.created_at) | date }}
+          </time>
+          {%- if post.updated_at != post.created_at %} · updated {{ post.updated_at | relative }}{% endif %}
+        </p>
+      </div>
+
+      {% if post.cover_path %}
+        <p>
+          <img src="{{ post.cover_path | media }}" alt="{{ post.cover_alt or '' }}"
+               style="width:100%; border-radius:var(--radius-lg); box-shadow:var(--shadow-md)">
+        </p>
+      {% endif %}
+
+      <div class="prose">{{ post.body_html | safe }}</div>
+
+      {% if canEdit %}
+        <div class="entry-actions">
+          <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/blog/{{ post.slug }}/edit">Edit post</a>
+        </div>
+      {% endif %}
+
+      <hr class="rule">
+
+      <section id="comments">
+        <h2>{{ comments.length }} comment{{ 's' if comments.length != 1 }}</h2>
+
+        <div style="margin:1.5rem 0">
+          {% for comment in comments %}
+            <div class="comment">
+              {% if comment.avatar_path %}
+                <img src="{{ comment.avatar_path | media }}" alt="" class="avatar">
+              {% else %}
+                <span class="avatar avatar-initials" aria-hidden="true">{{ comment | initials }}</span>
+              {% endif %}
+              <div class="comment-body">
+                <p class="comment-meta">
+                  <strong>{{ comment.display_name or (comment.first_name ~ ' ' ~ comment.last_name) }}</strong>
+                  · {{ comment.created_at | relative }}
+                </p>
+                <p>{{ comment.body }}</p>
+
+                {% if currentUser.id == comment.user_id or currentUser.role in ['editor', 'admin'] %}
+                  <form method="post" action="{{ '' | url }}/members/blog/comments/{{ comment.id }}/hide"
+                        data-confirm="Remove this comment?" style="margin-top:.4rem">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <button type="submit" class="link-button" style="color:var(--red)">Remove</button>
+                  </form>
+                {% endif %}
+              </div>
+            </div>
+          {% else %}
+            <p class="muted">Nobody has said anything yet. Go on.</p>
+          {% endfor %}
+        </div>
+
+        <form method="post" action="{{ '' | url }}/members/blog/{{ post.slug }}/comments" class="form-card">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <div class="field">
+            <label for="body">Add a comment</label>
+            <textarea id="body" name="body" rows="4" required maxlength="2000"
+                      placeholder="Keep it useful and keep it kind."></textarea>
+            <span class="hint">
+              Comments are plain text — links and formatting are not rendered,
+              which is the simplest way to make sure nothing nasty can be
+              hidden in one.
+            </span>
+          </div>
+          <button type="submit" class="btn btn-primary">Post comment</button>
+        </form>
+      </section>
+    </article>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>About this post</h3>
+          <ul class="factlist" style="margin-top:1rem">
+            <li><span class="label">Author</span><span>{{ post.author_display or (post.author_first ~ ' ' ~ post.author_last) }}</span></li>
+            <li><span class="label">Posted</span><span>{{ (post.published_at or post.created_at) | shortdate }}</span></li>
+            <li><span class="label">Visible to</span><span>{{ 'Everyone' if post.visibility == 'public' else 'Members only' }}</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>More from the blog</h3>
+          <a class="btn btn-outline btn-block btn-sm" href="{{ '/members/blog' | url }}">All posts</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

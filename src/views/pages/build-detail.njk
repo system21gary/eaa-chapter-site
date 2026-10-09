@@ -1,0 +1,186 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+
+<div class="build-hero">
+  <div class="wrap build-hero-inner">
+    <div>
+      <p class="crumbs"><a href="{{ '/builds' | url }}">Members' builds</a> <span aria-hidden="true">›</span> {{ build.aircraft_type }}</p>
+
+      <div class="pill-row" style="margin-bottom:.8rem">
+        <span class="pill pill-{{ 'green' if build.status == 'flying' else 'amber' }}">{{ statusLabels[build.status] | safe }}</span>
+        <span class="pill">{{ kindLabels[build.build_kind] }}</span>
+        {% if build.tail_number %}<span class="pill pill-grey mono">{{ build.tail_number }}</span>{% endif %}
+        {% if build.visibility == 'members' %}<span class="pill pill-red">Members only</span>{% endif %}
+      </div>
+
+      <h1>{{ build.title }}</h1>
+      <p class="hero-lede">{{ build.summary }}</p>
+
+      <div class="builder-line">
+        {% if build.owner_avatar %}
+          <img src="{{ build.owner_avatar | media }}" alt="" class="avatar avatar-lg">
+        {% else %}
+          <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ build | initials }}</span>
+        {% endif %}
+        <div>
+          <strong>{{ build.owner_display or (build.owner_first ~ ' ' ~ build.owner_last) }}</strong>
+          <span class="small">{{ build.hangar or build.owner_home_base or 'EAA Chapter 1699' }}</span>
+        </div>
+      </div>
+
+      {% if build.status != 'flying' %}
+        <div class="progress progress-lg" style="margin-top:1.6rem">
+          <span style="width: {{ build.percent_complete }}%"></span>
+        </div>
+        <p class="small" style="color:#c8dcf0; margin:.5rem 0 0">
+          {{ build.percent_complete }}% complete · {{ totals.entries }} log
+          entr{{ 'y' if totals.entries == 1 else 'ies' }}
+          {%- if totals.hours %} · {{ totals.hours | round }} hours logged{% endif %}
+        </p>
+      {% endif %}
+
+      <div class="hero-actions">
+        {% if canManage %}
+          <a class="btn btn-primary" href="{{ '' | url }}/members/builds/{{ build.id }}/updates/new">Post an update</a>
+          <a class="btn btn-ghost" href="{{ '' | url }}/members/builds/{{ build.id }}/edit">Edit project</a>
+        {% elif currentUser %}
+          <form method="post" action="{{ '' | url }}/builds/{{ build.slug }}/cheer" id="cheer" class="inline">
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            <button type="submit" class="btn {{ 'btn-primary' if not cheers.mine else 'btn-ghost' }}">
+              {{ icon('applause', 16) }} {{ 'Cheered' if cheers.mine else 'Cheer this on' }}
+              {%- if cheers.count %} · {{ cheers.count }}{% endif %}
+            </button>
+          </form>
+        {% endif %}
+        {% if build.external_log_url %}
+          <a class="btn btn-ghost" href="{{ build.external_log_url }}" target="_blank" rel="noopener noreferrer nofollow">Full builder log ↗</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="build-hero-art">
+      {% if build.cover_path %}
+        <img src="{{ build.cover_path | media }}" alt="{{ build.cover_alt or build.aircraft_type }}">
+      {% else %}
+        <div class="build-hero-placeholder">{{ icon("plane", 92) }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap split">
+    <div>
+      {% if build.body_html %}
+        <div class="prose">{{ build.body_html | safe }}</div>
+        <hr class="rule">
+      {% endif %}
+
+      <h2 id="log">Build log</h2>
+
+      {% if updates.length %}
+        <ol class="timeline">
+          {% for entry in updates %}
+            <li class="timeline-item {{ 'is-draft' if entry.status == 'draft' }}">
+              <div class="timeline-marker" aria-hidden="true"></div>
+              <article class="card">
+                <div class="card-body">
+                  <p class="timeline-date">
+                    <time datetime="{{ entry.posted_at | isodate }}">{{ entry.posted_at | date }}</time>
+                    {%- if entry.hours %} · <strong>{{ entry.hours }} hrs</strong>{% endif %}
+                    {%- if entry.status == 'draft' %} <span class="pill pill-grey">Draft</span>{% endif %}
+                  </p>
+                  <h3>{{ entry.title }}</h3>
+
+                  {% if entry.photos.length %}
+                    {% set carouselId = 'log-' ~ entry.id %}
+                    {% set photos = entry.photos %}
+                    {% include "partials/carousel.njk" %}
+                  {% endif %}
+
+                  <div class="prose">{{ entry.body_html | safe }}</div>
+
+                  {% if canManage %}
+                    <div class="entry-actions">
+                      <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/builds/{{ build.id }}/updates/{{ entry.id }}/edit">Edit</a>
+                      <form method="post" action="{{ '' | url }}/members/builds/{{ build.id }}/updates/{{ entry.id }}/delete"
+                            class="inline" data-confirm="Delete this log entry and its photos?">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                      </form>
+                    </div>
+                  {% endif %}
+                </div>
+              </article>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <div class="empty">
+          <div class="icon">{{ icon("doc", 44) }}</div>
+          <h3>The log starts here</h3>
+          <p>
+            {% if canManage %}
+              No entries yet — <a href="{{ '' | url }}/members/builds/{{ build.id }}/updates/new">write the first one</a>.
+              Even "unpacked the crate, counted the parts, one was missing" is a
+              perfectly good first entry.
+            {% else %}
+              {{ build.owner_first }} has not posted a log entry yet. Check back soon.
+            {% endif %}
+          </p>
+        </div>
+      {% endif %}
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>Project details</h3>
+          <ul class="factlist" style="margin-top:1rem">
+            <li><span class="label">Aircraft</span><span>{{ build.aircraft_type }}</span></li>
+            <li><span class="label">Type</span><span>{{ kindLabels[build.build_kind] }}</span></li>
+            {% if build.tail_number %}<li><span class="label">Reg.</span><span class="mono">{{ build.tail_number }}</span></li>{% endif %}
+            {% if build.engine %}<li><span class="label">Engine</span><span>{{ build.engine }}</span></li>{% endif %}
+            {% if build.panel %}<li><span class="label">Panel</span><span>{{ build.panel }}</span></li>{% endif %}
+            {% if build.started_on %}<li><span class="label">Started</span><span>{{ build.started_on | shortdate }}</span></li>{% endif %}
+            {% if build.first_flight_on %}<li><span class="label">First flight</span><span>{{ build.first_flight_on | shortdate }}</span></li>{% endif %}
+            {% if build.hangar %}<li><span class="label">Based</span><span>{{ build.hangar }}</span></li>{% endif %}
+          </ul>
+        </div>
+      </div>
+
+      {% if not currentUser %}
+        <div class="card">
+          <div class="card-body">
+            <h3>Want to do this?</h3>
+            <p class="small muted">
+              Every builder here started by turning up to a meeting and asking
+              questions. Our Technical Counselors will look at your project in
+              person, free of charge.
+            </p>
+            <a class="btn btn-primary btn-block btn-sm" href="{{ '/contact' | url }}">Talk to the chapter</a>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if others.length %}
+        <div class="card">
+          <div class="card-body">
+            <h3>Other projects</h3>
+            <ul class="plain small" style="margin-top:.8rem">
+              {% for other in others %}
+                <li>
+                  <a href="{{ '' | url }}/builds/{{ other.slug }}">{{ other.title }}</a><br>
+                  <span class="muted tiny">{{ other.aircraft_type }} · {{ statusLabels[other.status] | safe }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+            <a class="btn btn-outline btn-block btn-sm" href="{{ '/builds' | url }}" style="margin-top:1rem">See all builds</a>
+          </div>
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+</section>
+{% endblock %}

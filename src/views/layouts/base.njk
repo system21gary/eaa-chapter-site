@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if title %}{{ title }} · {% endif %}EAA Chapter 1699</title>
+  <meta name="description" content="{{ metaDescription or site.tagline }}">
+  {% if robots %}<meta name="robots" content="{{ robots }}">{% endif %}
+  <meta name="theme-color" content="#0b2545">
+
+  <meta property="og:site_name" content="EAA Chapter 1699">
+  <meta property="og:title" content="{{ title or site.name }}">
+  <meta property="og:description" content="{{ metaDescription or site.tagline }}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ (ogImage or '/assets/img/pancake-breakfast-2026.webp') | absolute }}">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="stylesheet" href="{{ 'vendor/trix/trix.css' | asset }}">
+  <link rel="stylesheet" href="{{ 'css/site.css' | asset }}">
+  <link rel="icon" href="{{ 'img/favicon.svg' | asset }}" type="image/svg+xml">
+  <link rel="alternate" type="text/calendar" href="{{ '/events/calendar.ics' | url }}" title="EAA 1699 events">
+</head>
+<body class="{% block bodyClass %}{% endblock %}">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  {% include "partials/nav.njk" %}
+
+  <main id="main">
+    {% include "partials/flash.njk" %}
+    {% block content %}{% endblock %}
+  </main>
+
+  {% include "partials/footer.njk" %}
+
+  {# Trix must load before site.js, which upgrades textareas into editors. #}
+  <script src="{{ 'vendor/trix/trix.umd.min.js' | asset }}" nonce="{{ cspNonce }}" defer></script>
+  <script src="{{ 'js/site.js' | asset }}" nonce="{{ cspNonce }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

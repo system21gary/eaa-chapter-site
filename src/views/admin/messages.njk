@@ -1,0 +1,55 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Editors</span>
+    <h1>Contact messages</h1>
+    <p class="muted">Everything sent through the public contact form.</p>
+
+    {% if messages.length %}
+      <div class="stack" style="margin-top:2rem">
+        {% for m in messages %}
+          <article class="card">
+            <div class="card-body">
+              <div class="pill-row" style="margin-bottom:.6rem">
+                <span class="pill">{{ m.topic or 'General' }}</span>
+                {% if m.handled_at %}
+                  <span class="pill pill-green">Handled {{ m.handled_at | relative }}</span>
+                {% else %}
+                  <span class="pill pill-amber">Needs a reply</span>
+                {% endif %}
+              </div>
+
+              <h3 style="margin-bottom:.2rem">{{ m.name }}</h3>
+              <p class="small muted" style="margin:0 0 .9rem">
+                <a href="mailto:{{ m.email }}">{{ m.email }}</a> · {{ m.created_at | datetime }}
+                ({{ m.created_at | relative }})
+              </p>
+
+              <p style="white-space:pre-wrap">{{ m.message }}</p>
+
+              <div class="entry-actions">
+                <a class="btn btn-primary btn-sm"
+                   href="mailto:{{ m.email }}?subject=Re:%20EAA%20Chapter%201699">Reply by email</a>
+                {% if not m.handled_at %}
+                  <form method="post" action="{{ '' | url }}/members/admin/messages/{{ m.id }}/handled">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <button type="submit" class="btn btn-outline btn-sm">Mark handled</button>
+                  </form>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("mail", 44) }}</div>
+        <h3>No messages</h3>
+        <p>Nothing has come in through the contact form yet.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

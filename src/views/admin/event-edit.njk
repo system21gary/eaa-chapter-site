@@ -1,0 +1,245 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <p class="crumbs"><a href="{{ '/members/admin/events' | url }}">Manage events</a> <span aria-hidden="true">›</span> {{ 'New' if isNew else 'Edit' }}</p>
+    <h1>{{ 'Add an event' if isNew else event.title }}</h1>
+
+    <form method="post"
+          action="{{ ('/members/admin/events/new' if isNew else '/members/admin/events/' ~ event.id ~ '/edit') | url }}"
+          enctype="multipart/form-data" class="form-card" style="margin-top:1.5rem">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <fieldset>
+        <legend>What and when</legend>
+
+        <div class="field">
+          <label for="title">Title</label>
+          <input type="text" id="title" name="title" required maxlength="160" autofocus
+                 value="{{ event.title or '' }}" placeholder="Pancake Breakfast Fly-In"
+                 aria-invalid="{{ 'true' if errors.title }}">
+          {{ err(errors, 'title') }}
+        </div>
+
+        <div class="field">
+          <label for="summary">Summary</label>
+          <input type="text" id="summary" name="summary" maxlength="400" value="{{ event.summary or '' }}"
+                 placeholder="Pancakes, airplanes, and the friendliest grass strip in the Capital Region.">
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="starts_at">Starts</label>
+            <input type="datetime-local" id="starts_at" name="starts_at" required
+                   value="{{ event.starts_at | isodate | truncate(16) if event.starts_at else '' }}"
+                   aria-invalid="{{ 'true' if errors.starts_at }}">
+            {{ err(errors, 'starts_at') }}
+          </div>
+          <div class="field">
+            <label for="ends_at">Ends</label>
+            <input type="datetime-local" id="ends_at" name="ends_at"
+                   value="{{ event.ends_at | isodate | truncate(16) if event.ends_at else '' }}">
+          </div>
+          <div class="field">
+            <label for="rain_date">Rain date</label>
+            <input type="date" id="rain_date" name="rain_date"
+                   value="{{ event.rain_date | isodate | truncate(10) if event.rain_date else '' }}">
+          </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="all_day" name="all_day" value="1" {{ 'checked' if event.all_day }}>
+          <label for="all_day">All-day event</label>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="kind">Type</label>
+            <select id="kind" name="kind">
+              {% for k in ['fly-in', 'young-eagles', 'meeting', 'workshop', 'social', 'chapter'] %}
+                <option value="{{ k }}" {{ 'selected' if event.kind == k }}>{{ k | replace("-", " ") | capitalize }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="published" {{ 'selected' if event.status == 'published' }}>Published</option>
+              <option value="draft" {{ 'selected' if event.status == 'draft' }}>Draft</option>
+              <option value="cancelled" {{ 'selected' if event.status == 'cancelled' }}>Cancelled</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="cost">Cost</label>
+            <input type="text" id="cost" name="cost" maxlength="60" value="{{ event.cost or '' }}" placeholder="$10">
+          </div>
+        </div>
+
+        {% set name = 'body_md' %}
+        {% set label = 'Details' %}
+        {% set value = event.body_md %}
+        {% set rows = 12 %}
+        {% set maxlength = null %}
+        {% set required = false %}
+        {% set placeholder = 'What the day looks like, where to park, what to bring.' %}
+        {% set hint = null %}
+        {% set error = errors.body_md %}
+        {% include "partials/rich-editor.njk" %}
+      </fieldset>
+
+      <fieldset>
+        <legend>Where</legend>
+
+        <div class="field">
+          <label for="location_name">Location name</label>
+          <input type="text" id="location_name" name="location_name" maxlength="120" value="{{ event.location_name or '' }}">
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="address">Street</label>
+            <input type="text" id="address" name="address" maxlength="160" value="{{ event.address or '' }}">
+          </div>
+          <div class="field">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city" maxlength="80" value="{{ event.city or '' }}">
+          </div>
+          <div class="field">
+            <label for="state">State</label>
+            <input type="text" id="state" name="state" maxlength="2" value="{{ event.state or '' }}">
+          </div>
+          <div class="field">
+            <label for="zip">ZIP</label>
+            <input type="text" id="zip" name="zip" maxlength="10" value="{{ event.zip or '' }}">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="latitude">Latitude</label>
+            <input type="text" id="latitude" name="latitude" value="{{ event.latitude or '' }}" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="longitude">Longitude</label>
+            <input type="text" id="longitude" name="longitude" value="{{ event.longitude or '' }}" inputmode="decimal">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Who to ask</legend>
+        <div class="field-row">
+          <div class="field">
+            <label for="contact_name">Name</label>
+            <input type="text" id="contact_name" name="contact_name" maxlength="80" value="{{ event.contact_name or '' }}">
+          </div>
+          <div class="field">
+            <label for="contact_email">Email</label>
+            <input type="email" id="contact_email" name="contact_email" maxlength="254" value="{{ event.contact_email or '' }}">
+          </div>
+          <div class="field">
+            <label for="contact_phone">Phone</label>
+            <input type="tel" id="contact_phone" name="contact_phone" maxlength="32" value="{{ event.contact_phone or '' }}">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="external_url">External listing <span class="muted">(AOPA, SocialFlight…)</span></label>
+          <input type="url" id="external_url" name="external_url" maxlength="500" value="{{ event.external_url or '' }}">
+          {{ err(errors, 'external_url') }}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Poster &amp; photos</legend>
+
+        {% if event.poster_path %}
+          <p><img src="{{ event.poster_path | media }}" alt="" style="max-width:340px; border-radius:12px"></p>
+        {% endif %}
+
+        <div class="field">
+          <label for="poster">{{ 'Replace poster' if event.poster_path else 'Event poster' }}</label>
+          <input type="file" id="poster" name="poster" accept="image/*" data-preview="#poster-preview">
+        </div>
+        <div id="poster-preview" class="preview-grid"></div>
+
+        <div class="field">
+          <label for="poster_alt">Describe the poster</label>
+          <input type="text" id="poster_alt" name="poster_alt" maxlength="200" value="{{ event.poster_alt or '' }}">
+        </div>
+
+        <div class="field">
+          <label for="photos">Event photos <span class="muted">(for the write-up afterwards)</span></label>
+          <input type="file" id="photos" name="photos" accept="image/*" multiple data-preview="#photos-preview">
+        </div>
+        <div id="photos-preview" class="preview-grid"></div>
+
+        {% if event.photos and event.photos.length %}
+          <div class="gallery" style="margin-top:1rem">
+            {% for p in event.photos %}
+              <div class="gallery-item"><img src="{{ p.thumb_path | media }}" alt=""></div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </fieldset>
+
+      <fieldset>
+        <legend>Afterwards</legend>
+        {% set name = 'recap_md' %}
+        {% set label = 'How it went' %}
+        {% set value = event.recap_md %}
+        {% set rows = 8 %}
+        {% set maxlength = null %}
+        {% set required = false %}
+        {% set placeholder = 'Written up after the event — shows on the past events page.' %}
+        {% set hint = null %}
+        {% set error = errors.recap_md %}
+        {% include "partials/rich-editor.njk" %}
+        <div class="field">
+          <label for="attendance">Roughly how many came</label>
+          <input type="number" id="attendance" name="attendance" min="0" max="100000" value="{{ event.attendance or '' }}">
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ 'Create event' if isNew else 'Save changes' }}</button>
+        <a class="btn btn-outline" href="{{ '/members/admin/events' | url }}">Cancel</a>
+      </div>
+    </form>
+
+    {% if not isNew %}
+      <form method="post" action="{{ '' | url }}/members/admin/events/{{ event.id }}/delete" class="danger-zone"
+            data-confirm="Delete this event, its poster and all its photos?">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <div>
+          <strong>Delete this event</strong>
+          <span class="small muted">Removes the event and every photo attached to it.</span>
+        </div>
+        <button type="submit" class="btn btn-danger btn-sm">Delete event</button>
+      </form>
+
+      {% if event.photos and event.photos.length %}
+        <div class="form-card" style="margin-top:1.5rem">
+          <h3>Remove photos</h3>
+          <div class="gallery" style="margin-top:1rem">
+            {% for p in event.photos %}
+              <div class="gallery-item">
+                <img src="{{ p.thumb_path | media }}" alt="">
+                <form method="post" action="{{ '' | url }}/members/admin/events/photos/{{ p.id }}/delete" data-confirm="Remove this photo?">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <button type="submit" class="btn btn-danger btn-sm btn-block">Remove</button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

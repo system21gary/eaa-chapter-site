@@ -1,0 +1,218 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <p class="crumbs"><a href="{{ '/members/locker' | url }}">Tool Locker</a> <span aria-hidden="true">›</span> {{ 'Add a tool' if isNew else 'Edit' }}</p>
+    <h1>{{ 'Add a tool to the locker' if isNew else tool.name }}</h1>
+    <p class="muted">
+      The more you write here, the fewer texts you will get asking whether it
+      takes 1/2" or 3/8" drive.
+    </p>
+
+    <form method="post"
+          action="{{ ('/members/locker/new' if isNew else '/members/locker/' ~ tool.id ~ '/edit') | url }}"
+          enctype="multipart/form-data" class="form-card" style="margin-top:1.8rem">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <fieldset>
+        <legend>The tool</legend>
+
+        <div class="field">
+          <label for="name">What is it?</label>
+          <input type="text" id="name" name="name" required maxlength="120" autofocus
+                 value="{{ tool.name or '' }}" placeholder="Pneumatic rivet squeezer"
+                 aria-invalid="{{ 'true' if errors.name }}">
+          {{ err(errors, 'name') }}
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="brand">Brand</label>
+            <input type="text" id="brand" name="brand" maxlength="60" value="{{ tool.brand or '' }}"
+                   placeholder="Cleaveland">
+          </div>
+          <div class="field">
+            <label for="model">Model</label>
+            <input type="text" id="model" name="model" maxlength="60" value="{{ tool.model or '' }}"
+                   placeholder="Main Squeeze">
+          </div>
+          <div class="field">
+            <label for="category_id">Category</label>
+            <select id="category_id" name="category_id">
+              <option value="">Uncategorised</option>
+              {% for cat in categories %}
+                <option value="{{ cat.id }}" {{ 'selected' if tool.category_id == cat.id }}>{{ cat.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        {% set name = 'description' %}
+        {% set label = 'Description' %}
+        {% set value = tool.description %}
+        {% set rows = 8 %}
+        {% set maxlength = 4000 %}
+        {% set required = false %}
+        {% set placeholder = 'What it does, what comes with it, what it does not include, anything quirky about it.' %}
+        {% set hint = null %}
+        {% set error = errors.description %}
+        {% include "partials/rich-editor.njk" %}
+
+        <div class="field-row">
+          <div class="field">
+            <label for="condition">Condition</label>
+            <select id="condition" name="condition">
+              {% for c in conditions %}
+                <option value="{{ c }}" {{ 'selected' if tool.condition == c }}>{{ c | replace("-", " ") | capitalize }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="availability">Availability</label>
+            <select id="availability" name="availability">
+              {% for a in availabilities %}
+                <option value="{{ a }}" {{ 'selected' if tool.availability == a }}>{{ a | replace("-", " ") | capitalize }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="manual_url">Manual link</label>
+            <input type="url" id="manual_url" name="manual_url" maxlength="500"
+                   value="{{ tool.manual_url or '' }}" placeholder="https://…"
+                   aria-invalid="{{ 'true' if errors.manual_url }}">
+            {{ err(errors, 'manual_url') }}
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Where it lives</legend>
+
+        <div class="field">
+          <label for="location_label">Location</label>
+          <input type="text" id="location_label" name="location_label" maxlength="120"
+                 value="{{ tool.location_label or '' }}" placeholder="Hangar 6, South Albany (4B0)">
+        </div>
+
+        <div class="field">
+          <label for="location_notes">How to find it <span class="muted">(optional)</span></label>
+          <textarea id="location_notes" name="location_notes" rows="2" maxlength="500"
+                    placeholder="Blue rolling cabinet at the back, second drawer. Key is on the nail by the door.">{{ tool.location_notes or '' }}</textarea>
+          <span class="hint">Members only — never shown publicly.</span>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="latitude">Latitude <span class="muted">(optional)</span></label>
+            <input type="text" id="latitude" name="latitude" value="{{ tool.latitude or '' }}"
+                   inputmode="decimal" placeholder="42.5632613">
+            {{ err(errors, 'latitude') }}
+          </div>
+          <div class="field">
+            <label for="longitude">Longitude <span class="muted">(optional)</span></label>
+            <input type="text" id="longitude" name="longitude" value="{{ tool.longitude or '' }}"
+                   inputmode="decimal" placeholder="-73.8356388">
+            {{ err(errors, 'longitude') }}
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Lending terms</legend>
+
+        <div class="field">
+          <label for="loan_terms">Your terms</label>
+          <textarea id="loan_terms" name="loan_terms" rows="3" maxlength="1000"
+                    placeholder="Happy to lend for a weekend. Please return it clean and tell me if something breaks — that is fine, just tell me.">{{ tool.loan_terms or '' }}</textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="deposit">Deposit <span class="muted">(optional)</span></label>
+            <input type="text" id="deposit" name="deposit" maxlength="80"
+                   value="{{ tool.deposit or '' }}" placeholder="None / $50 / a six-pack">
+          </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="requires_checkout" name="requires_checkout" value="1"
+                 {{ 'checked' if tool.requires_checkout }}>
+          <label for="requires_checkout">
+            I want to walk the borrower through it before they take it away
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Photos</legend>
+
+        {% if tool.images and tool.images.length %}
+          <div class="gallery" style="margin-bottom:1.2rem">
+            {% for img in tool.images %}
+              <div class="gallery-item">
+                <img src="{{ img.thumb_path | media }}" alt="{{ img.alt or '' }}">
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="field">
+          <label for="photos">Add photos <span class="muted">(up to 8)</span></label>
+          <input type="file" id="photos" name="photos" accept="image/*" multiple data-preview="#photo-preview">
+          <span class="hint">
+            They become a carousel on the tool's page. Everything is resized and
+            re-encoded, which strips the location tag your phone added.
+          </span>
+        </div>
+        <div id="photo-preview" class="preview-grid"></div>
+
+        <div class="field">
+          <label for="photo_alt">Describe the first photo</label>
+          <input type="text" id="photo_alt" name="photo_alt" maxlength="200"
+                 placeholder="Rivet squeezer with three yoke sets in a fitted case">
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ 'Add to the locker' if isNew else 'Save changes' }}</button>
+        <a class="btn btn-outline" href="{{ ('/members/locker' if isNew else '/members/locker/' ~ tool.id) | url }}">Cancel</a>
+      </div>
+    </form>
+
+    {% if not isNew %}
+      <form method="post" action="{{ '' | url }}/members/locker/{{ tool.id }}/delete" class="danger-zone"
+            data-confirm="Remove this tool and its photos from the locker?">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <div>
+          <strong>Remove this tool</strong>
+          <span class="small muted">Deletes the listing, its photos and its request history.</span>
+        </div>
+        <button type="submit" class="btn btn-danger btn-sm">Remove tool</button>
+      </form>
+
+      {% if tool.images and tool.images.length %}
+        <div class="form-card" style="margin-top:1.5rem">
+          <h3>Remove individual photos</h3>
+          <div class="gallery" style="margin-top:1rem">
+            {% for img in tool.images %}
+              <div class="gallery-item">
+                <img src="{{ img.thumb_path | media }}" alt="">
+                <form method="post" action="{{ '' | url }}/members/locker/images/{{ img.id }}/delete"
+                      data-confirm="Remove this photo?">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <button type="submit" class="btn btn-danger btn-sm btn-block">Remove</button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,57 @@
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div>
+      <h2 class="footer-title">EAA Chapter 1699</h2>
+      <p class="muted">
+        {{ site.airport.name }} ({{ site.airport.ident }})<br>
+        {{ site.airport.street }}<br>
+        {{ site.airport.city }}, {{ site.airport.state }} {{ site.airport.zip }}
+      </p>
+      <p class="muted small">A 501(c)(3) non-profit · EIN {{ site.ein }}</p>
+    </div>
+
+    <div>
+      <h2 class="footer-title">Visit</h2>
+      <ul class="plain">
+        <li><a href="{{ '/events' | url }}">Upcoming events</a></li>
+        <li><a href="{{ '/events/past' | url }}">Past events</a></li>
+        <li><a href="{{ '/builds' | url }}">Members' builds</a></li>
+        <li><a href="{{ '/events/calendar.ics' | url }}">Subscribe to our calendar</a></li>
+        <li><a href="{{ '/contact' | url }}">Contact us</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h2 class="footer-title">Members</h2>
+      <ul class="plain">
+        {% if currentUser %}
+          <li><a href="{{ '/members' | url }}">Members Corner</a></li>
+          <li><a href="{{ '/members/blog' | url }}">Chapter blog</a></li>
+          <li><a href="{{ '/members/locker' | url }}">Tool Locker</a></li>
+          <li><a href="{{ '/members/account' | url }}">Your account</a></li>
+        {% else %}
+          <li><a href="{{ '/login' | url }}">Sign in</a></li>
+          <li><a href="{{ '/join' | url }}">Request an account</a></li>
+          <li><a href="{{ '/forgot' | url }}">Forgot your password?</a></li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div>
+      <h2 class="footer-title">The airport</h2>
+      <p class="muted small">
+        Runway: {{ site.airport.runway }}<br>
+        Fuel: {{ site.airport.fuel }}<br>
+        <a href="{{ site.airport | maplink }}" rel="noopener noreferrer" target="_blank">Find us on the map</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="wrap footer-bottom">
+    <p class="small muted">
+      &copy; {{ currentYear }} EAA Chapter 1699, Inc. Part of the
+      Experimental Aircraft Association. Built by members, for members.
+    </p>
+    <p class="small muted">Blue skies.</p>
+  </div>
+</footer>

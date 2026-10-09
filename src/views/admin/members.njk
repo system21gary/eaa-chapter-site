@@ -1,0 +1,179 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Administrators</span>
+    <h1>People</h1>
+
+    <div class="notice" style="margin:1.5rem 0">
+      <strong>Nobody here can set another member's password.</strong>
+      Inviting someone emails them a one-time link to choose their own. The
+      server only ever stores a one-way hash, so there is no password for an
+      administrator — or an attacker with database access — to read.
+    </div>
+
+    <div class="split">
+      <div>
+        <h2>Members</h2>
+        <div class="table-wrap" style="margin-top:1rem">
+          <table class="data">
+            <thead>
+              <tr><th>Member</th><th>Role</th><th>Status</th><th>Last seen</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {% for m in members %}
+                <tr>
+                  <td>
+                    <strong>{{ displayName(m) }}</strong><br>
+                    <span class="tiny muted mono">{{ m.email }}</span>
+                    {% if not m.password_set_at %}
+                      <br><span class="pill pill-amber">No password set</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{{ '' | url }}/members/admin/members/{{ m.id }}/role" data-autosubmit>
+                      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                      <select name="role" aria-label="Role for {{ displayName(m) }}">
+                        <option value="member" {{ 'selected' if m.role == 'member' }}>Member</option>
+                        <option value="editor" {{ 'selected' if m.role == 'editor' }}>Editor</option>
+                        <option value="admin" {{ 'selected' if m.role == 'admin' }}>Admin</option>
+                      </select>
+                      <noscript><button type="submit" class="btn btn-outline btn-sm">Set</button></noscript>
+                    </form>
+                  </td>
+                  <td>
+                    <span class="pill pill-{{ 'green' if m.status == 'active' else ('red' if m.status == 'suspended' else 'grey') }}">{{ m.status }}</span>
+                  </td>
+                  <td class="tiny muted">
+                    {% if m.last_login_at %}{{ m.last_login_at | relative }}{% else %}never{% endif %}
+                  </td>
+                  <td>
+                    <div style="display:flex; gap:.35rem; flex-wrap:wrap">
+                      <form method="post" action="{{ '' | url }}/members/admin/members/{{ m.id }}/resend">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <button type="submit" class="btn btn-outline btn-sm">Re-invite</button>
+                      </form>
+                      <form method="post" action="{{ '' | url }}/members/admin/members/{{ m.id }}/status"
+                            data-confirm="{{ 'Reactivate' if m.status != 'active' else 'Suspend' }} {{ displayName(m) }}?">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <input type="hidden" name="status" value="{{ 'active' if m.status != 'active' else 'suspended' }}">
+                        <button type="submit" class="btn btn-{{ 'outline' if m.status != 'active' else 'danger' }} btn-sm">
+                          {{ 'Reactivate' if m.status != 'active' else 'Suspend' }}
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if invites.length %}
+          <h2 style="margin-top:2.5rem">Outstanding invitations</h2>
+          <div class="table-wrap" style="margin-top:1rem">
+            <table class="data">
+              <thead><tr><th>Email</th><th>Role</th><th>Invited by</th><th>Expires</th></tr></thead>
+              <tbody>
+                {% for i in invites %}
+                  <tr>
+                    <td class="mono tiny">{{ i.email }}</td>
+                    <td><span class="pill">{{ i.role }}</span></td>
+                    <td class="tiny muted">{{ i.by_first }} {{ i.by_last }}</td>
+                    <td class="tiny muted">{{ i.expires_at | relative }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+
+      <aside class="sidebar">
+        <div class="card">
+          <div class="card-body">
+            <h3>Requests from the public form</h3>
+            <p class="small muted">
+              People can ask for an account themselves at
+              <a href="{{ '/join' | url }}">/join</a>. Nothing is created until you approve it.
+            </p>
+            <a class="btn btn-{{ 'primary' if pendingApplications else 'outline' }} btn-block btn-sm"
+               href="{{ '/members/admin/applications' | url }}">
+              {% if pendingApplications %}
+                Review {{ pendingApplications }} waiting request{{ 's' if pendingApplications != 1 }}
+              {% else %}
+                Membership requests
+              {% endif %}
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <h3>Invite a member</h3>
+            <form method="post" action="{{ '/members/admin/members/invite' | url }}" style="margin-top:1rem">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+              <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required maxlength="254" value="{{ form.email or '' }}"
+                       aria-invalid="{{ 'true' if errors.email }}">
+                {{ err(errors, 'email') }}
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="first_name">First name</label>
+                  <input type="text" id="first_name" name="first_name" required maxlength="60" value="{{ form.first_name or '' }}">
+                  {{ err(errors, 'first_name') }}
+                </div>
+                <div class="field">
+                  <label for="last_name">Last name</label>
+                  <input type="text" id="last_name" name="last_name" required maxlength="60" value="{{ form.last_name or '' }}">
+                  {{ err(errors, 'last_name') }}
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="role">Role</label>
+                <select id="role" name="role">
+                  <option value="member">Member — locker, builds, blog reading</option>
+                  <option value="editor">Editor — also writes posts and events</option>
+                  <option value="admin">Admin — also manages people</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="note">Note <span class="muted">(optional, for your records)</span></label>
+                <input type="text" id="note" name="note" maxlength="200" value="{{ form.note or '' }}">
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block">Send invitation</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <h3>What the roles do</h3>
+            <ul class="plain small muted">
+              <li>· <strong>Member</strong> — Tool Locker, build logs, blog reading and comments, directory.</li>
+              <li>· <strong>Editor</strong> — everything above, plus writing blog posts and running the events calendar.</li>
+              <li>· <strong>Admin</strong> — everything, plus inviting people, changing roles, and the activity log.</li>
+            </ul>
+            <p class="tiny muted">
+              The last remaining administrator cannot be demoted or suspended —
+              that would lock the chapter out of its own site.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

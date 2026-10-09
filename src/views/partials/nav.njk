@@ -1,0 +1,75 @@
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="{{ '/' | url }}">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="40" height="40" role="presentation">
+          <circle cx="24" cy="24" r="23" fill="#0b2545"/>
+          <circle cx="24" cy="24" r="20" fill="none" stroke="#f2a541" stroke-width="1.5"/>
+          <path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/>
+        </svg>
+      </span>
+      <span class="brand-text">
+        <strong>EAA Chapter 1699</strong>
+        <small>South Albany Airport · 4B0</small>
+      </span>
+    </a>
+
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav id="primary-nav" class="primary-nav" aria-label="Main">
+      <ul>
+        <li><a href="{{ '/' | url }}" {% if currentPath == '/' %}aria-current="page"{% endif %}>Welcome</a></li>
+        <li><a href="{{ '/events' | url }}" {% if currentPath.startsWith('/events') and currentPath != '/events/past' %}aria-current="page"{% endif %}>Upcoming Events</a></li>
+        <li><a href="{{ '/events/past' | url }}" {% if currentPath == '/events/past' %}aria-current="page"{% endif %}>Past Events</a></li>
+        <li><a href="{{ '/builds' | url }}" {% if currentPath.startsWith('/builds') %}aria-current="page"{% endif %}>Member Builds</a></li>
+        <li><a href="{{ '/contact' | url }}" {% if currentPath == '/contact' %}aria-current="page"{% endif %}>Contact Us</a></li>
+        {% if currentUser %}
+          <li class="nav-members"><a href="{{ '/members' | url }}" {% if currentPath.startsWith('/members') %}aria-current="page"{% endif %}>Members Corner</a></li>
+        {% else %}
+          <li class="nav-members"><a href="{{ '/login' | url }}" {% if currentPath == '/login' %}aria-current="page"{% endif %}>Members Corner</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+
+  {% if currentUser and currentPath.startsWith('/members') %}
+  <div class="members-bar">
+    <div class="wrap members-bar-inner">
+      <nav aria-label="Members Corner">
+        <a href="{{ '/members' | url }}" {% if currentPath == '/members' %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="{{ '/members/blog' | url }}" {% if currentPath.startsWith('/members/blog') %}aria-current="page"{% endif %}>Blog</a>
+        <a href="{{ '/members/locker' | url }}" {% if currentPath.startsWith('/members/locker') %}aria-current="page"{% endif %}>Tool Locker</a>
+        <a href="{{ '/members/builds' | url }}" {% if currentPath.startsWith('/members/builds') %}aria-current="page"{% endif %}>Your Builds</a>
+        <a href="{{ '/members/directory' | url }}" {% if currentPath == '/members/directory' %}aria-current="page"{% endif %}>Directory</a>
+        {% if currentUser.role in ['editor', 'admin'] %}
+          <a href="{{ '/members/admin/events' | url }}" {% if currentPath.startsWith('/members/admin/events') %}aria-current="page"{% endif %}>Events</a>
+          <a href="{{ '/members/admin/messages' | url }}" {% if currentPath.startsWith('/members/admin/messages') %}aria-current="page"{% endif %}>Inbox</a>
+        {% endif %}
+        {% if currentUser.role == 'admin' %}
+          <a href="{{ '/members/admin/applications' | url }}" {% if currentPath.startsWith('/members/admin/applications') %}aria-current="page"{% endif %}>
+            Requests{% if pendingApplications %} <span class="nav-badge">{{ pendingApplications }}</span>{% endif %}
+          </a>
+          <a href="{{ '/members/admin/members' | url }}" {% if currentPath.startsWith('/members/admin/members') %}aria-current="page"{% endif %}>People</a>
+          <a href="{{ '/members/admin/log' | url }}" {% if currentPath.startsWith('/members/admin/log') %}aria-current="page"{% endif %}>Log</a>
+        {% endif %}
+      </nav>
+      <div class="members-bar-user">
+        <a href="{{ '/members/account' | url }}" class="who">
+          {% if currentUser.avatar_path %}
+            <img src="{{ currentUser.avatar_path | media }}" alt="" width="28" height="28" class="avatar">
+          {% else %}
+            <span class="avatar avatar-initials" aria-hidden="true">{{ currentUser | initials }}</span>
+          {% endif %}
+          <span>{{ displayName(currentUser) }}</span>
+        </a>
+        <form method="post" action="{{ '/logout' | url }}" class="inline">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <button type="submit" class="link-button">Sign out</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</header>

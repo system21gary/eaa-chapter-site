@@ -1,0 +1,162 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Members Corner</span>
+    <h1>Afternoon, {{ currentUser.first_name }}.</h1>
+    <p class="muted" style="max-width:60ch">
+      Everything the chapter shares with itself lives here — the blog, the Tool
+      Locker, the build logs, and the member directory.
+    </p>
+
+    {% if inbox.length %}
+      <div class="notice" style="margin:1.5rem 0">
+        <strong>{{ inbox.length }} borrow request{{ 's' if inbox.length != 1 }} waiting on you.</strong>
+        Somebody wants to borrow one of your tools —
+        <a href="{{ '/members/locker/requests' | url }}">have a look</a>.
+      </div>
+    {% endif %}
+
+    <div class="grid grid-2" style="margin-top:2rem">
+      <a class="card card-link" href="{{ '/members/blog' | url }}">
+        <div class="card-body">
+          <h3>Chapter blog</h3>
+          <p class="muted small">
+            Meeting notes, project write-ups, safety discussions and the
+            occasional strongly-worded opinion about carburettor heat.
+          </p>
+        </div>
+      </a>
+
+      <a class="card card-link" href="{{ '/members/locker' | url }}">
+        <div class="card-body">
+          <h3>Tool Locker</h3>
+          <p class="muted small">
+            {{ stats.tools }} tool{{ 's' if stats.tools != 1 }} shared by
+            {{ stats.owners }} member{{ 's' if stats.owners != 1 }} ·
+            {{ stats.available }} available right now.
+          </p>
+        </div>
+      </a>
+
+      <a class="card card-link" href="{{ '/members/builds' | url }}">
+        <div class="card-body">
+          <h3>Your build logs</h3>
+          <p class="muted small">
+            Post an update on your project — photos, hours, and what actually
+            happened. Public build logs are the best advert this chapter has.
+          </p>
+        </div>
+      </a>
+
+      <a class="card card-link" href="{{ '/members/directory' | url }}">
+        <div class="card-body">
+          <h3>Member directory</h3>
+          <p class="muted small">
+            Who flies what, who is building what, and who to ask about fabric
+            work at eleven at night.
+          </p>
+        </div>
+      </a>
+    </div>
+
+    <div class="split" style="margin-top:3rem">
+      <div>
+        <div class="section-head">
+          <h2>Latest from the blog</h2>
+          <a class="btn btn-outline btn-sm" href="{{ '/members/blog' | url }}">All posts</a>
+        </div>
+
+        {% if posts.length %}
+          <div class="stack">
+            {% for post in posts %}
+              <article class="card">
+                <div class="card-body">
+                  <p class="timeline-date">
+                    {{ (post.published_at or post.created_at) | shortdate }}
+                    {%- if post.status == 'draft' %} <span class="pill pill-grey">Draft</span>{% endif %}
+                    {%- if post.visibility == 'public' %} <span class="pill">Public</span>{% endif %}
+                  </p>
+                  <h3 style="margin-bottom:.3rem">
+                    <a href="{{ '' | url }}/members/blog/{{ post.slug }}">{{ post.title }}</a>
+                  </h3>
+                  <p class="small muted" style="margin:0">{{ post.summary | truncate(150) }}</p>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty">
+            <div class="icon">{{ icon("pen", 44) }}</div>
+            <h3>Nothing posted yet</h3>
+            <p>The blog is waiting for its first entry.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <aside class="sidebar">
+        {% if upcoming.length %}
+          <div class="card">
+            <div class="card-body">
+              <h3>Coming up</h3>
+              <ul class="plain small" style="margin-top:.8rem">
+                {% for event in upcoming %}
+                  <li style="margin-bottom:.8rem">
+                    <a href="{{ '' | url }}/events/{{ event.slug }}">{{ event.title }}</a><br>
+                    <span class="muted tiny">{{ event.starts_at | shortdate }} · {{ event.starts_at | relative }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if myTools.length %}
+          <div class="card">
+            <div class="card-body">
+              <h3>Your tools</h3>
+              <ul class="plain small" style="margin-top:.8rem">
+                {% for tool in myTools %}
+                  <li>
+                    <a href="{{ '' | url }}/members/locker/{{ tool.id }}">{{ tool.name }}</a>
+                    <span class="pill pill-{{ 'green' if tool.availability == 'available' else 'grey' }}">{{ tool.availability }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+              <a class="btn btn-outline btn-block btn-sm" href="{{ '/members/locker/new' | url }}" style="margin-top:1rem">Add another</a>
+            </div>
+          </div>
+        {% else %}
+          <div class="card">
+            <div class="card-body">
+              <h3>Lend a tool</h3>
+              <p class="small muted">
+                Got a torque wrench, a rivet squeezer, an engine hoist gathering
+                dust? List it. Nobody should buy a $400 tool for one weekend.
+              </p>
+              <a class="btn btn-primary btn-block btn-sm" href="{{ '/members/locker/new' | url }}">Add a tool</a>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if myRequests.length %}
+          <div class="card">
+            <div class="card-body">
+              <h3>Your borrow requests</h3>
+              <ul class="plain small" style="margin-top:.8rem">
+                {% for r in myRequests %}
+                  <li>
+                    {{ r.tool_name }}
+                    <span class="pill pill-{{ 'green' if r.status == 'approved' else ('red' if r.status == 'declined' else 'grey') }}">{{ r.status }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

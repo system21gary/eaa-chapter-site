@@ -1,0 +1,132 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <span class="eyebrow">Who we are</span>
+    <h1>EAA Chapter 1699</h1>
+    <p>A group of aviation enthusiasts, aircraft builders and pilots based at
+       {{ site.airport.name }} who get together to share ideas, exchange
+       information, encourage safety, serve the local aviation community, and
+       have a great deal of fun doing so.</p>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap split">
+    <div class="prose">
+      <h2>The short version</h2>
+      <p>
+        The Experimental Aircraft Association has been the home of homebuilders,
+        restorers and grassroots aviation since 1953. Chapters are the local
+        expression of that — and Chapter 1699 is the one at
+        {{ site.airport.name }} ({{ site.airport.ident }}) in
+        {{ site.airport.city }}, New York.
+      </p>
+      <p>
+        We are a 501(c)(3) non-profit, run entirely by volunteers. Nobody here
+        gets paid. What people get instead is a hangar full of second opinions,
+        a tool locker they did not have to fund alone, and a standing invitation
+        to somebody else's first-flight day.
+      </p>
+
+      <h2>What actually happens here</h2>
+      <h3>Technical Counselors</h3>
+      <p>
+        EAA-trained members who visit your project in person — at any stage,
+        for free — and give you an honest assessment. Builders who use a
+        Technical Counselor have a measurably better safety record. That is the
+        whole pitch.
+      </p>
+
+      <h3>Flight Advisors</h3>
+      <p>
+        Before the first flight of a newly built or newly restored aircraft,
+        a Flight Advisor helps you look squarely at the aircraft, the
+        conditions, and — the hard one — your own currency and proficiency.
+      </p>
+
+      <h3>IMC and VMC Clubs</h3>
+      <p>
+        Monthly scenario-based sessions. IMC Club works instrument scenarios;
+        VMC Club works the visual-flying decisions that quietly kill people.
+        Everyone in the room votes, then argues about it. Bring your opinions.
+      </p>
+
+      <h3>Young Eagles</h3>
+      <p>
+        Free first flights for kids aged 8 to 17, flown by volunteer chapter
+        pilots. More than two million kids have flown in the programme since
+        1992. Some of them are now our members.
+      </p>
+
+      <h3>Ray Aviation Scholarship</h3>
+      <p>
+        Through the Ray Foundation, chapters can fund a young person's flight
+        training all the way to a certificate. It is the single biggest thing a
+        chapter this size can do for aviation's future.
+      </p>
+
+      <h3>Members' projects</h3>
+      <p>
+        The reason to come to a meeting. Somebody always has an update, a
+        problem, a photo of something that arrived in the mail, or a wing that
+        is now, at long last, closed up.
+      </p>
+
+      <h2>Visiting</h2>
+      <p>
+        Fly in or drive in — both are equally welcome, and roughly half of
+        every breakfast crowd arrives by road. If you are flying in, check
+        {{ site.airport.ident }} in your favourite app for current field
+        conditions; it is a working grass-and-asphalt field, not an airline
+        hub, and it rewards a pass overhead before you commit.
+      </p>
+      <p>
+        If you are driving, put
+        <strong>{{ site.airport.street }}, {{ site.airport.city }}, {{ site.airport.state }} {{ site.airport.zip }}</strong>
+        into your phone and follow it to the end.
+      </p>
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>Home field</h3>
+          <ul class="factlist" style="margin-top:1rem">
+            <li><span class="label">Airport</span><span>{{ site.airport.name }}</span></li>
+            <li><span class="label">Ident</span><span class="mono">{{ site.airport.ident }}</span></li>
+            <li><span class="label">Runway</span><span>{{ site.airport.runway }}</span></li>
+            <li><span class="label">Fuel</span><span>{{ site.airport.fuel }}</span></li>
+            <li><span class="label">Address</span><span>{{ site.airport.street }}<br>{{ site.airport.city }}, {{ site.airport.state }} {{ site.airport.zip }}</span></li>
+          </ul>
+          <a class="btn btn-outline btn-block btn-sm" href="{{ site.airport | maplink }}" target="_blank" rel="noopener noreferrer">Open in maps</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>Interested in joining?</h3>
+          <p class="small muted">
+            Come to something first — a breakfast, a meeting, whatever is next
+            on the calendar. Membership makes far more sense once you have put
+            faces to it.
+          </p>
+          <a class="btn btn-primary btn-block btn-sm" href="{{ '/contact' | url }}">Get in touch</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>Non-profit status</h3>
+          <p class="small muted">
+            EAA Chapter 1699, Inc. is a registered 501(c)(3) charitable
+            organisation in {{ site.airport.city }}, NY.<br>
+            EIN <span class="mono">{{ site.ein }}</span>
+          </p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

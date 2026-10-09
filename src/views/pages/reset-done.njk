@@ -1,0 +1,20 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <div style="text-align:center; margin-bottom:2rem">
+      <div style="color:var(--green)">{{ icon("landing", 56) }}</div>
+      <h1>Password updated</h1>
+    </div>
+
+    <div class="form-card">
+      <p class="muted">
+        You are all set. Every other signed-in session has been ended, so if
+        somebody else was in your account, they are not any more.
+      </p>
+      <a class="btn btn-primary btn-block" href="{{ '/login' | url }}">Sign in</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

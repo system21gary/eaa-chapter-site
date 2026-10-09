@@ -1,0 +1,71 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <span class="eyebrow">In the hangar right now</span>
+    <h1>Members' builds</h1>
+    <p>
+      Real projects, in real garages and hangars, at every stage from "the kit
+      crate arrived" to "it flies". Follow along — the log entries are written
+      by the people holding the rivet gun.
+    </p>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap">
+
+    <div class="statstrip" style="margin-bottom:2.5rem">
+      <div><div class="n">{{ stats.projects }}</div><div class="l">Projects</div></div>
+      <div><div class="n">{{ stats.flying }}</div><div class="l">Now flying</div></div>
+      <div><div class="n">{{ stats.updates }}</div><div class="l">Log entries</div></div>
+      <div><div class="n">{{ stats.hours }}</div><div class="l">Hours logged</div></div>
+    </div>
+
+    {% if builds.length %}
+      <nav class="chipnav" aria-label="Filter projects">
+        <a href="{{ '/builds' | url }}" {% if not activeStatus and not activeKind %}aria-current="page"{% endif %}>Everything</a>
+        {% for s in statuses %}
+          <a href="{{ '' | url }}/builds?status={{ s }}" {% if activeStatus == s %}aria-current="page"{% endif %}>{{ statusLabels[s] | safe }}</a>
+        {% endfor %}
+      </nav>
+
+      <div class="grid grid-3">
+        {% for build in builds %}
+          {% include "partials/build-card.njk" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("wrench", 44) }}</div>
+        <h3>No build logs published yet</h3>
+        <p>
+          {% if currentUser %}
+            Yours could be the first — <a href="{{ '/members/builds/new' | url }}">start a build log</a>.
+          {% else %}
+            Chapter members are just getting their project pages set up.
+            Check back soon, or <a href="{{ '/contact' | url }}">come see the projects in person</a>.
+          {% endif %}
+        </p>
+      </div>
+    {% endif %}
+
+    {% if currentUser %}
+      <div class="notice" style="margin-top:2.5rem">
+        <strong>Building something?</strong>
+        Chapter members can keep a build log right here — photos, hours, and
+        the honest write-ups. <a href="{{ '/members/builds/new' | url }}">Start yours</a>.
+      </div>
+    {% else %}
+      <div class="notice" style="margin-top:2.5rem">
+        <strong>Thinking about building?</strong>
+        Come talk to the people behind these projects. Our
+        <a href="{{ '/about' | url }}">Technical Counselors</a> will look at your work in
+        person, for free — and every one of these builders was once exactly
+        where you are. <a href="{{ '/contact' | url }}">Say hello</a>.
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Members Corner</span>
+    <h1>Member directory</h1>
+    <p class="muted" style="max-width:62ch">
+      Contact details here are shared between chapter members only. They are
+      never shown to the public and never sent to anyone outside this page —
+      please treat them the same way.
+    </p>
+
+    <div class="grid grid-3" style="margin-top:2rem">
+      {% for member in members %}
+        <article class="card">
+          <div class="card-body">
+            <div style="display:flex; gap:.9rem; align-items:center; margin-bottom:1rem">
+              {% if member.avatar_path %}
+                <img src="{{ member.avatar_path | media }}" alt="" class="avatar avatar-lg">
+              {% else %}
+                <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ member | initials }}</span>
+              {% endif %}
+              <div style="min-width:0">
+                <h3 style="margin:0 0 .1rem">{{ displayName(member) }}</h3>
+                {% if member.role != 'member' %}
+                  <span class="pill pill-amber">{{ member.role }}</span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if member.aircraft %}
+              <p class="small" style="margin:0 0 .3rem"><strong>Flies:</strong> {{ member.aircraft }}</p>
+            {% endif %}
+            {% if member.home_base %}
+              <p class="small muted" style="margin:0 0 .3rem">{{ member.home_base }}</p>
+            {% endif %}
+            {% if member.eaa_number %}
+              <p class="tiny muted" style="margin:0 0 .6rem">EAA #{{ member.eaa_number }}</p>
+            {% endif %}
+
+            {% if member.bio %}
+              <p class="small muted">{{ member.bio | truncate(140) }}</p>
+            {% endif %}
+
+            <p class="small" style="margin:.8rem 0 0">
+              <a href="mailto:{{ member.email }}">{{ member.email }}</a>
+              {% if member.phone %}<br><a href="tel:{{ member.phone }}">{{ member.phone | phone }}</a>{% endif %}
+            </p>
+          </div>
+        </article>
+      {% else %}
+        <div class="empty">
+          <div class="icon">{{ icon("people", 44) }}</div>
+          <h3>Nobody here yet</h3>
+          <p>Once members activate their accounts they will show up here.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

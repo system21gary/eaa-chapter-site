@@ -1,0 +1,127 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <p class="crumbs"><a href="{{ '/members/blog' | url }}">Chapter blog</a> <span aria-hidden="true">›</span> {{ 'New post' if isNew else 'Edit' }}</p>
+    <h1>{{ 'Write a post' if isNew else 'Edit post' }}</h1>
+
+    <form method="post"
+          action="{{ ('/members/blog/new' if isNew else '/members/blog/' ~ post.slug ~ '/edit') | url }}"
+          enctype="multipart/form-data" class="form-card" style="margin-top:1.5rem">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <div class="field">
+        <label for="title">Title</label>
+        <input type="text" id="title" name="title" required maxlength="160"
+               value="{{ post.title or '' }}" autofocus
+               aria-invalid="{{ 'true' if errors.title }}">
+        {{ err(errors, 'title') }}
+      </div>
+
+      <div class="field">
+        <label for="summary">Summary <span class="muted">(optional)</span></label>
+        <input type="text" id="summary" name="summary" maxlength="300" value="{{ post.summary or '' }}">
+        <span class="hint">Shown on the index. Leave blank and we'll take the opening lines.</span>
+      </div>
+
+      {% set name = 'body_md' %}
+      {% set label = 'Post' %}
+      {% set value = post.body_md %}
+      {% set rows = 20 %}
+      {% set maxlength = null %}
+      {% set required = true %}
+      {% set placeholder = 'Write the post. Use the buttons above for headings, lists, quotes and links.' %}
+      {% set hint = null %}
+      {% set error = errors.body_md %}
+      {% include "partials/rich-editor.njk" %}
+
+      <fieldset>
+        <legend>Cover image</legend>
+        {% if post.cover_path %}
+          <p><img src="{{ post.cover_path | media }}" alt="" style="max-width:300px; border-radius:12px"></p>
+        {% endif %}
+        <div class="field">
+          <label for="cover">{{ 'Replace image' if post.cover_path else 'Upload an image' }}</label>
+          <input type="file" id="cover" name="cover" accept="image/*" data-preview="#cover-preview">
+        </div>
+        <div id="cover-preview" class="preview-grid"></div>
+        <div class="field">
+          <label for="cover_alt">Describe the image</label>
+          <input type="text" id="cover_alt" name="cover_alt" maxlength="200" value="{{ post.cover_alt or '' }}">
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Publishing</legend>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="draft" {{ 'selected' if post.status == 'draft' }}>Draft</option>
+              <option value="published" {{ 'selected' if post.status == 'published' }}>Published</option>
+              <option value="archived" {{ 'selected' if post.status == 'archived' }}>Archived</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="visibility">Who can read it</label>
+            <select id="visibility" name="visibility">
+              <option value="members" {{ 'selected' if post.visibility != 'public' }}>Members only</option>
+              <option value="public" {{ 'selected' if post.visibility == 'public' }}>Anyone (shows on the public site)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="tags">Tags</label>
+          <input type="text" id="tags" name="tags" maxlength="200"
+                 value="{{ post.tags | join(', ') if post.tags else '' }}"
+                 placeholder="meeting-notes, young-eagles, safety">
+          <span class="hint">Comma separated, up to eight.</span>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="pinned" name="pinned" value="1" {{ 'checked' if post.pinned }}>
+          <label for="pinned">Pin to the top of the blog</label>
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ 'Publish' if isNew else 'Save changes' }}</button>
+        <a class="btn btn-outline" href="{{ ('/members/blog' if isNew else '/members/blog/' ~ post.slug) | url }}">Cancel</a>
+      </div>
+    </form>
+
+    {% if not isNew %}
+      <form method="post" action="{{ '' | url }}/members/blog/{{ post.slug }}/delete" class="danger-zone"
+            data-confirm="Delete this post and its comments? This cannot be undone.">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <div>
+          <strong>Delete this post</strong>
+          <span class="small muted">Comments go with it. No undo.</span>
+        </div>
+        <button type="submit" class="btn btn-danger btn-sm">Delete post</button>
+      </form>
+
+      {% if revisions and revisions.length %}
+        <div class="card" style="margin-top:1.5rem">
+          <div class="card-body">
+            <h3>Edit history</h3>
+            <ul class="plain small muted" style="margin-top:.8rem">
+              {% for rev in revisions %}
+                <li>{{ rev.created_at | datetime }} — {{ rev.first_name }} {{ rev.last_name }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

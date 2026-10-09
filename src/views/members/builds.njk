@@ -1,0 +1,68 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Your workshop</span>
+        <h1>Your projects</h1>
+        <p>
+          Build logs you keep here appear on the public
+          <a href="{{ '/builds' | url }}">Members' builds</a> page — unless you mark a
+          project members-only.
+        </p>
+      </div>
+      <a class="btn btn-primary" href="{{ '/members/builds/new' | url }}">Start a build log</a>
+    </div>
+
+    {% if builds.length %}
+      <div class="grid grid-3">
+        {% for build in builds %}
+          <article class="card build-card">
+            <a class="card-link" href="{{ '' | url }}/builds/{{ build.slug }}">
+              <div class="shot">
+                {% if build.cover_path %}
+                  <img src="{{ build.cover_path | media }}" alt="" loading="lazy">
+                {% else %}
+                  <span class="noshot">{{ icon("plane", 60) }}</span>
+                {% endif %}
+              </div>
+            </a>
+            <div class="card-body">
+              <div class="pill-row" style="margin-bottom:.5rem">
+                <span class="pill pill-{{ 'green' if build.status == 'flying' else 'amber' }}">{{ statusLabels[build.status] | safe }}</span>
+                {% if build.visibility == 'members' %}<span class="pill pill-grey">Members only</span>{% endif %}
+              </div>
+              <h3 style="margin-bottom:.15rem">{{ build.title }}</h3>
+              <p class="small muted">{{ build.aircraft_type }}</p>
+
+              <div class="progress"><span style="width: {{ build.percent_complete }}%"></span></div>
+              <p class="tiny muted" style="margin:.35rem 0 1rem">
+                {{ build.percent_complete }}% · {{ build.update_count or 0 }} entr{{ 'y' if build.update_count == 1 else 'ies' }}
+                {%- if build.last_update_at %} · last {{ build.last_update_at | relative }}{% endif %}
+              </p>
+
+              <div class="entry-actions">
+                <a class="btn btn-primary btn-sm" href="{{ '' | url }}/members/builds/{{ build.id }}/updates/new">Post update</a>
+                <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/builds/{{ build.id }}/edit">Edit</a>
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("wrench", 44) }}</div>
+        <h3>No build log yet</h3>
+        <p>
+          Building, restoring, or just doing a long annual you are proud of?
+          Start a log. It takes two minutes, and future-you will be extremely
+          glad you wrote down what you did to that fuel line.
+        </p>
+        <a class="btn btn-primary" href="{{ '/members/builds/new' | url }}" style="margin-top:1.2rem">Start a build log</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

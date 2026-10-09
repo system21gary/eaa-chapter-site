@@ -1,0 +1,191 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <span class="eyebrow">Members Corner</span>
+    <h1>Request an account</h1>
+    <p>
+      Tell us who you are and a chapter officer will set you up. Accounts open
+      the chapter blog, the Tool Locker, and your own build log.
+    </p>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap split">
+    <div>
+      {% if sent %}
+        <div class="form-card">
+          <div class="flash flash-success" style="margin:0 0 1.2rem" role="status">
+            <span class="flash-icon">{{ icon("check", 12) }}</span>
+            <p><strong>That's with us.</strong></p>
+          </div>
+          <p class="muted">
+            A chapter officer reads every request by hand, so give us a few
+            days — we are all volunteers with day jobs and half-finished
+            aeroplanes.
+          </p>
+          <p class="muted">
+            If it is approved you will get a second email with a link to choose
+            your own password. We will never email you a password, and we could
+            not even if we wanted to.
+          </p>
+          <p class="muted">
+            In the meantime, do come to something. Everything on the calendar is
+            open to visitors, and turning up beats any amount of paperwork.
+          </p>
+          <a class="btn btn-primary btn-block" href="{{ '/events' | url }}">See what's coming up</a>
+        </div>
+      {% else %}
+        <form method="post" action="{{ '/join' | url }}" class="form-card">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <input type="hidden" name="rendered_at" value="">
+
+          {# Bot trap: hidden from people, irresistible to naive scrapers. #}
+          <div class="honeypot" aria-hidden="true">
+            <label for="website">Website</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
+          <fieldset>
+            <legend>Who you are</legend>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="first_name">First name</label>
+                <input type="text" id="first_name" name="first_name" required maxlength="60"
+                       autocomplete="given-name" value="{{ form.first_name or '' }}"
+                       aria-invalid="{{ 'true' if errors.first_name }}">
+                {{ err(errors, 'first_name') }}
+              </div>
+              <div class="field">
+                <label for="last_name">Last name</label>
+                <input type="text" id="last_name" name="last_name" required maxlength="60"
+                       autocomplete="family-name" value="{{ form.last_name or '' }}"
+                       aria-invalid="{{ 'true' if errors.last_name }}">
+                {{ err(errors, 'last_name') }}
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required maxlength="254"
+                       autocomplete="email" value="{{ form.email or '' }}"
+                       aria-invalid="{{ 'true' if errors.email }}">
+                <span class="hint">This is where your invitation will go.</span>
+                {{ err(errors, 'email') }}
+              </div>
+              <div class="field">
+                <label for="phone">Phone <span class="muted">(optional)</span></label>
+                <input type="tel" id="phone" name="phone" maxlength="32"
+                       autocomplete="tel" value="{{ form.phone or '' }}">
+                {{ err(errors, 'phone') }}
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Your flying — all optional</legend>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="eaa_number">EAA member number</label>
+                <input type="text" id="eaa_number" name="eaa_number" maxlength="20"
+                       value="{{ form.eaa_number or '' }}">
+                <span class="hint">Not a requirement to ask.</span>
+              </div>
+              <div class="field">
+                <label for="home_base">Home airport</label>
+                <input type="text" id="home_base" name="home_base" maxlength="80"
+                       value="{{ form.home_base or '' }}" placeholder="South Albany (4B0)">
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="aircraft">What you fly, build or dream about</label>
+              <input type="text" id="aircraft" name="aircraft" maxlength="120"
+                     value="{{ form.aircraft or '' }}"
+                     placeholder="1946 Aeronca Champ · RV-7A project · nothing yet, working on it">
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>What brings you here</legend>
+
+            <div class="field">
+              <label for="interest">Pick the closest</label>
+              <select id="interest" name="interest">
+                <option value="">Prefer not to say</option>
+                {% for option in interests %}
+                  <option value="{{ option }}" {{ 'selected' if form.interest == option }}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="message">Tell us a bit about yourself</label>
+              <textarea id="message" name="message" rows="6" required minlength="10" maxlength="2000"
+                        aria-invalid="{{ 'true' if errors.message }}"
+                        placeholder="How you found us, whether you have been to one of our breakfasts, what you are working on — a few sentences is plenty.">{{ form.message or '' }}</textarea>
+              <span class="hint">
+                This is what the officer reviewing your request will read. No
+                need to be formal.
+              </span>
+              {{ err(errors, 'message') }}
+            </div>
+          </fieldset>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Send my request</button>
+            <span class="small muted">Already have an account? <a href="{{ '/login' | url }}">Sign in</a>.</span>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>What happens next</h3>
+          <ol class="small muted" style="padding-left:1.1rem; margin:.8rem 0 0">
+            <li style="margin-bottom:.5rem">You send this form.</li>
+            <li style="margin-bottom:.5rem">A chapter officer reads it — a real person, usually within a few days.</li>
+            <li style="margin-bottom:.5rem">If approved, you get an email with a one-time link.</li>
+            <li>You choose your own password on that link, and you are in.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>We never send passwords</h3>
+          <p class="small muted" style="margin:0">
+            Not at signup, not ever. The site stores only a one-way hash of your
+            password, so nobody here — officer or otherwise — can look yours up.
+            That is why every account starts with a link you use to set your own.
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>You don't need an account to visit</h3>
+          <p class="small muted">
+            Our <a href="{{ '/events' | url }}">fly-in breakfasts and meetings</a> are open to
+            anybody, and you can follow every
+            <a href="{{ '/builds' | url }}">members' build log</a> without signing in. The
+            account is for lending tools, posting your own project and reading
+            the chapter blog.
+          </p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

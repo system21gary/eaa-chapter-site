@@ -1,0 +1,40 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <p class="crumbs"><a href="{{ '/members/admin/log' | url }}">Activity log</a> <span aria-hidden="true">›</span> Queued message</p>
+    <h1>{{ mail.subject }}</h1>
+
+    <div class="notice" style="margin:1.5rem 0">
+      <strong>This message may contain a live invitation or reset link.</strong>
+      Anyone who can read it can set that member's password. Reading queued
+      mail is disabled in production unless explicitly re-enabled.
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <ul class="factlist">
+          <li><span class="label">To</span><span class="mono">{{ mail.to_addr }}</span></li>
+          <li><span class="label">Queued</span><span>{{ mail.created_at | datetime }}</span></li>
+          <li><span class="label">Status</span>
+            <span>
+              {%- if mail.sent_at %}Sent {{ mail.sent_at | relative }}
+              {%- elif mail.error and mail.next_attempt_at %}Attempt {{ mail.attempts }} failed, retrying {{ mail.next_attempt_at | relative }} — {{ mail.error }}
+              {%- elif mail.error %}Gave up after {{ mail.attempts }} attempts — {{ mail.error }}
+              {%- elif mail.next_attempt_at %}Queued for delivery
+              {%- else %}Held — written while no SMTP transport was configured, so it will not be delivered unless you retry it
+              {%- endif %}
+            </span>
+          </li>
+        </ul>
+
+        <hr class="rule" style="margin:1.5rem 0">
+        <pre class="prose" style="white-space:pre-wrap; font-size:.85rem">{{ mail.body_text }}</pre>
+      </div>
+    </div>
+
+    <a class="btn btn-outline" href="{{ '/members/admin/log' | url }}" style="margin-top:1.5rem">Back to the log</a>
+  </div>
+</section>
+{% endblock %}

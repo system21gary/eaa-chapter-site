@@ -1,0 +1,121 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <span class="eyebrow">Say hello</span>
+    <h1>Contact us</h1>
+    <p>Questions about visiting, joining, Young Eagles flights, or that
+       half-finished project in your garage — all welcome. A real member reads
+       these.</p>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap split">
+    <div>
+      {% if sent %}
+        <div class="flash flash-success" role="status">
+          <span class="flash-icon">{{ icon("check", 12) }}</span>
+          <p><strong>Thanks — that's on its way.</strong>
+             We are volunteers with day jobs, so give us a few days. If it is
+             urgent, the phone number for the next event is on its
+             <a href="{{ '/events' | url }}">event page</a>.</p>
+        </div>
+      {% endif %}
+
+      <form method="post" action="{{ '/contact' | url }}" class="form-card">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <input type="hidden" name="rendered_at" value="">
+
+        {# Bot trap: hidden from people, irresistible to naive scrapers. #}
+        <div class="honeypot" aria-hidden="true">
+          <label for="website">Website</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="name">Your name</label>
+            <input type="text" id="name" name="name" required maxlength="100"
+                   autocomplete="name" value="{{ form.name or '' }}"
+                   aria-invalid="{{ 'true' if errors.name }}">
+            {{ err(errors, 'name') }}
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required maxlength="254"
+                   autocomplete="email" value="{{ form.email or '' }}"
+                   aria-invalid="{{ 'true' if errors.email }}">
+            {{ err(errors, 'email') }}
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="topic">What is this about?</label>
+          <select id="topic" name="topic">
+            {% for t in ['General question', 'Visiting / fly-in', 'Young Eagles flight', 'Joining the chapter', 'Building help', 'Something else'] %}
+              <option value="{{ t }}" {{ 'selected' if form.topic == t }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="message">Your message</label>
+          <textarea id="message" name="message" rows="8" required maxlength="4000"
+                    aria-invalid="{{ 'true' if errors.message }}"
+                    placeholder="Tell us what you are after. If you are thinking about visiting, mention whether you are flying in or driving.">{{ form.message or '' }}</textarea>
+          {{ err(errors, 'message') }}
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Send it</button>
+          <span class="small muted">We never share your address with anyone.</span>
+        </div>
+      </form>
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>Find us</h3>
+          <p class="small muted">
+            {{ site.airport.name }} ({{ site.airport.ident }})<br>
+            {{ site.airport.street }}<br>
+            {{ site.airport.city }}, {{ site.airport.state }} {{ site.airport.zip }}
+          </p>
+          <a class="btn btn-outline btn-block btn-sm" href="{{ site.airport | maplink }}" target="_blank" rel="noopener noreferrer">Open in maps</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>Better than email</h3>
+          <p class="small muted">
+            Honestly? Just turn up to something. Everything on the
+            <a href="{{ '/events' | url }}">events calendar</a> is open to visitors, and you
+            will learn more in twenty minutes at the field than in any amount
+            of correspondence.
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>Young Eagles</h3>
+          <p class="small muted">
+            Free first flights for ages 8–17, flown by volunteer chapter
+            pilots. Pick "Young Eagles flight" in the form and we will tell you
+            when the next rally is.
+          </p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

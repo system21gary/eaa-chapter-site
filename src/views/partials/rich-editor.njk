@@ -1,0 +1,39 @@
+{#
+  A rich-text field.
+
+  Renders a normal <textarea> holding the markdown source. When JavaScript is
+  available, site.js replaces it with a Trix editor seeded from the rendered
+  HTML in the <template> below, and flips `<name>_format` to "html" so the
+  server knows to convert the submission back to markdown.
+
+  With JavaScript off the textarea is simply left alone and the member types
+  markdown, exactly as before. Nothing here is required for the form to work.
+
+  Expects: name, label, value (markdown), and optionally rows, hint, error,
+  placeholder.
+#}
+<div class="field rich-field" data-rich-editor>
+  <label for="{{ name }}">{{ label }}</label>
+
+  <textarea id="{{ name }}"
+            name="{{ name }}"
+            rows="{{ rows or 12 }}"
+            data-rich-source
+            {% if required %}required{% endif %}
+            {% if maxlength %}maxlength="{{ maxlength }}"{% endif %}
+            {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+            aria-invalid="{{ 'true' if error }}">{{ value or '' }}</textarea>
+
+  {# The editor's starting content, already rendered and sanitised server-side.
+     A <template> is inert: the browser does not execute or render it. #}
+  <template data-rich-initial>{{ value | markdown | safe }}</template>
+
+  <input type="hidden" name="{{ name }}_format" value="markdown" data-rich-format>
+
+  {% if hint %}<span class="hint">{{ hint }}</span>{% endif %}
+  <span class="hint" data-rich-hint hidden>
+    Formatting: select text and use the buttons, or press
+    <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>B</kbd> for bold.
+  </span>
+  {% if error %}<span class="err">{{ error }}</span>{% endif %}
+</div>

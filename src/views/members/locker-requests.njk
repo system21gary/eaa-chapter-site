@@ -1,0 +1,130 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <p class="crumbs"><a href="{{ '/members/locker' | url }}">Tool Locker</a> <span aria-hidden="true">›</span> Requests</p>
+    <h1>Borrow requests</h1>
+
+    <div class="split" style="margin-top:2rem">
+      <div>
+        <h2>People asking to borrow your tools</h2>
+
+        {% if inbox.length %}
+          <div class="stack" style="margin-top:1.2rem">
+            {% for r in inbox %}
+              <article class="card">
+                <div class="card-body">
+                  <div class="pill-row" style="margin-bottom:.6rem">
+                    <span class="pill pill-{{ 'green' if r.status == 'approved' else ('red' if r.status == 'declined' else ('grey' if r.status in ['returned','cancelled'] else 'amber')) }}">
+                      {{ r.status }}
+                    </span>
+                  </div>
+
+                  <h3 style="margin-bottom:.2rem">{{ r.tool_name }}</h3>
+                  <p class="small muted" style="margin:0 0 .8rem">
+                    {{ r.req_display or (r.req_first ~ ' ' ~ r.req_last) }} ·
+                    asked {{ r.created_at | relative }}
+                    {%- if r.needed_from %} · wants it {{ r.needed_from | shortdate }}{% if r.needed_to %}–{{ r.needed_to | shortdate }}{% endif %}{% endif %}
+                  </p>
+
+                  <p style="white-space:pre-wrap">{{ r.message }}</p>
+
+                  {% if r.status == 'approved' %}
+                    <p class="small muted">
+                      Their contact details: <a href="mailto:{{ r.req_email }}">{{ r.req_email }}</a>
+                      {%- if r.req_phone %} · <a href="tel:{{ r.req_phone }}">{{ r.req_phone | phone }}</a>{% endif %}
+                    </p>
+                  {% endif %}
+
+                  {% if r.owner_reply %}
+                    <div class="notice" style="margin-top:1rem">
+                      <strong>Your reply:</strong> {{ r.owner_reply }}
+                    </div>
+                  {% endif %}
+
+                  {% if r.status in ['pending', 'approved'] %}
+                    <form method="post" action="{{ '' | url }}/members/locker/requests/{{ r.id }}/respond" style="margin-top:1.2rem">
+                      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                      <div class="field">
+                        <label for="reply-{{ r.id }}">Add a note <span class="muted">(optional)</span></label>
+                        <input type="text" id="reply-{{ r.id }}" name="reply" maxlength="1000"
+                               placeholder="{{ 'Sure — it is in the blue cabinet, help yourself.' if r.status == 'pending' else 'Thanks for bringing it back.' }}">
+                      </div>
+                      <div class="entry-actions">
+                        {% if r.status == 'pending' %}
+                          <button type="submit" name="decision" value="approved" class="btn btn-primary btn-sm">Approve</button>
+                          <button type="submit" name="decision" value="declined" class="btn btn-outline btn-sm">Decline</button>
+                        {% else %}
+                          <button type="submit" name="decision" value="returned" class="btn btn-primary btn-sm">Mark returned</button>
+                        {% endif %}
+                      </div>
+                    </form>
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty">
+            <div class="icon">{{ icon("mail", 44) }}</div>
+            <h3>No requests</h3>
+            <p>Nobody has asked to borrow anything of yours yet.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <aside class="sidebar">
+        <div class="card">
+          <div class="card-body">
+            <h3>Your requests</h3>
+
+            {% if outbox.length %}
+              <div class="stack" style="margin-top:1rem">
+                {% for r in outbox %}
+                  <div style="padding-bottom:.9rem; border-bottom:1px solid var(--line)">
+                    <p class="small" style="margin:0 0 .2rem">
+                      <a href="{{ '' | url }}/members/locker/{{ r.tool_id }}">{{ r.tool_name }}</a>
+                      <span class="pill pill-{{ 'green' if r.status == 'approved' else ('red' if r.status == 'declined' else 'grey') }}">{{ r.status }}</span>
+                    </p>
+                    <p class="tiny muted" style="margin:0">
+                      from {{ r.owner_display or (r.owner_first ~ ' ' ~ r.owner_last) }} ·
+                      {{ r.created_at | relative }}
+                    </p>
+                    {% if r.owner_reply %}
+                      <p class="tiny muted" style="margin:.3rem 0 0">“{{ r.owner_reply }}”</p>
+                    {% endif %}
+                    {% if r.status == 'pending' %}
+                      <form method="post" action="{{ '' | url }}/members/locker/requests/{{ r.id }}/cancel" style="margin-top:.4rem">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <button type="submit" class="link-button" style="color:var(--red)">Cancel request</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="small muted">
+                You have not asked to borrow anything.
+                <a href="{{ '/members/locker' | url }}">Have a browse</a>.
+              </p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <h3>House rules</h3>
+            <ul class="plain small muted">
+              <li>· Return it clean and on time.</li>
+              <li>· If you break it, say so. Everyone breaks things.</li>
+              <li>· Do not lend on a borrowed tool to a third person.</li>
+              <li>· Say thank you. It is not much to ask.</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

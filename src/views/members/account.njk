@@ -1,0 +1,156 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Members Corner</span>
+      <h1>Your account</h1>
+
+      <form method="post" action="{{ '/members/account' | url }}" class="form-card" style="margin-top:1.5rem">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+        <fieldset>
+          <legend>How you appear to other members</legend>
+
+          <div class="field">
+            <span class="label-text">Name on file</span>
+            <p class="muted" style="margin:0">
+              {{ currentUser.first_name }} {{ currentUser.last_name }} ·
+              <span class="mono">{{ currentUser.email }}</span>
+            </p>
+            <span class="hint">
+              Ask an officer if your name or email needs changing — those are
+              tied to your membership record.
+            </span>
+          </div>
+
+          <div class="field">
+            <label for="display_name">Display name</label>
+            <input type="text" id="display_name" name="display_name" maxlength="80"
+                   value="{{ form.display_name or '' }}" placeholder="What people actually call you">
+            {{ err(errors, 'display_name') }}
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="phone">Phone</label>
+              <input type="tel" id="phone" name="phone" maxlength="32" value="{{ form.phone or '' }}">
+              <span class="hint">Members only. Never public.</span>
+              {{ err(errors, 'phone') }}
+            </div>
+
+            <div class="field">
+              <label for="eaa_number">EAA number</label>
+              <input type="text" id="eaa_number" name="eaa_number" maxlength="20" value="{{ form.eaa_number or '' }}">
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="aircraft">What you fly</label>
+              <input type="text" id="aircraft" name="aircraft" maxlength="120"
+                     value="{{ form.aircraft or '' }}" placeholder="1946 Aeronca Champ">
+            </div>
+
+            <div class="field">
+              <label for="home_base">Home base</label>
+              <input type="text" id="home_base" name="home_base" maxlength="80"
+                     value="{{ form.home_base or '' }}" placeholder="South Albany (4B0)">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="bio">A line or two about you</label>
+            <textarea id="bio" name="bio" rows="4" maxlength="1500">{{ form.bio or '' }}</textarea>
+            {{ err(errors, 'bio') }}
+          </div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save profile</button>
+        </div>
+      </form>
+
+      <form method="post" action="{{ '/members/account/avatar' | url }}" enctype="multipart/form-data"
+            class="form-card" style="margin-top:1.5rem">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <h3>Your photo</h3>
+        <div style="display:flex; gap:1.2rem; align-items:center; margin:1rem 0">
+          {% if currentUser.avatar_path %}
+            <img src="{{ currentUser.avatar_path | media }}" alt="" class="avatar avatar-lg">
+          {% else %}
+            <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ currentUser | initials }}</span>
+          {% endif %}
+          <div class="field" style="flex:1; margin:0">
+            <label for="avatar">Upload a new one</label>
+            <input type="file" id="avatar" name="avatar" accept="image/*">
+            <span class="hint">Square works best. Location data is stripped automatically.</span>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-outline btn-sm">Update photo</button>
+      </form>
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>Password</h3>
+          <p class="small muted">
+            We store a one-way hash of your password and nothing else, so there
+            is no "change password" box here that could be used against you if
+            someone got hold of your open laptop. Instead we email you a
+            one-time link.
+          </p>
+          <form method="post" action="{{ '/members/account/password' | url }}">
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            <button type="submit" class="btn btn-outline btn-block btn-sm">Email me a reset link</button>
+          </form>
+          {% if currentUser.password_set_at %}
+            <p class="tiny muted" style="margin:.8rem 0 0">
+              Last changed {{ currentUser.password_set_at | relative }}.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>Signed-in devices</h3>
+          <p class="small muted">
+            {{ sessions.length }} active session{{ 's' if sessions.length != 1 }}.
+            Used a library computer or a friend's laptop? Clear the rest.
+          </p>
+          <form method="post" action="{{ '/logout-everywhere' | url }}"
+                data-confirm="Sign out every other device?">
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            <button type="submit" class="btn btn-outline btn-block btn-sm">Sign out everywhere else</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h3>Your role</h3>
+          <p class="small muted" style="margin:0">
+            <span class="pill pill-amber">{{ currentUser.role }}</span><br>
+            {% if currentUser.role == 'member' %}
+              Members can use the Tool Locker, keep build logs, read and comment
+              on the blog.
+            {% elif currentUser.role == 'editor' %}
+              Editors can also write blog posts and manage the events calendar.
+            {% else %}
+              Administrators can additionally invite members, change roles and
+              read the activity log.
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

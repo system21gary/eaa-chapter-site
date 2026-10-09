@@ -1,0 +1,35 @@
+{
+  "name": "eaa1699-website",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Website for EAA Chapter 1699 - South Albany Airport (4B0), Selkirk NY",
+  "type": "module",
+  "engines": {
+    "node": ">=23.4.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node src/db/migrate.js",
+    "seed": "node src/db/seed.js",
+    "reset": "node src/db/reset.js",
+    "mail:check": "node scripts/mail-check.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "compression": "^1.7.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "marked": "^15.0.6",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^10.0.16",
+    "nunjucks": "^3.2.4",
+    "sanitize-html": "^2.14.0",
+    "sharp": "^0.35.5",
+    "trix": "^2.1.19",
+    "turndown": "^7.2.4"
+  }
+}

@@ -1,0 +1,127 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Members Corner</span>
+        <h1>The Tool Locker</h1>
+        <p>
+          Tools our members own and are willing to lend. Nobody should buy a
+          $400 tool for one weekend's work — ask first.
+        </p>
+      </div>
+      <div style="display:flex; gap:.6rem; flex-wrap:wrap">
+        {% if pendingCount %}
+          <a class="btn btn-outline" href="{{ '/members/locker/requests' | url }}">
+            Requests <span class="pill pill-amber">{{ pendingCount }}</span>
+          </a>
+        {% else %}
+          <a class="btn btn-outline" href="{{ '/members/locker/requests' | url }}">Requests</a>
+        {% endif %}
+        <a class="btn btn-primary" href="{{ '/members/locker/new' | url }}">Add a tool</a>
+      </div>
+    </div>
+
+    <div class="statstrip" style="margin-bottom:2rem">
+      <div><div class="n">{{ stats.tools }}</div><div class="l">Tools listed</div></div>
+      <div><div class="n">{{ stats.available }}</div><div class="l">Available now</div></div>
+      <div><div class="n">{{ stats.onLoan }}</div><div class="l">Out on loan</div></div>
+      <div><div class="n">{{ stats.owners }}</div><div class="l">Members lending</div></div>
+    </div>
+
+    <form method="get" action="{{ '/members/locker' | url }}" class="filterbar" data-autosubmit>
+      <input type="search" name="q" value="{{ filters.q or '' }}"
+             placeholder="Search tools, brands, descriptions…" aria-label="Search tools">
+
+      <select name="category" aria-label="Category">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.slug }}" {{ 'selected' if filters.category == cat.slug }}>
+            {{ cat.label }} ({{ cat.tool_count }})
+          </option>
+        {% endfor %}
+      </select>
+
+      <select name="availability" aria-label="Availability">
+        <option value="">Any status</option>
+        <option value="available" {{ 'selected' if filters.availability == 'available' }}>Available</option>
+        <option value="on-loan" {{ 'selected' if filters.availability == 'on-loan' }}>On loan</option>
+        <option value="unavailable" {{ 'selected' if filters.availability == 'unavailable' }}>Unavailable</option>
+      </select>
+
+      <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+      {% if filters.q or filters.category or filters.availability or filters.ownerId %}
+        <a class="btn btn-outline btn-sm" href="{{ '/members/locker' | url }}">Clear</a>
+      {% endif %}
+      <a class="btn btn-outline btn-sm" href="{{ '/members/locker?mine=1' | url }}">Just mine</a>
+    </form>
+
+    {% if tools.length %}
+      <div class="grid grid-3">
+        {% for tool in tools %}
+          <a class="card card-link tool-card" href="{{ '' | url }}/members/locker/{{ tool.id }}">
+            <div class="shot">
+              {% if tool.thumb_path %}
+                <img src="{{ tool.thumb_path | media }}" alt="{{ tool.name }}" loading="lazy">
+              {% else %}
+                <span class="noshot">{{ icon("tools", 60) }}</span>
+              {% endif %}
+              {% if tool.image_count > 1 %}
+                <span class="count">{{ tool.image_count }} photos</span>
+              {% endif %}
+            </div>
+
+            <div class="card-body" style="display:flex; flex-direction:column; flex:1">
+              <div class="pill-row" style="margin-bottom:.55rem">
+                <span class="pill pill-{{ 'green' if tool.availability == 'available' else ('amber' if tool.availability == 'on-loan' else 'grey') }}">
+                  {{ tool.availability | replace("-", " ") }}
+                </span>
+                {% if tool.category_label %}<span class="pill">{{ tool.category_label }}</span>{% endif %}
+                {% if tool.requires_checkout %}<span class="pill pill-red">Checkout required</span>{% endif %}
+              </div>
+
+              <h3 style="margin-bottom:.2rem">{{ tool.name }}</h3>
+              {% if tool.brand or tool.model %}
+                <p class="small muted" style="margin:0 0 .6rem">{{ tool.brand }} {{ tool.model }}</p>
+              {% endif %}
+
+              {% if tool.description %}
+                <p class="small muted" style="margin:0">{{ tool.description | plain | truncate(100) }}</p>
+              {% endif %}
+
+              {% if tool.location_label %}
+                <p class="tiny muted" style="margin:.6rem 0 0">{{ icon("pin", 11) }} {{ tool.location_label }}</p>
+              {% endif %}
+
+              <div class="owner">
+                {% if tool.owner_avatar %}
+                  <img src="{{ tool.owner_avatar | media }}" alt="" class="avatar">
+                {% else %}
+                  <span class="avatar avatar-initials" aria-hidden="true">{{ tool | initials }}</span>
+                {% endif %}
+                <span>{{ tool.owner_display or (tool.owner_first ~ ' ' ~ tool.owner_last) }}</span>
+              </div>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("tools", 44) }}</div>
+        <h3>{{ 'Nothing matches that search' if filters.q else 'The locker is empty' }}</h3>
+        <p>
+          {% if filters.q %}
+            Try a broader search, or <a href="{{ '/members/locker' | url }}">show everything</a>.
+          {% else %}
+            Be the first. List a tool you would happily lend to another member —
+            it takes about a minute.
+          {% endif %}
+        </p>
+        <a class="btn btn-primary" href="{{ '/members/locker/new' | url }}" style="margin-top:1.2rem">Add a tool</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

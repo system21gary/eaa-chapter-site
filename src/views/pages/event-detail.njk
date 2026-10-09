@@ -1,0 +1,139 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <p class="crumbs">
+      <a href="{{ ('/events/past' if isPast else '/events') | url }}">{{ 'Past events' if isPast else 'Upcoming events' }}</a>
+      <span aria-hidden="true">›</span> {{ event.title }}
+    </p>
+    <div class="pill-row" style="margin-bottom:.9rem">
+      <span class="pill">{{ event.kind | replace("-", " ") }}</span>
+      {% if event.status == 'cancelled' %}<span class="pill pill-red">Cancelled</span>{% endif %}
+      {% if event.status == 'draft' %}<span class="pill pill-grey">Draft — visible to editors only</span>{% endif %}
+    </div>
+    <h1>{{ event.title }}</h1>
+    <p>{{ event.summary }}</p>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap split">
+    <div>
+      {% if event.poster_path %}
+        <p>
+          <img src="{{ event.poster_path | media }}"
+               alt="{{ event.poster_alt or event.title }}"
+               style="width:100%;border-radius:var(--radius-lg);box-shadow:var(--shadow-md)">
+        </p>
+      {% endif %}
+
+      {% if event.status == 'cancelled' %}
+        <div class="notice" style="margin-bottom:1.5rem">
+          <strong>This event has been cancelled.</strong>
+          Check the <a href="{{ '/events' | url }}">calendar</a> for what is on next.
+        </div>
+      {% endif %}
+
+      {% if event.body_html %}
+        <div class="prose">{{ event.body_html | safe }}</div>
+      {% endif %}
+
+      {% if isPast and event.recap_html %}
+        <hr class="rule">
+        <h2>How it went</h2>
+        <div class="prose">{{ event.recap_html | safe }}</div>
+        {% if event.attendance %}
+          <p class="muted"><strong>{{ event.attendance }}</strong> people came through.</p>
+        {% endif %}
+      {% endif %}
+
+      {% if event.photos and event.photos.length %}
+        <hr class="rule">
+        <h2>Photos</h2>
+        {% set carouselId = 'event-' ~ event.id %}
+        {% set photos = event.photos %}
+        {% include "partials/carousel.njk" %}
+
+        <div class="gallery" style="margin-top:1.2rem">
+          {% for photo in event.photos %}
+            <a href="{{ photo.full_path | media }}" target="_blank" rel="noopener">
+              <img src="{{ photo.thumb_path | media }}" alt="{{ photo.caption or '' }}" loading="lazy">
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>{{ 'It happened' if isPast else 'The details' }}</h3>
+          <ul class="factlist" style="margin-top:1rem">
+            <li><span class="label">When</span>
+              <span>
+                <time datetime="{{ event.starts_at | isodate }}">{{ event.starts_at | date }}</time><br>
+                <span class="muted">{{ event.starts_at | timerange(event.ends_at, event.all_day) }}</span>
+              </span>
+            </li>
+            {% if event.rain_date %}
+              <li><span class="label">Rain date</span><span>{{ event.rain_date | date }}</span></li>
+            {% endif %}
+            {% if event.location_name %}
+              <li><span class="label">Where</span>
+                <span>{{ event.location_name }}<br>
+                  <span class="muted">
+                    {{ event.address }}{% if event.city %}<br>{{ event.city }}, {{ event.state }} {{ event.zip }}{% endif %}
+                  </span>
+                </span>
+              </li>
+            {% endif %}
+            {% if event.cost %}<li><span class="label">Cost</span><span>{{ event.cost }}</span></li>{% endif %}
+            {% if event.contact_name %}
+              <li><span class="label">Contact</span>
+                <span>{{ event.contact_name }}
+                  {% if event.contact_email %}<br><a href="mailto:{{ event.contact_email }}">{{ event.contact_email }}</a>{% endif %}
+                  {% if event.contact_phone %}<br><a href="tel:{{ event.contact_phone }}">{{ event.contact_phone | phone }}</a>{% endif %}
+                </span>
+              </li>
+            {% endif %}
+          </ul>
+
+          {% if event | maplink %}
+            <a class="btn btn-outline btn-block btn-sm" href="{{ event | maplink }}" target="_blank" rel="noopener noreferrer">Directions</a>
+          {% endif %}
+          {% if not isPast %}
+            <a class="btn btn-primary btn-block btn-sm" href="{{ '/events/calendar.ics' | url }}" style="margin-top:.6rem">Add to your calendar</a>
+          {% endif %}
+          {% if event.external_url %}
+            <a class="btn btn-outline btn-block btn-sm" href="{{ event.external_url }}" target="_blank" rel="noopener noreferrer nofollow" style="margin-top:.6rem">More info ↗</a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if not isPast %}
+        <div class="card">
+          <div class="card-body">
+            <h3>First time visiting?</h3>
+            <p class="small muted">
+              Fly in or drive in — both are equally welcome. If you are flying,
+              check {{ site.airport.ident }} for current field conditions and
+              give it a look from overhead first.
+            </p>
+            <a class="btn btn-outline btn-block btn-sm" href="{{ '/about' | url }}">About the chapter</a>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if currentUser and currentUser.role in ['editor', 'admin'] %}
+        <div class="card">
+          <div class="card-body">
+            <h3>Editor tools</h3>
+            <a class="btn btn-outline btn-block btn-sm" href="{{ '' | url }}/members/admin/events/{{ event.id }}/edit">Edit this event</a>
+          </div>
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+</section>
+{% endblock %}

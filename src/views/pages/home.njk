@@ -1,0 +1,262 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div>
+      <span class="eyebrow">Experimental Aircraft Association · Chapter 1699</span>
+      <h1>Come for the airplanes.<br>Stay for the <em>people</em>.</h1>
+      <p class="hero-lede">
+        We are builders, pilots, mechanics, students and plain old airplane
+        enthusiasts who share a grass field in Selkirk, New York. If you have
+        ever wanted to look inside a half-finished fuselage, ask a dumb
+        question about fabric covering, or just eat pancakes while something
+        with a radial engine taxis past — you already belong here.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="{{ '/events' | url }}">See what's coming up</a>
+        <a class="btn btn-ghost" href="{{ '/contact' | url }}">Plan your first visit</a>
+      </div>
+    </div>
+
+    <figure class="hero-art">
+      <img src="{{ 'img/pancake-breakfast-2026.webp' | asset }}"
+           alt="Cartoon of a yellow and blue taildragger flying low over a grass field while families wave from a pancake breakfast tent beside a red barn marked South Albany Airport 4B0"
+           width="1400" height="759" fetchpriority="high">
+      <figcaption>Our fly-in breakfast, more or less exactly as it happens.</figcaption>
+    </figure>
+  </div>
+</section>
+
+{% if nextEvent %}
+<section class="band">
+  <div class="wrap">
+    <div class="next-event">
+      <div class="details">
+        <span class="eyebrow">Next up</span>
+        {% set days = nextEvent.starts_at | daysuntil %}
+        {% if days != null and days >= 0 %}
+          <p><span class="countdown">
+            {% if days == 0 %}Happening today{% elif days == 1 %}Tomorrow{% else %}In {{ days }} days{% endif %}
+          </span></p>
+        {% endif %}
+        <h2>{{ nextEvent.title }}</h2>
+        <p class="muted">{{ nextEvent.summary }}</p>
+
+        <ul class="factlist">
+          <li><span class="label">When</span>
+            <span>{{ nextEvent.starts_at | date }}<br>
+            <span class="muted">{{ nextEvent.starts_at | timerange(nextEvent.ends_at, nextEvent.all_day) }}</span></span>
+          </li>
+          <li><span class="label">Where</span>
+            <span>{{ nextEvent.location_name }}<br>
+            <span class="muted">{{ nextEvent.address }}, {{ nextEvent.city }}, {{ nextEvent.state }}</span></span>
+          </li>
+          {% if nextEvent.cost %}
+            <li><span class="label">Cost</span><span>{{ nextEvent.cost }}</span></li>
+          {% endif %}
+          {% if nextEvent.rain_date %}
+            <li><span class="label">Rain date</span><span>{{ nextEvent.rain_date | date }}</span></li>
+          {% endif %}
+        </ul>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="{{ '' | url }}/events/{{ nextEvent.slug }}">Details &amp; directions</a>
+          <a class="btn btn-outline" href="{{ '/events/calendar.ics' | url }}">Add to calendar</a>
+        </div>
+      </div>
+
+      <div class="art">
+        {% if nextEvent.poster_path %}
+          <img src="{{ nextEvent.poster_path | media }}" alt="{{ nextEvent.poster_alt or nextEvent.title }}">
+        {% else %}
+          <img src="{{ 'img/pancake-breakfast-2026.webp' | asset }}" alt="">
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="band band-alt">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Who we are</span>
+        <h2>A chapter is really just a hangar full of people who help</h2>
+      </div>
+    </div>
+
+    <div class="grid grid-3">
+      <article class="card">
+        <div class="card-body">
+          <h3>Builders and restorers</h3>
+          <p class="muted">
+            Somebody in this chapter has already made the mistake you are about
+            to make, and will happily tell you about it. Our EAA
+            <strong>Technical Counselors</strong> come look at your project in
+            person, at no charge, and tell you the truth.
+          </p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <h3>Pilots, current and rusty</h3>
+          <p class="muted">
+            <strong>Flight Advisors</strong> help you plan a first flight in a
+            new-to-you type. Our <strong>IMC and VMC Club</strong> nights work
+            real scenarios as a group — the kind of hangar-flying that quietly
+            makes everyone safer.
+          </p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <h3>The next generation</h3>
+          <p class="muted">
+            <strong>Young Eagles</strong> gives kids aged 8–17 a free first
+            flight. The <strong>Ray Aviation Scholarship</strong> goes further,
+            funding a chapter youth all the way to a pilot certificate.
+          </p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <h3>Anyone who likes breakfast</h3>
+          <p class="muted">
+            You do not need an airplane, a licence, or the faintest idea what a
+            magneto does. Our fly-in breakfasts are open to everybody, and
+            arriving by car is completely respectable.
+          </p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <h3>A shared tool locker</h3>
+          <p class="muted">
+            Members list the tools they own and are willing to lend — from
+            torque wrenches to a rivet squeezer to an engine hoist. Nobody
+            should buy a $400 tool for one weekend's work.
+          </p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <h3>Home field: {{ site.airport.ident }}</h3>
+          <p class="muted">
+            {{ site.airport.name }} is one of the oldest privately owned,
+            public-use fields in New York, on the books since 1946.
+            {{ site.airport.runway }}, {{ site.airport.fuel }}.
+            <a href="{{ site.airport | maplink }}" target="_blank" rel="noopener noreferrer">See it on the map</a>.
+          </p>
+        </div>
+      </article>
+    </div>
+
+    <div class="center" style="margin-top:2.5rem">
+      <a class="btn btn-secondary" href="{{ '/about' | url }}">More about the chapter</a>
+    </div>
+  </div>
+</section>
+
+{% if upcoming.length %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">On the calendar</span>
+        <h2>Also coming up</h2>
+      </div>
+      <a class="btn btn-outline btn-sm" href="{{ '/events' | url }}">All upcoming events</a>
+    </div>
+
+    <div class="grid grid-3">
+      {% for event in upcoming %}
+        {% include "partials/event-card.njk" %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if builds.length %}
+<section class="band band-alt">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">In the hangar</span>
+        <h2>What our members are building</h2>
+        <p>
+          {{ buildStats.projects }} project{{ 's' if buildStats.projects != 1 }} in progress,
+          {{ buildStats.updates }} log entries, and
+          {{ buildStats.hours }} hours of honest work written down where
+          everyone can learn from it.
+        </p>
+      </div>
+      <a class="btn btn-outline btn-sm" href="{{ '/builds' | url }}">Follow the builds</a>
+    </div>
+
+    <div class="grid grid-3">
+      {% for build in builds %}
+        {% include "partials/build-card.njk" %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if recentEvents.length %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Look back</span>
+        <h2>Recently at the field</h2>
+      </div>
+      <a class="btn btn-outline btn-sm" href="{{ '/events/past' | url }}">Browse past events</a>
+    </div>
+
+    <div class="grid grid-3">
+      {% for event in recentEvents %}
+        {% include "partials/event-card.njk" %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="band">
+  <div class="wrap">
+    <div class="next-event">
+      <div class="details">
+        <span class="eyebrow">Come say hello</span>
+        <h2>The first visit is the hardest. It shouldn't be.</h2>
+        <p class="muted">
+          Walk up. Somebody will talk to you within about ninety seconds —
+          that is not a promise so much as a warning. Bring a folding chair if
+          it is a breakfast morning, bring questions if it is a meeting night,
+          and bring the kids either way.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="{{ '/contact' | url }}">Send us a note</a>
+          <a class="btn btn-outline" href="{{ '/events' | url }}">Pick an event</a>
+        </div>
+      </div>
+      <div class="art" style="background:var(--paper); padding:2rem">
+        <div class="statstrip" style="width:100%">
+          <div><div class="n">{{ stats.tools }}</div><div class="l">Tools shared</div></div>
+          <div><div class="n">1946</div><div class="l">Field opened</div></div>
+          <div><div class="n">4B0</div><div class="l">Come on in</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Members Corner</span>
+        <h1>Chapter blog</h1>
+        <p>Meeting notes, project write-ups, safety discussions, and whatever
+           else somebody felt strongly enough to write down.</p>
+      </div>
+      {% if canWrite %}
+        <a class="btn btn-primary" href="{{ '/members/blog/new' | url }}">Write a post</a>
+      {% endif %}
+    </div>
+
+    {% if tags.length %}
+      <nav class="chipnav" aria-label="Filter by tag">
+        <a href="{{ '/members/blog' | url }}" {% if not activeTag %}aria-current="page"{% endif %}>All posts</a>
+        {% for t in tags %}
+          <a href="{{ '' | url }}/members/blog?tag={{ t.tag }}" {% if activeTag == t.tag %}aria-current="page"{% endif %}>
+            {{ t.tag }} <span class="muted">{{ t.n }}</span>
+          </a>
+        {% endfor %}
+      </nav>
+    {% endif %}
+
+    {% if posts.length %}
+      <div class="grid grid-3">
+        {% for post in posts %}
+          <article class="card card-link event-card">
+            {% if post.cover_path %}
+              <a href="{{ '' | url }}/members/blog/{{ post.slug }}" class="poster">
+                <img src="{{ post.cover_path | media }}" alt="{{ post.cover_alt or '' }}" loading="lazy">
+              </a>
+            {% endif %}
+            <div class="card-body">
+              <div class="pill-row" style="margin-bottom:.6rem">
+                {% if post.pinned %}<span class="pill pill-amber">Pinned</span>{% endif %}
+                {% if post.status == 'draft' %}<span class="pill pill-grey">Draft</span>{% endif %}
+                {% if post.visibility == 'public' %}<span class="pill">Public</span>{% endif %}
+              </div>
+
+              <h3 style="margin-bottom:.3rem">
+                <a href="{{ '' | url }}/members/blog/{{ post.slug }}">{{ post.title }}</a>
+              </h3>
+
+              <p class="small muted" style="margin:0 0 .7rem">
+                {{ post.author_display or (post.author_first ~ ' ' ~ post.author_last) }} ·
+                {{ (post.published_at or post.created_at) | shortdate }}
+                {%- if post.comment_count %} · {{ post.comment_count }} comment{{ 's' if post.comment_count != 1 }}{% endif %}
+              </p>
+
+              <p class="small muted" style="margin:0">{{ post.summary | truncate(140) }}</p>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+
+      {% if page > 1 or hasNext %}
+        <nav class="chipnav" style="margin-top:2rem; justify-content:center" aria-label="Pages">
+          {% if page > 1 %}
+            <a href="{{ '' | url }}/members/blog?page={{ page - 1 }}{{ '&tag=' ~ activeTag if activeTag }}">← Newer</a>
+          {% endif %}
+          {% if hasNext %}
+            <a href="{{ '' | url }}/members/blog?page={{ page + 1 }}{{ '&tag=' ~ activeTag if activeTag }}">Older →</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("pen", 44) }}</div>
+        <h3>No posts yet</h3>
+        <p>
+          {% if canWrite %}
+            The blank page is the hardest part. <a href="{{ '/members/blog/new' | url }}">Write the first post</a> —
+            even a paragraph about last month's meeting counts.
+          {% else %}
+            Nothing here yet. Once an editor posts, it will show up on this page.
+          {% endif %}
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <span class="eyebrow">Calendar</span>
+    <h1>Upcoming events</h1>
+    <p>Fly-in breakfasts, Young Eagles rallies, workshops and meeting nights.
+       Everything here is open to visitors unless it says otherwise — and
+       arriving by car is always fine.</p>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap">
+    {% if events.length %}
+      <div class="section-head">
+        <p class="muted">{{ events.length }} event{{ 's' if events.length != 1 }} on the calendar.</p>
+        <a class="btn btn-outline btn-sm" href="{{ '/events/calendar.ics' | url }}">
+          Subscribe in your calendar app
+        </a>
+      </div>
+
+      <div class="grid grid-3">
+        {% for event in events %}
+          {% include "partials/event-card.njk" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("calendar", 44) }}</div>
+        <h3>Nothing on the books just yet</h3>
+        <p>
+          The calendar is between seasons. Have a look at
+          <a href="{{ '/events/past' | url }}">what we have been up to</a>, or
+          <a href="{{ '/contact' | url }}">drop us a line</a> and we will tell you what is
+          being planned.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

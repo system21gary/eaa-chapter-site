@@ -1,0 +1,10 @@
+{% if flash %}
+  <div class="wrap">
+    <div class="flash flash-{{ flash.type }}" role="status">
+      <span class="flash-icon" aria-hidden="true">
+        {% if flash.type == 'success' %}{{ icon('check', 12) }}{% elif flash.type == 'error' %}!{% else %}i{% endif %}
+      </span>
+      <p>{{ flash.message }}</p>
+    </div>
+  </div>
+{% endif %}

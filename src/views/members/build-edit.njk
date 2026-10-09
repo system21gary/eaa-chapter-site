@@ -1,0 +1,213 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <span class="eyebrow">{{ 'New project' if isNew else 'Edit project' }}</span>
+    <h1>{{ 'Start a build log' if isNew else build.title }}</h1>
+    <p class="muted">
+      This is the front page of your project. Log entries come next — you can
+      add them as often or as rarely as real life allows.
+    </p>
+
+    <form method="post"
+          action="{{ ('/members/builds/new' if isNew else '/members/builds/' ~ build.id ~ '/edit') | url }}"
+          enctype="multipart/form-data" class="form-card" style="margin-top:2rem">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <fieldset>
+        <legend>The aircraft</legend>
+
+        <div class="field">
+          <label for="title">Project name</label>
+          <input type="text" id="title" name="title" required maxlength="120"
+                 value="{{ build.title or '' }}"
+                 placeholder="e.g. Bob's RV-7A"
+                 aria-invalid="{{ 'true' if errors.title }}">
+          {{ err(errors, 'title') }}
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="aircraft_type">Aircraft type</label>
+            <input type="text" id="aircraft_type" name="aircraft_type" required maxlength="100"
+                   value="{{ build.aircraft_type or '' }}"
+                   placeholder="Van's RV-7A"
+                   aria-invalid="{{ 'true' if errors.aircraft_type }}">
+            {{ err(errors, 'aircraft_type') }}
+          </div>
+
+          <div class="field">
+            <label for="tail_number">Registration <span class="muted">(optional)</span></label>
+            <input type="text" id="tail_number" name="tail_number" maxlength="12"
+                   value="{{ build.tail_number or '' }}" placeholder="N530PB">
+            {{ err(errors, 'tail_number') }}
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="build_kind">Project type</label>
+            <select id="build_kind" name="build_kind">
+              {% for k in kinds %}
+                <option value="{{ k }}" {{ 'selected' if build.build_kind == k }}>{{ kindLabels[k] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="status">Where it stands</label>
+            <select id="status" name="status">
+              {% for s in statuses %}
+                <option value="{{ s }}" {{ 'selected' if build.status == s }}>{{ statusLabels[s] | safe }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="percent_complete">Percent complete</label>
+            <input type="number" id="percent_complete" name="percent_complete" min="0" max="100"
+                   value="{{ build.percent_complete if build.percent_complete != null else 0 }}">
+            <span class="hint">Your honest guess. Everyone's is wrong.</span>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Details</legend>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="engine">Engine <span class="muted">(optional)</span></label>
+            <input type="text" id="engine" name="engine" maxlength="120"
+                   value="{{ build.engine or '' }}" placeholder="Lycoming O-360-A1A">
+          </div>
+          <div class="field">
+            <label for="panel">Panel <span class="muted">(optional)</span></label>
+            <input type="text" id="panel" name="panel" maxlength="200"
+                   value="{{ build.panel or '' }}" placeholder="Dual Garmin G3X Touch">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="started_on">Started</label>
+            <input type="date" id="started_on" name="started_on"
+                   value="{{ build.started_on | isodate | truncate(10) if build.started_on else '' }}">
+          </div>
+          <div class="field">
+            <label for="first_flight_on">First flight <span class="muted">(if it has flown)</span></label>
+            <input type="date" id="first_flight_on" name="first_flight_on"
+                   value="{{ build.first_flight_on | isodate | truncate(10) if build.first_flight_on else '' }}">
+          </div>
+          <div class="field">
+            <label for="hangar">Where it lives</label>
+            <input type="text" id="hangar" name="hangar" maxlength="120"
+                   value="{{ build.hangar or '' }}" placeholder="Hangar 4, 4B0">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="summary">One-line summary</label>
+          <input type="text" id="summary" name="summary" maxlength="300"
+                 value="{{ build.summary or '' }}"
+                 placeholder="Quick-build kit started in 2023, wings closed, fuselage on the gear.">
+          <span class="hint">Shows on the builds index. Leave blank and we'll write one from your description.</span>
+        </div>
+
+        {% set name = 'body_md' %}
+        {% set label = 'About this project' %}
+        {% set value = build.body_md %}
+        {% set rows = 12 %}
+        {% set maxlength = null %}
+        {% set required = false %}
+        {% set placeholder = 'Why this aeroplane? What are you changing from stock? What are you dreading?' %}
+        {% set hint = null %}
+        {% set error = errors.body_md %}
+        {% include "partials/rich-editor.njk" %}
+
+        <div class="field">
+          <label for="external_log_url">External builder log <span class="muted">(optional)</span></label>
+          <input type="url" id="external_log_url" name="external_log_url" maxlength="500"
+                 value="{{ build.external_log_url or '' }}"
+                 placeholder="https://www.mykitlog.com/…"
+                 aria-invalid="{{ 'true' if errors.external_log_url }}">
+          {{ err(errors, 'external_log_url') }}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cover photo</legend>
+
+        {% if build.cover_path %}
+          <p><img src="{{ build.cover_path | media }}" alt="" style="max-width:320px;border-radius:12px"></p>
+        {% endif %}
+
+        <div class="field">
+          <label for="cover">{{ 'Replace cover photo' if build.cover_path else 'Cover photo' }}</label>
+          <input type="file" id="cover" name="cover" accept="image/*" data-preview="#cover-preview">
+          <span class="hint">
+            One good wide shot. We resize and re-encode it, which also strips
+            the GPS tag your phone attached to it.
+          </span>
+        </div>
+        <div id="cover-preview" class="preview-grid"></div>
+
+        <div class="field">
+          <label for="cover_alt">Describe the photo</label>
+          <input type="text" id="cover_alt" name="cover_alt" maxlength="200"
+                 value="{{ build.cover_alt or '' }}"
+                 placeholder="RV-7A fuselage on the gear in a home garage">
+          <span class="hint">For members using a screen reader, and for search engines.</span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Who can see it</legend>
+        <div class="check">
+          <input type="radio" id="vis-public" name="visibility" value="public"
+                 {{ 'checked' if build.visibility != 'members' }}>
+          <label for="vis-public">
+            <strong>Public</strong> — appears on the chapter's Members' builds
+            page for anyone to follow.
+          </label>
+        </div>
+        <div class="check">
+          <input type="radio" id="vis-members" name="visibility" value="members"
+                 {{ 'checked' if build.visibility == 'members' }}>
+          <label for="vis-members">
+            <strong>Members only</strong> — visible to signed-in chapter
+            members. Sensible if you would rather not advertise a garage full
+            of expensive parts.
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          {{ 'Create build log' if isNew else 'Save changes' }}
+        </button>
+        <a class="btn btn-outline" href="{{ ('/members/builds' if isNew else '/builds/' ~ build.slug) | url }}">Cancel</a>
+      </div>
+    </form>
+
+    {% if not isNew %}
+      {# Kept outside the main form: nesting forms is invalid HTML and browsers
+         silently drop the inner one. #}
+      <form method="post" action="{{ '' | url }}/members/builds/{{ build.id }}/delete" class="danger-zone"
+            data-confirm="Delete this project and every log entry and photo in it? This cannot be undone.">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <div>
+          <strong>Delete this project</strong>
+          <span class="small muted">Removes the build log and every photo in it. There is no undo.</span>
+        </div>
+        <button type="submit" class="btn btn-danger btn-sm">Delete project</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow" style="text-align:center">
+    <div style="font-size:4rem" aria-hidden="true">
+      {% if status == 404 %}{{ icon('compass', 60) }}{% elif status == 403 %}{{ icon('lock', 60) }}{% elif status == 429 %}{{ icon('clock', 60) }}{% else %}{{ icon('wrench', 60) }}{% endif %}
+    </div>
+
+    <h1>
+      {% if status == 404 %}Off the sectional
+      {% elif status == 403 %}Not for you, sorry
+      {% elif status == 429 %}Steady on
+      {% else %}Something let go{% endif %}
+    </h1>
+
+    <p class="muted" style="font-size:1.1rem">{{ message }}</p>
+
+    {% if status == 404 %}
+      <p class="muted">
+        The page may have moved, or the link may be old. The
+        <a href="{{ '/events' | url }}">events calendar</a> and the
+        <a href="{{ '/builds' | url }}">build logs</a> are the two most likely places you
+        were headed.
+      </p>
+    {% endif %}
+
+    <div class="hero-actions" style="justify-content:center">
+      <a class="btn btn-primary" href="{{ '/' | url }}">Back to the front page</a>
+      <a class="btn btn-outline" href="{{ '/contact' | url }}">Tell us what broke</a>
+    </div>
+
+    {% if detail %}
+      <pre class="prose" style="text-align:left; margin-top:2.5rem; font-size:.78rem">{{ detail }}</pre>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EAA Chapter 1699 — a working website, for your look</title>
+<style>
+  /* ---------------------------------------------------------------------
+     Print walkthrough — US Letter portrait.
+     Uses the chapter site's own palette, because this is a chapter document,
+     not a corporate one. No web fonts and no emoji: it has to render the
+     same wherever it is printed, so everything is system fonts and SVG.
+     --------------------------------------------------------------------- */
+  @page { size: 8.5in 11in; margin: 0; }
+
+  :root {
+    --navy: #0b2545;
+    --navy-deep: #071a2f;
+    --blue: #1b6ec2;
+    --blue-pale: #eef5fd;
+    --amber: #d98315;
+    --amber-pale: #fdf1de;
+    --ink: #17232f;
+    --gray: #4a5b6b;
+    --gray-faint: #7d8b98;
+    --line: #d8dee5;
+    --bg: #f5f7f9;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    color: var(--ink);
+    font-size: 10.5pt;
+    line-height: 1.55;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page {
+    width: 8.5in; height: 11in;
+    padding: 0.6in 0.72in;
+    position: relative; overflow: hidden;
+    page-break-after: always; background: #fff;
+    display: flex; flex-direction: column;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ------------------------------------------------------------ typography */
+  h1 { font-size: 30pt; line-height: 1.08; letter-spacing: -.02em; font-weight: 800; }
+  h2 { font-size: 18pt; line-height: 1.18; letter-spacing: -.015em; font-weight: 800; color: var(--navy); margin-bottom: .3em; }
+  h3 { font-size: 11.5pt; font-weight: 800; color: var(--navy); margin-bottom: .25em; }
+  h4 { font-size: 9pt; font-weight: 800; color: var(--blue); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .45em; }
+  p { margin-bottom: .72em; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 700; color: var(--navy); }
+  em { font-style: italic; }
+  a { color: var(--blue); text-decoration: none; }
+
+  .lede { font-size: 12pt; line-height: 1.52; color: var(--gray); }
+  .small { font-size: 9pt; }
+  .tiny { font-size: 8pt; }
+  .muted { color: var(--gray); }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: .5em;
+    font-size: 8pt; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: .7em;
+  }
+  .eyebrow::before { content: ""; width: 24px; height: 2px; background: var(--amber); }
+
+  .rule { height: 1px; background: var(--line); margin: 16pt 0; }
+
+  /* ---------------------------------------------------------------- chrome */
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 9pt; margin-bottom: 15pt; border-bottom: 2px solid var(--line);
+  }
+  .page-header .mark { display: flex; align-items: center; gap: 7pt; }
+  .page-header .mark b { font-size: 9.5pt; color: var(--navy); letter-spacing: -.01em; }
+  .page-header .label { font-size: 7.5pt; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--gray-faint); }
+
+  .page-footer {
+    margin-top: auto; padding-top: 9pt; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 7.5pt; color: var(--gray-faint);
+  }
+
+  /* ----------------------------------------------------------------- cover */
+  .cover {
+    background:
+      radial-gradient(110% 75% at 14% -8%, #1d5a94 0%, transparent 58%),
+      linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color: #fff; justify-content: space-between; padding: 0.8in 0.78in;
+  }
+  .cover h1 { color: #fff; font-size: 36pt; }
+  .cover h1 span { color: #f2a541; }
+  .cover .lede { color: #bcd3e8; font-size: 12.5pt; }
+  .cover .eyebrow { color: #f2a541; }
+  .cover .eyebrow::before { background: #f2a541; }
+
+  .cover-art {
+    border-radius: 9pt; overflow: hidden;
+    border: 3px solid rgba(255,255,255,.15);
+    box-shadow: 0 16pt 36pt rgba(0,0,0,.34);
+  }
+  .cover-art img { width: 100%; display: block; }
+
+  .cover-meta {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid rgba(255,255,255,.2); padding-top: 11pt;
+    font-size: 8.5pt; color: #9dbdd8;
+  }
+
+  /* -------------------------------------------------------- browser frames */
+  .browser {
+    border-radius: 6pt; overflow: hidden; background: #fff;
+    border: 1px solid var(--line);
+    box-shadow: 0 5pt 15pt rgba(11,37,69,.12);
+  }
+  .browser .bar {
+    display: flex; align-items: center; gap: 5pt;
+    background: linear-gradient(#f8f9fb, #eff1f4);
+    border-bottom: 1px solid var(--line);
+    padding: 4pt 8pt;
+  }
+  .browser .dot { width: 5pt; height: 5pt; border-radius: 50%; background: #cfd4da; }
+  .browser .url {
+    flex: 1; margin-left: 5pt; background: #fff; border: 1px solid #e4e7eb; border-radius: 20pt;
+    padding: 1.5pt 8pt; font-size: 6.5pt; color: var(--gray-faint);
+  }
+  /* Explicit heights, cropped from the top, so a long page can never
+     silently overflow the sheet and clip a shot to a sliver. */
+  .browser .shot { display: block; width: 100%; object-fit: cover; object-position: top center; }
+  .shot-lg { height: 2.9in; }
+  .shot-md { height: 2.4in; }
+  /* Every screenshot runs the full width of the text column. Placing one at
+     half width shrinks the site's own type to roughly 3pt on paper, which is
+     not readable -- so there are no half-width shots anywhere. */
+  .shot-band { height: 2.15in; }
+
+  .caption { font-size: 8.5pt; color: var(--gray); line-height: 1.45; margin-top: 6pt; }
+  .caption b { color: var(--navy); font-weight: 700; }
+
+  .shots { display: grid; gap: 15pt; }
+  .shots-2 { grid-template-columns: 1fr 1fr; }
+
+  /* ---------------------------------------------------------------- blocks */
+  .callout {
+    background: var(--blue-pale); border-left: 3pt solid var(--blue);
+    padding: 10pt 13pt; border-radius: 0 5pt 5pt 0;
+  }
+  .callout.warm { background: var(--amber-pale); border-left-color: var(--amber); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15pt; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11pt; }
+
+  .stat { text-align: center; padding: 10pt 6pt; background: var(--bg); border-radius: 6pt; }
+  .stat .n { font-size: 20pt; font-weight: 800; color: var(--navy); line-height: 1; letter-spacing: -.02em; }
+  .stat .l { font-size: 7pt; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--gray-faint); margin-top: 4pt; }
+
+  .steps { counter-reset: step; display: grid; gap: 9pt; }
+  .step { display: flex; gap: 9pt; align-items: flex-start; }
+  .step .num {
+    counter-increment: step; flex: none;
+    width: 19pt; height: 19pt; border-radius: 50%;
+    background: var(--navy); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9pt; font-weight: 800;
+  }
+  .step .num::before { content: counter(step); }
+  .step .body { padding-top: 1pt; }
+  .step .body b { display: block; color: var(--navy); font-size: 10.5pt; }
+
+  ul.ticks { list-style: none; display: grid; gap: 6pt; }
+  ul.ticks li { position: relative; padding-left: 16pt; }
+  ul.ticks li::before {
+    content: ""; position: absolute; left: 1pt; top: 4pt;
+    width: 8pt; height: 4.5pt; border-left: 2pt solid var(--amber); border-bottom: 2pt solid var(--amber);
+    transform: rotate(-45deg);
+  }
+
+  .flowline { display: flex; align-items: stretch; margin: 3pt 0 13pt; }
+  .flowline .node { flex: 1; background: var(--bg); border-radius: 5pt; padding: 7pt 8pt; text-align: center; }
+  .flowline .node b { display: block; font-size: 8.5pt; color: var(--navy); }
+  .flowline .node span { font-size: 7pt; color: var(--gray-faint); }
+  .flowline .arrow { flex: none; width: 15pt; display: flex; align-items: center; justify-content: center; color: var(--line); font-size: 11pt; }
+
+  .signoff { font-size: 11pt; color: var(--navy); font-weight: 700; }
+
+  .endcard { background: var(--navy); color: #fff; border-radius: 8pt; padding: 17pt 19pt; }
+  .endcard h3 { color: #fff; }
+  .endcard a { color: #f2a541; }
+
+  .kicker { font-size: 7.5pt; font-weight: 800; color: var(--amber); letter-spacing: .12em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════ 1. COVER ═══ -->
+<section class="page cover">
+  <div style="display:flex; align-items:center; gap:10pt">
+    <svg width="30" height="30" viewBox="0 0 48 48" aria-label="EAA Chapter 1699">
+      <circle cx="24" cy="24" r="23" fill="#ffffff" opacity=".12"/>
+      <circle cx="24" cy="24" r="20" fill="none" stroke="#f2a541" stroke-width="1.5"/>
+      <path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/>
+    </svg>
+    <div>
+      <div style="font-weight:800; font-size:10.5pt; letter-spacing:-.01em">EAA Chapter 1699</div>
+      <div style="font-size:7.5pt; letter-spacing:.1em; text-transform:uppercase; color:#8fb2ce">South Albany Airport · 4B0</div>
+    </div>
+  </div>
+
+  <div>
+    <span class="eyebrow">Following up on tonight's conversation</span>
+    <h1>I went ahead<br>and built it.<br><span>Have a look.</span></h1>
+    <p class="lede" style="margin-top:13pt; max-width:5in">
+      Ted — here's the chapter website we talked about. Public pages, members'
+      area, tool locker, build logs. It's running and you can click through
+      every bit of it.
+    </p>
+  </div>
+
+  <div class="cover-art">
+    <img src="shots/home.png" alt="The EAA Chapter 1699 home page">
+  </div>
+
+  <div class="cover-meta">
+    <div>
+      <div style="color:#fff; font-weight:700; font-size:10pt">Gary Jones</div>
+      <div>EAA Chapter 1699</div>
+    </div>
+    <div style="text-align:right">
+      A working draft for the chapter<br>
+      13 August 2026
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════ 2. THE NOTE ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">Before the screenshots</div>
+  </header>
+
+  <span class="eyebrow">Where this came from</span>
+  <h2>We talked about it this evening.<br>Here it is.</h2>
+
+  <p class="lede" style="margin:11pt 0 16pt">
+    After we finished up I sat down to see how far I could get. Further than I
+    expected — what follows is the whole site, working, not mockups. I'd rather
+    show you something you can click than describe something I might build.
+  </p>
+
+  <p>
+    Before you turn the page, here's what's genuine and what's standing in,
+    so you're reading it accurately.
+  </p>
+
+  <div class="grid-2" style="margin:15pt 0">
+    <div>
+      <h4>Real</h4>
+      <ul class="ticks small">
+        <li>Every page works. Logins, permissions, the borrowing workflow — all actually built.</li>
+        <li>May's pancake breakfast, pulled from our AOPA listing, cartoon and all.</li>
+        <li>The field's details, our programs, the 501(c)(3) registration.</li>
+        <li>The structure — how events, builds, tools and members relate to each other.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Standing in until you tell me otherwise</h4>
+      <ul class="ticks small">
+        <li><b>The members are invented.</b> Marta, Dave, Ken and their projects are all made up.</li>
+        <li>The artwork is machine-generated, holding a space for our photographs.</li>
+        <li>Officers, meeting nights and dues aren't in there — that's yours to give me.</li>
+        <li>I masked the personal mobile and email off the public event listing rather than republish them.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout warm">
+    <p class="small">
+      <strong>Nothing is committed.</strong> No domain registered, nothing
+      published, nobody else has seen it. If the chapter would rather stay put,
+      that's a fine answer and I'll not be offended — I enjoyed building it
+      either way. But if it's useful, it's a running start rather than a
+      blank page.
+    </p>
+  </div>
+
+  <div class="rule"></div>
+
+  <p>
+    The other thing worth saying up front: <strong>this did not take long.</strong>
+    That's not modesty — it's the actual point, and I'll come back to it near the
+    end. The reason I could do this in an evening instead of over a winter is
+    that the tooling has changed underneath us.
+  </p>
+
+  <p style="margin-top:13pt" class="signoff">— Gary</p>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>2</span>
+  </footer>
+</section>
+
+<!-- ═══════════════════════════════════════════ 3. THE FRONT DOOR ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">What a visitor sees · 1 of 3</div>
+  </header>
+
+  <span class="kicker">The front door</span>
+  <h2>Somebody finds us on a Tuesday night</h2>
+  <p class="muted" style="margin-bottom:13pt">
+    They drove past the field, or a neighbour mentioned the breakfast. The front
+    page has one job: make turning up feel easy.
+  </p>
+
+  <div class="browser">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">eaa1699.org</span>
+    </div>
+    <img class="shot shot-lg" src="shots/home.png" alt="Home page">
+  </div>
+  <p class="caption">
+    <b>The welcome page.</b> Our fly-in cartoon leads. Below it: the next event
+    with a countdown, then what we actually do — Technical Counselors, Flight
+    Advisors, IMC and VMC Club, Young Eagles, the Ray Scholarship — then members'
+    builds and recent events. It reads as <em>you already belong here</em>
+    rather than <em>apply within</em>, which felt like the right note for us.
+  </p>
+
+  <div style="margin-top:15pt">
+    <div class="browser">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="url">eaa1699.org/events</span>
+      </div>
+      <img class="shot shot-lg" src="shots/events.png" alt="Upcoming events">
+    </div>
+    <p class="caption">
+      <b>Upcoming events.</b> Meetings, rallies, breakfasts. There's a
+      subscribable calendar feed as well, so members can add the chapter to
+      ForeFlight, Google or Outlook once and stop missing dates.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>3</span>
+  </footer>
+</section>
+
+<!-- ══════════════════════════════════════════ 4. EVENTS DETAIL ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">What a visitor sees · 2 of 3</div>
+  </header>
+
+  <span class="kicker">Events</span>
+  <h2>Everything they need to actually show up</h2>
+
+  <div class="browser">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">eaa1699.org/events/fall-fly-in-breakfast-2026</span>
+    </div>
+    <img class="shot shot-lg" src="shots/event-detail.png" alt="Event detail page">
+  </div>
+  <p class="caption">
+    <b>One event.</b> Date, times, rain date, cost, where to park, who to ask,
+    directions, one-click calendar add. The questions people phone us about are
+    answered before they have to ask.
+  </p>
+
+  <div style="margin-top:15pt">
+    <div class="browser">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="url">eaa1699.org/events/past</span>
+      </div>
+      <img class="shot shot-lg" src="shots/past-events.png" alt="Past events archive">
+    </div>
+    <p class="caption">
+      <b>Past events.</b> Photos and a short write-up for each, filterable by
+      year. This is the page that tells a first-timer we're active —
+      <em>"210 people came to the last breakfast"</em> does more persuading than
+      any amount of copy about how welcoming we are.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>4</span>
+  </footer>
+</section>
+
+<!-- ═══════════════════════════════════════════ 5. THE BUILDS ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">What a visitor sees · 3 of 3</div>
+  </header>
+
+  <span class="kicker">Members' builds</span>
+  <h2>The best thing we have to show is each other's work</h2>
+  <p class="muted" style="margin-bottom:13pt">
+    Public build logs, written by whoever's holding the rivet gun. Each project
+    gets its own page and its own dated log.
+  </p>
+
+  <div class="browser">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">eaa1699.org/builds</span>
+    </div>
+    <img class="shot shot-lg" src="shots/builds.png" alt="Members' builds index">
+  </div>
+  <p class="caption">
+    <b>Every project in the chapter</b>, with progress, status and how many
+    entries each has. A member can keep a project members-only if they'd rather
+    not advertise a garage full of expensive parts to the open internet.
+  </p>
+
+  <div style="margin-top:13pt">
+    <div class="browser">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="url">eaa1699.org/builds/martas-rv-7a</span>
+      </div>
+      <img class="shot shot-lg" src="shots/build-log.png" alt="A single build log">
+    </div>
+    <p class="caption">
+      <b>Inside a project.</b> Spec panel, hours logged, then the log itself —
+      photos, dates, honest write-ups. Members post their own updates. Nobody
+      has to go through a webmaster, which is the only way a page like this
+      stays current past the first month.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>5</span>
+  </footer>
+</section>
+
+<!-- ═══════════════════════════════════════ 6. MEMBERS CORNER ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">Behind the login</div>
+  </header>
+
+  <span class="kicker">Members Corner</span>
+  <h2>The part that gives people a reason to come back</h2>
+  <p class="muted" style="margin-bottom:13pt">
+    Signing in adds a second row of navigation. Everything below is invisible
+    to the public.
+  </p>
+
+  <div class="browser">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">eaa1699.org/members</span>
+    </div>
+    <img class="shot shot-band" src="shots/members-dashboard.png" alt="Members dashboard">
+  </div>
+  <p class="caption">
+    <b>The dashboard.</b> What needs your attention first — someone waiting on a
+    tool, a new blog post, the next event. The badge on <em>Requests</em> in the
+    bar is officer work waiting to be done.
+  </p>
+
+  <div style="margin-top:14pt">
+    <div class="browser">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="url">eaa1699.org/members/blog</span>
+      </div>
+      <img class="shot shot-band" src="shots/blog.png" alt="Chapter blog">
+    </div>
+    <p class="caption">
+      <b>The blog.</b> Meeting notes for the people who couldn't make it, safety
+      pieces, project write-ups. Editors write in plain text with simple
+      formatting — no fighting with a page builder. A post can be members-only
+      or public, so a good safety piece can go out to everybody.
+    </p>
+  </div>
+
+  <div class="callout" style="margin-top:15pt">
+    <p class="small">
+      <strong>There's also a member directory</strong> — who flies what, who's
+      building what, and who to ask about fabric work at eleven at night. It's
+      behind the login and stays there.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>6</span>
+  </footer>
+</section>
+
+<!-- ═══════════════════════════════════ 7. BORROWING FLOW ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">A worked example</div>
+  </header>
+
+  <span class="kicker">The Tool Locker</span>
+  <h2>Nobody should buy a $400 tool for one weekend's work</h2>
+  <p class="muted" style="margin-bottom:13pt">
+    Right now the only way to find out who owns a rivet squeezer is to ask
+    around at a meeting and hope the right person turned up.
+  </p>
+
+  <div class="browser">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">eaa1699.org/members/locker</span>
+    </div>
+    <img class="shot shot-band" src="shots/tool-locker.png" alt="The Tool Locker">
+  </div>
+  <p class="caption">
+    <b>What's in the locker.</b> Searchable and filterable by category and
+    availability. Each listing carries photos, condition, where it lives, and
+    whether the owner wants to walk you through it first.
+  </p>
+
+  <div style="margin-top:14pt">
+    <div class="browser">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="url">eaa1699.org/members/locker/1</span>
+      </div>
+      <img class="shot shot-band" src="shots/tool-detail.png" alt="One tool, with the borrow form">
+    </div>
+    <p class="caption">
+      <b>One tool.</b> Photo carousel, where it's kept — down to which drawer —
+      the owner's own lending terms, and the form to ask for it. Every owner
+      sets their own rules; the chapter doesn't impose any.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>7</span>
+  </footer>
+</section>
+
+<!-- ═══════════════════════════════════ 8. BORROWING FLOW ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">A worked example</div>
+  </header>
+
+  <span class="kicker">How lending actually works</span>
+  <h2>Somebody asks. You say yes. The site does the admin.</h2>
+
+  <div class="flowline">
+    <div class="node"><b>Browse</b><span>Finds the tool</span></div>
+    <div class="arrow">›</div>
+    <div class="node"><b>Ask</b><span>Dates and a note</span></div>
+    <div class="arrow">›</div>
+    <div class="node"><b>Owner decides</b><span>Email lands with them</span></div>
+    <div class="arrow">›</div>
+    <div class="node"><b>Approved</b><span>Details shared</span></div>
+    <div class="arrow">›</div>
+    <div class="node"><b>Returned</b><span>Back to available</span></div>
+  </div>
+
+  <div class="browser">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">eaa1699.org/members/locker/requests</span>
+    </div>
+    <img class="shot shot-band" src="shots/borrow-requests.png" alt="Borrow request inbox">
+  </div>
+  <p class="caption">
+    <b>The owner's inbox.</b> Approve, decline, or mark returned, with a note
+    each way. The tool's availability follows along on its own, so the locker
+    never says "available" about something sitting in somebody else's hangar.
+  </p>
+
+  <div class="callout" style="margin-top:15pt">
+    <p class="small">
+      <strong>One detail worth pointing out.</strong> Neither member sees the
+      other's email address until the owner says yes — the site sends the
+      notification itself. That's the difference between a tool library and a
+      member list that quietly becomes a mailing list, and it's the sort of
+      thing that has to be decided while you're building rather than patched on
+      afterwards.
+    </p>
+  </div>
+
+  <div class="callout warm" style="margin-top:12pt">
+    <p class="small">
+      <strong>The house rules sit on the same page</strong> — return it clean and
+      on time, if you break it say so, don't lend a borrowed tool on to a third
+      person, say thank you. Worth the board agreeing the wording; it's a
+      two-minute change.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>8</span>
+  </footer>
+</section>
+
+<!-- ═══════════════════════════════════════ 8. JOINING ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">Who gets in</div>
+  </header>
+
+  <span class="kicker">Joining</span>
+  <h2>People ask. An officer approves. That's the whole job.</h2>
+
+  <div class="browser" style="margin-top:12pt">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">eaa1699.org/join</span>
+    </div>
+    <img class="shot shot-band" src="shots/join.png" alt="Request an account">
+  </div>
+  <p class="caption">
+    <b>What they see.</b> A short form — who they are, what they fly or are
+    building, and a few sentences about themselves.
+  </p>
+
+  <div style="margin-top:13pt">
+    <div class="browser">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="url">eaa1699.org/members/admin/applications</span>
+      </div>
+      <img class="shot shot-band" src="shots/admin-applications.png" alt="Membership request review queue">
+    </div>
+    <p class="caption">
+      <b>What an officer sees.</b> The queue, with a badge in the bar showing how
+      many are waiting. Approve — picking whether they're a plain member or an
+      editor — or decline, with a note either way.
+    </p>
+  </div>
+
+  <div class="grid-2" style="margin-top:15pt">
+    <div>
+      <h3>Nothing exists until somebody approves it</h3>
+      <p class="small muted">
+        An unreviewed request isn't a half-made account cluttering the member
+        list. It can't sign in, can't appear in the directory, can't own
+        anything. The account is created the moment it's approved, and the
+        person then sets their own password from a one-time link.
+      </p>
+    </div>
+    <div>
+      <h3>Nobody ever handles a password</h3>
+      <p class="small muted">
+        Not at signup, not ever. The site keeps only a one-way scramble of a
+        password, so no officer — and nobody who steals the database — can read
+        one. Forgotten passwords get reset, never looked up.
+      </p>
+    </div>
+  </div>
+
+  <div class="callout warm" style="margin-top:15pt">
+    <p class="small">
+      <strong>Three levels, so no one person is the bottleneck.</strong>
+      <b>Members</b> use the locker, keep build logs, read and comment on the
+      blog. <b>Editors</b> also write posts and run the events calendar — that's
+      the job for whoever already does the newsletter. <b>Officers</b> manage
+      people. The last remaining officer account can't be removed, so we can't
+      lock ourselves out of our own site.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>8</span>
+  </footer>
+</section>
+
+<!-- ══════════════════════════════════ 9. WHY IT WAS QUICK ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">Why this didn't take a winter</div>
+  </header>
+
+  <span class="kicker">The bit that surprised me</span>
+  <h2>An evening's work, and most of it was deciding things</h2>
+  <p class="lede" style="margin:9pt 0 15pt">
+    A few years ago this was a three-month project, or a quote none of us wanted
+    to take to the board. It isn't any more, and the reason is worth
+    understanding — it applies to plenty besides a chapter website.
+  </p>
+
+  <div class="grid-3" style="margin-bottom:16pt">
+    <div class="stat"><div class="n">12,700</div><div class="l">Lines written</div></div>
+    <div class="stat"><div class="n">41</div><div class="l">Page templates</div></div>
+    <div class="stat"><div class="n">23</div><div class="l">Database tables</div></div>
+    <div class="stat"><div class="n">79</div><div class="l">Tests, all passing</div></div>
+    <div class="stat"><div class="n">11</div><div class="l">Outside components</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">Evening</div></div>
+  </div>
+
+  <p class="small muted" style="margin-bottom:13pt">
+    I described what the chapter needed in plain English, the way I'd describe it
+    to you. An agentic coding tool — I used <strong>CoderFlow</strong>, there are
+    others — did the rest, and not the way autocomplete does it. It ran a loop:
+  </p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>It went and found things out on its own</b>
+        <span class="small muted">Our AOPA event page is one of those sites where the page source is empty and the content loads separately. It worked that out, found the underlying data, and pulled the real breakfast details and the cartoon. I didn't tell it how.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>It worked out the structure, then built it</b>
+        <span class="small muted">Members, tools, loans, events, posts, build logs, applications — the data design, the screens and the permissions together, rather than as separate stages.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>It tested itself and found real faults</b>
+        <span class="small muted">Wrote 79 checks, drove the site in a real browser, and caught six genuine defects — including an error page that came out blank, and a form that would have let anyone flood an officer's inbox.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>It asked when it needed to</b>
+        <span class="small muted">"Should members request accounts, or should officers invite them?" I answered in six words and the whole flow changed to match. That's the part that felt least like using a tool.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:16pt">
+    <p class="small">
+      <strong>What actually took the time was the decisions</strong> — should
+      builds be public, should tool locations be visible to non-members, who
+      approves new people. Those are chapter questions, not technical ones, and
+      they're the ones I'd want your and the board's answers on. The building
+      around them is close to free now.
+    </p>
+  </div>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>9</span>
+  </footer>
+</section>
+
+<!-- ══════════════════════════════════════ 10. MEMBER INFO ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">Looking after members' details</div>
+  </header>
+
+  <span class="kicker">The unglamorous part</span>
+  <h2>Quick to build shouldn't mean careless</h2>
+  <p class="muted" style="margin:7pt 0 15pt">
+    We'd be holding members' phone numbers, home airports and photographs of
+    their hangars. In plain English, here's how that's handled.
+  </p>
+
+  <div class="grid-2" style="gap:13pt 19pt">
+    <div>
+      <h3>Passwords can't be read by anyone</h3>
+      <p class="small muted">Only a one-way scramble is stored. No screen, no query and no officer can see a member's password. Forgotten ones are reset from a single-use link that expires within the hour.</p>
+    </div>
+    <div>
+      <h3>Photos are stripped of location</h3>
+      <p class="small muted">Phones tag pictures with GPS coordinates. Every upload is decoded and rebuilt from scratch, which throws that away — so a photo of somebody's project doesn't publish their home address.</p>
+    </div>
+    <div>
+      <h3>Members' details stay members-only</h3>
+      <p class="small muted">The directory and the Tool Locker are enforced in the database, not just hidden on the page. Suspend somebody and they're signed out immediately, not at the end of the week.</p>
+    </div>
+    <div>
+      <h3>The known attacks are covered</h3>
+      <p class="small muted">Injection, cross-site scripting, forged form submissions, brute-forced logins, malicious file uploads. Ordinary hostile-internet hygiene, applied from the first line rather than after something happens.</p>
+    </div>
+    <div>
+      <h3>Public forms don't leak</h3>
+      <p class="small muted">The "request an account" form answers the same whether or not an address is already a member — so it can't be used to work out who belongs to the chapter, or to flood an officer's inbox.</p>
+    </div>
+    <div>
+      <h3>There's a record</h3>
+      <p class="small muted">Sign-ins, password resets, permission changes and content edits are logged. Visitors' IP addresses are kept only as a scrambled fingerprint — enough to spot an attack, not a pile of personal data.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3>Running it costs almost nothing</h3>
+  <p class="small muted">
+    The whole site is one small program and one file on disk. No database server
+    to look after, no monthly platform fee, no plugin subscriptions to lapse and
+    break the site eighteen months from now when whoever set it up has moved
+    away. It'll run on the cheapest hosting going — and because everything lives
+    in that one file, backing up the chapter means copying it somewhere safe.
+  </p>
+
+  <footer class="page-footer">
+    <span>EAA Chapter 1699 · a working draft</span>
+    <span>10</span>
+  </footer>
+</section>
+
+<!-- ══════════════════════════════════════ 11. NEXT ═══ -->
+<section class="page">
+  <header class="page-header">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#0b2545"/><path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/></svg>
+      <b>EAA Chapter 1699</b>
+    </div>
+    <div class="label">Where it goes from here</div>
+  </header>
+
+  <span class="kicker">What I need from you</span>
+  <h2>The gap between this and something we run on is mostly your knowledge</h2>
+
+  <p class="lede" style="margin:9pt 0 15pt">
+    I built the structure without asking anybody, which was the easy half. The
+    rest is chapter knowledge I don't have, and decisions that aren't mine to
+    make.
+  </p>
+
+  <div class="steps" style="margin-bottom:16pt">
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>An hour with you and whoever does the newsletter</b>
+        <span class="small muted">Real officers, meeting schedule, dues, the actual calendar, and what we want the site to say about the chapter. That conversation is the long pole now — not the building.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>Our own photographs</b>
+        <span class="small muted">Breakfasts, Young Eagles days, members' projects. This is where it stops looking like a demo and starts looking like 1699. If members will let me put their builds on there, better still.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>The board's answer on a few questions</b>
+        <span class="small muted">Do we want build logs public? Should the directory show phone numbers? Who approves new accounts? I've picked sensible defaults, but they're placeholders for a decision.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <b>Then a domain, working email, and a couple of us set up</b>
+        <span class="small muted">So invitations and password resets reach real inboxes and it runs at eaa1699.org rather than on my laptop. After that, editors post events and blog entries themselves and members keep their own build logs — nobody phones me to change a date.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="endcard">
+    <h3 style="margin-bottom:7pt">Happy to walk you through it live</h3>
+    <p class="small" style="color:#cfe0f0; margin-bottom:13pt">
+      In person at the field, or a screen share, whichever's easier. Twenty
+      minutes is plenty, and I'd rather you pushed back on it now than after
+      we've told the membership about it. If the board wants a look before
+      anything's decided, I'll happily show them too.
+    </p>
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16pt">
+      <div>
+        <p style="font-weight:700; font-size:11pt; color:#fff; margin-bottom:2pt">Gary Jones</p>
+        <p class="small" style="color:#a8c4dc">EAA Chapter 1699</p>
+      </div>
+      <svg width="26" height="26" viewBox="0 0 48 48" style="flex:none; opacity:.85">
+        <circle cx="24" cy="24" r="22" fill="none" stroke="#f2a541" stroke-width="1.5"/>
+        <path d="M24 12 L28 22 L40 24 L28 26 L24 36 L20 26 L8 24 L20 22 Z" fill="#f2a541"/>
+      </svg>
+    </div>
+  </div>
+
+  <p class="tiny muted" style="margin-top:13pt">
+    Working draft. Members shown are fictional and the imagery is
+    machine-generated, apart from the chapter's own event cartoon. Chapter,
+    airport and event details are taken from public listings. Built with
+    CoderFlow.
+  </p>
+
+  <footer class="page-footer">
+    <span>South Albany Airport (4B0) · Selkirk, New York</span>
+    <span>11</span>
+  </footer>
+</section>
+
+</body>
+</html>

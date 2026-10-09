@@ -1,0 +1,49 @@
+{% extends "layouts/base.njk" %}
+
+{% macro rows(list, empty) %}
+  {% if list.length %}
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr><th>Event</th><th>When</th><th>Type</th><th>Status</th><th>Photos</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for e in list %}
+            <tr>
+              <td><a href="{{ '' | url }}/events/{{ e.slug }}"><strong>{{ e.title }}</strong></a></td>
+              <td>{{ e.starts_at | shortdate }}<br><span class="tiny muted">{{ e.starts_at | relative }}</span></td>
+              <td><span class="pill">{{ e.kind | replace("-", " ") }}</span></td>
+              <td>
+                <span class="pill pill-{{ 'green' if e.status == 'published' else ('red' if e.status == 'cancelled' else 'grey') }}">{{ e.status }}</span>
+              </td>
+              <td>{{ e.photo_count or 0 }}</td>
+              <td><a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/admin/events/{{ e.id }}/edit">Edit</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">{{ empty }}</p>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Editors</span>
+        <h1>Manage events</h1>
+      </div>
+      <a class="btn btn-primary" href="{{ '/members/admin/events/new' | url }}">Add an event</a>
+    </div>
+
+    <h2>Upcoming</h2>
+    {{ rows(upcoming, 'Nothing on the calendar. Add something!') }}
+
+    <h2 style="margin-top:2.5rem">Past</h2>
+    {{ rows(past, 'No past events recorded yet.') }}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    {% if expired %}
+      <div style="text-align:center; margin-bottom:2rem">
+        <h1>That link has expired</h1>
+      </div>
+      <div class="form-card">
+        <p class="muted">
+          Reset links work once, and only for a short window — that is
+          deliberate, because a link sitting in an old inbox is a way in.
+        </p>
+        <a class="btn btn-primary btn-block" href="{{ '/forgot' | url }}">Send me a new link</a>
+        <p class="small muted center" style="margin:1rem 0 0"><a href="{{ '/login' | url }}">Back to sign in</a></p>
+      </div>
+    {% else %}
+      <div style="text-align:center; margin-bottom:2rem">
+        <span class="eyebrow" style="justify-content:center">Members Corner</span>
+        <h1>Choose a new password</h1>
+      </div>
+
+      <form method="post" action="{{ '' | url }}/reset/{{ token }}" class="form-card" autocomplete="off">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+        {% if errors.length %}
+          <div class="flash flash-error" style="margin:0 0 1.5rem" role="alert">
+            <span class="flash-icon" aria-hidden="true">!</span>
+            <div>
+              <p><strong>Not quite:</strong></p>
+              <ul class="plain small" style="margin-top:.4rem">
+                {% for e in errors %}<li>· {{ e }}</li>{% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="field">
+          <label for="password">New password</label>
+          <input type="password" id="password" name="password" required
+                 minlength="{{ minLength }}" maxlength="200"
+                 autocomplete="new-password" autofocus
+                 data-strength-for="#strength-bar">
+          <div class="strength"><span id="strength-bar"></span></div>
+          <span class="hint" data-strength-label></span>
+          <span class="hint">
+            At least {{ minLength }} characters. Length beats punctuation —
+            three or four unrelated words you will actually remember will do
+            far better than <span class="mono">P@ssw0rd!</span>
+          </span>
+        </div>
+
+        <div class="field">
+          <label for="confirm">Type it again</label>
+          <input type="password" id="confirm" name="confirm" required
+                 minlength="{{ minLength }}" maxlength="200" autocomplete="new-password">
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-block">Set my password</button>
+        </div>
+
+        <p class="small muted" style="margin:1.2rem 0 0">
+          Setting a new password signs you out everywhere else, on every device.
+        </p>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

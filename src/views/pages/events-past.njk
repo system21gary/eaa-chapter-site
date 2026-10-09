@@ -1,0 +1,43 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <span class="eyebrow">The archive</span>
+    <h1>Past events</h1>
+    <p>Breakfasts flown, kids launched, projects admired. If you were there,
+       you are probably in one of these photos.</p>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap">
+    {% if years.length %}
+      <nav class="chipnav" aria-label="Filter by year">
+        <a href="{{ '/events/past' | url }}" {% if not activeYear %}aria-current="page"{% endif %}>All years</a>
+        {% for y in years %}
+          <a href="{{ '' | url }}/events/past?year={{ y }}" {% if activeYear == y %}aria-current="page"{% endif %}>{{ y }}</a>
+        {% endfor %}
+      </nav>
+    {% endif %}
+
+    {% if events.length %}
+      <div class="grid grid-3">
+        {% for event in events %}
+          {% include "partials/event-card.njk" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="icon">{{ icon("photo", 44) }}</div>
+        <h3>No write-ups here yet</h3>
+        <p>
+          Once an event has happened we post the photos and a short recap.
+          Check <a href="{{ '/events' | url }}">what is coming up</a> and come make some
+          history with us.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

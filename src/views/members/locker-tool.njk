@@ -1,0 +1,160 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap split">
+    <div>
+      <p class="crumbs"><a href="{{ '/members/locker' | url }}">Tool Locker</a> <span aria-hidden="true">›</span> {{ tool.name }}</p>
+
+      <div class="pill-row" style="margin-bottom:.8rem">
+        <span class="pill pill-{{ 'green' if tool.availability == 'available' else ('amber' if tool.availability == 'on-loan' else 'grey') }}">
+          {{ tool.availability | replace("-", " ") }}
+        </span>
+        {% if tool.category_label %}<span class="pill">{{ tool.category_label }}</span>{% endif %}
+        <span class="pill pill-grey">Condition: {{ tool.condition | replace("-", " ") }}</span>
+        {% if tool.requires_checkout %}<span class="pill pill-red">Checkout briefing required</span>{% endif %}
+      </div>
+
+      <h1>{{ tool.name }}</h1>
+      {% if tool.brand or tool.model %}
+        <p class="muted" style="font-size:1.1rem">{{ tool.brand }} {{ tool.model }}</p>
+      {% endif %}
+
+      {% if tool.images.length %}
+        {% set carouselId = 'tool-' ~ tool.id %}
+        {% set photos = tool.images %}
+        {% include "partials/carousel.njk" %}
+      {% endif %}
+
+      {% if tool.description %}
+        <div class="prose" style="margin-top:1.8rem">{{ tool.description | markdown }}</div>
+      {% endif %}
+
+      {% if tool.loan_terms %}
+        <div class="notice" style="margin-top:1.5rem">
+          <strong>{{ tool.owner_first }}'s lending terms:</strong><br>
+          <span style="white-space:pre-wrap">{{ tool.loan_terms }}</span>
+          {% if tool.deposit %}<br><br><strong>Deposit:</strong> {{ tool.deposit }}{% endif %}
+        </div>
+      {% endif %}
+
+      {% if canEdit %}
+        <div class="entry-actions">
+          <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/locker/{{ tool.id }}/edit">Edit listing</a>
+        </div>
+
+        {% if requests.length %}
+          <hr class="rule">
+          <h2>Requests for this tool</h2>
+          <div class="stack">
+            {% for r in requests %}
+              <article class="card">
+                <div class="card-body">
+                  <p class="timeline-date">
+                    {{ r.req_display or (r.req_first ~ ' ' ~ r.req_last) }} ·
+                    {{ r.created_at | relative }}
+                    <span class="pill pill-{{ 'green' if r.status == 'approved' else ('red' if r.status == 'declined' else 'grey') }}">{{ r.status }}</span>
+                  </p>
+                  <p style="white-space:pre-wrap">{{ r.message }}</p>
+                  {% if r.needed_from %}
+                    <p class="small muted">Wants it {{ r.needed_from | shortdate }}{% if r.needed_to %} – {{ r.needed_to | shortdate }}{% endif %}</p>
+                  {% endif %}
+                  {% if r.status == 'pending' %}
+                    <a class="btn btn-primary btn-sm" href="{{ '/members/locker/requests' | url }}">Respond</a>
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="card-body">
+          <h3>Who owns it</h3>
+          <div style="display:flex; gap:.8rem; align-items:center; margin:1rem 0">
+            {% if tool.owner_avatar %}
+              <img src="{{ tool.owner_avatar | media }}" alt="" class="avatar avatar-lg">
+            {% else %}
+              <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ tool | initials }}</span>
+            {% endif %}
+            <div>
+              <strong>{{ tool.owner_display or (tool.owner_first ~ ' ' ~ tool.owner_last) }}</strong><br>
+              <span class="small muted">{{ tool.owner_home_base or 'EAA Chapter 1699' }}</span>
+            </div>
+          </div>
+
+          <ul class="factlist">
+            {% if tool.location_label %}
+              <li><span class="label">Kept at</span><span>{{ tool.location_label }}</span></li>
+            {% endif %}
+            {% if tool.location_notes %}
+              <li><span class="label">Finding it</span><span>{{ tool.location_notes }}</span></li>
+            {% endif %}
+            {% if tool.manual_url %}
+              <li><span class="label">Manual</span>
+                <span><a href="{{ tool.manual_url }}" target="_blank" rel="noopener noreferrer nofollow">Instructions ↗</a></span>
+              </li>
+            {% endif %}
+            <li><span class="label">Listed</span><span>{{ tool.created_at | shortdate }}</span></li>
+          </ul>
+
+          {% if tool | maplink %}
+            <a class="btn btn-outline btn-block btn-sm" href="{{ tool | maplink }}" target="_blank" rel="noopener noreferrer">Show on map</a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if not isOwner %}
+        <div class="card" id="borrow">
+          <div class="card-body">
+            <h3>Ask to borrow it</h3>
+
+            {% if alreadyRequested %}
+              <p class="small muted">
+                You already have an open request for this tool.
+                <a href="{{ '/members/locker/requests' | url }}">Check its status</a>.
+              </p>
+            {% elif tool.availability != 'available' %}
+              <p class="small muted">
+                This one is {{ tool.availability | replace("-", " ") }} right now.
+                You can still ask — {{ tool.owner_first }} will see the request.
+              </p>
+            {% endif %}
+
+            <form method="post" action="{{ '' | url }}/members/locker/{{ tool.id }}/borrow">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+              <div class="field">
+                <label for="message">What do you need it for?</label>
+                <textarea id="message" name="message" rows="4" required minlength="10" maxlength="1500"
+                          placeholder="Torquing the prop bolts on the Champ — should have it back in a day or two."></textarea>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="needed_from">From</label>
+                  <input type="date" id="needed_from" name="needed_from">
+                </div>
+                <div class="field">
+                  <label for="needed_to">Until</label>
+                  <input type="date" id="needed_to" name="needed_to">
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block">Send request</button>
+              <p class="tiny muted" style="margin:.8rem 0 0">
+                Goes straight to {{ tool.owner_first }} by email. We never show
+                you their address — and never show them yours until they say
+                yes.
+              </p>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+</section>
+{% endblock %}

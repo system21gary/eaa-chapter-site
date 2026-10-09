@@ -1,0 +1,54 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <div style="text-align:center; margin-bottom:2rem">
+      <span class="eyebrow" style="justify-content:center">Members Corner</span>
+      <h1>Reset your password</h1>
+    </div>
+
+    {% if sent %}
+      <div class="form-card">
+        <div class="flash flash-success" style="margin:0 0 1.2rem" role="status">
+          <span class="flash-icon">{{ icon("check", 12) }}</span>
+          <p><strong>Check your email.</strong></p>
+        </div>
+        <p class="muted">
+          If that address belongs to a Members Corner account, a reset link is
+          on its way. It works once and expires in an hour.
+        </p>
+        <p class="small muted">
+          Nothing arrived? Check the spam folder, then
+          <a href="{{ '/contact' | url }}">tell us</a> — it may be that we have a different
+          address on file for you.
+        </p>
+        <a class="btn btn-outline btn-block" href="{{ '/login' | url }}" style="margin-top:1rem">Back to sign in</a>
+      </div>
+    {% else %}
+      <form method="post" action="{{ '/forgot' | url }}" class="form-card">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+        <p class="muted">
+          We do not store your password — not even in a form we could read — so
+          nobody here can look it up and tell you what it was. What we can do
+          is email you a one-time link to set a new one.
+        </p>
+
+        <div class="field">
+          <label for="email">Your email address</label>
+          <input type="email" id="email" name="email" required maxlength="254"
+                 autocomplete="username" autofocus>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-block">Email me a reset link</button>
+        </div>
+        <p class="small muted center" style="margin:1rem 0 0">
+          <a href="{{ '/login' | url }}">Back to sign in</a>
+        </p>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

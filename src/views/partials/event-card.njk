@@ -1,0 +1,45 @@
+<a class="card card-link event-card" href="{{ '' | url }}/events/{{ event.slug }}">
+  {# An event with no artwork gets a coloured band keyed to its type, rather
+     than borrowing the breakfast poster and implying every event is one. #}
+  <div class="poster poster-{{ event.kind }}">
+    {% if event.poster_path %}
+      <img src="{{ event.poster_path | media }}" alt="{{ event.poster_alt or event.title }}" loading="lazy">
+    {% elif event.first_photo %}
+      <img src="{{ event.first_photo | media }}" alt="" loading="lazy">
+    {% else %}
+      {# Inline SVG rather than an emoji: this has to render identically on
+         every device, including ones with no emoji font installed. #}
+      <span class="poster-glyph" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="presentation">
+          <circle cx="24" cy="24" r="22" fill="#fff" opacity=".35"/>
+          <path d="M24 10 L28.5 21.5 L41 24 L28.5 26.5 L24 38 L19.5 26.5 L7 24 L19.5 21.5 Z" fill="#0b2545"/>
+        </svg>
+      </span>
+    {% endif %}
+  </div>
+
+  <div class="card-body event-row">
+    <div class="datechip" aria-hidden="true">
+      <span class="m">{{ event.starts_at | month }}</span>
+      <span class="d">{{ event.starts_at | day }}</span>
+      <span class="y">{{ event.starts_at | year }}</span>
+    </div>
+
+    <div style="min-width:0">
+      <div class="pill-row" style="margin-bottom:.5rem">
+        <span class="pill">{{ event.kind | replace("-", " ") }}</span>
+        {% if event.status == 'cancelled' %}<span class="pill pill-red">Cancelled</span>{% endif %}
+        {% if event.status == 'draft' %}<span class="pill pill-grey">Draft</span>{% endif %}
+        {% if event.photo_count %}<span class="pill pill-amber">{{ event.photo_count }} photos</span>{% endif %}
+      </div>
+      <h3>{{ event.title }}</h3>
+      <p class="small muted" style="margin:0">
+        {{ event.starts_at | timerange(event.ends_at, event.all_day) }}
+        {%- if event.location_name %} · {{ event.location_name }}{% endif %}
+      </p>
+      {% if event.summary %}
+        <p class="small muted" style="margin:.5rem 0 0">{{ event.summary | truncate(110) }}</p>
+      {% endif %}
+    </div>
+  </div>
+</a>

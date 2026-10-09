@@ -1,0 +1,14 @@
+# Files not uploaded to Cloud Build. Mirrors .dockerignore, plus the bits that
+# are only useful on a developer machine.
+.git
+.gitignore
+node_modules
+data
+.env
+.env.*
+!.env.example
+# The outreach walkthrough is documentation, not part of the site.
+outreach
+scripts/members-audit.mjs
+npm-debug.log*
+*.local

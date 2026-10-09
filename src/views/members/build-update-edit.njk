@@ -1,0 +1,130 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <p class="crumbs">
+      <a href="{{ '' | url }}/builds/{{ build.slug }}">{{ build.title }}</a>
+      <span aria-hidden="true">›</span> {{ 'New log entry' if isNew else 'Edit entry' }}
+    </p>
+
+    <h1>{{ 'What did you get done?' if isNew else 'Edit log entry' }}</h1>
+    <p class="muted">
+      Short is fine. "Deburred and dimpled the right skins, three hours, hands
+      hurt" is a perfectly respectable entry — and in five years it will be the
+      one you are glad you wrote.
+    </p>
+
+    <form method="post"
+          action="{{ ('/members/builds/' ~ build.id ~ '/updates/new' if isNew else '/members/builds/' ~ build.id ~ '/updates/' ~ entry.id ~ '/edit') | url }}"
+          enctype="multipart/form-data" class="form-card" style="margin-top:2rem">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <div class="field">
+        <label for="title">Entry title</label>
+        <input type="text" id="title" name="title" required maxlength="140"
+               value="{{ entry.title or '' }}"
+               placeholder="Wings closed. Finally."
+               aria-invalid="{{ 'true' if errors.title }}">
+        {{ err(errors, 'title') }}
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="posted_at">Date</label>
+          <input type="date" id="posted_at" name="posted_at"
+                 value="{{ entry.posted_at | isodate | truncate(10) if entry.posted_at else '' }}">
+          <span class="hint">Back-date it if you are catching up.</span>
+        </div>
+
+        <div class="field">
+          <label for="hours">Hours on the project</label>
+          <input type="number" id="hours" name="hours" min="0" max="10000" step="0.5"
+                 value="{{ entry.hours or '' }}" placeholder="3.5">
+          <span class="hint">Optional — we total these up on your project page.</span>
+        </div>
+
+        <div class="field">
+          <label for="status">Publish</label>
+          <select id="status" name="status">
+            <option value="published" {{ 'selected' if entry.status != 'draft' }}>Post it now</option>
+            <option value="draft" {{ 'selected' if entry.status == 'draft' }}>Save as draft</option>
+          </select>
+        </div>
+      </div>
+
+      {% set name = 'body_md' %}
+      {% set label = 'What you did' %}
+      {% set value = entry.body_md %}
+      {% set rows = 14 %}
+      {% set maxlength = null %}
+      {% set required = true %}
+      {% set placeholder = 'What you worked on, what went wrong, what you would do differently…' %}
+      {% set hint = null %}
+      {% set error = errors.body_md %}
+      {% include "partials/rich-editor.njk" %}
+
+      <fieldset>
+        <legend>Photos</legend>
+
+        {% if entry.photos and entry.photos.length %}
+          <div class="gallery" style="margin-bottom:1.2rem">
+            {% for photo in entry.photos %}
+              <div class="gallery-item">
+                <img src="{{ photo.thumb_path | media }}" alt="{{ photo.caption or '' }}">
+              </div>
+            {% endfor %}
+          </div>
+          <p class="small muted">Existing photos are kept. Remove them below after saving.</p>
+        {% endif %}
+
+        <div class="field">
+          <label for="photos">Add photos <span class="muted">(up to 10)</span></label>
+          <input type="file" id="photos" name="photos" accept="image/*" multiple data-preview="#photo-preview">
+          <span class="hint">
+            Straight off your phone is fine. Everything is resized and
+            re-encoded server-side, which strips the location data your camera
+            embedded.
+          </span>
+        </div>
+        <div id="photo-preview" class="preview-grid"></div>
+
+        <div class="field">
+          <label for="caption">Caption for the first photo <span class="muted">(optional)</span></label>
+          <input type="text" id="caption" name="caption" maxlength="200"
+                 placeholder="Left tank, sealed and pressure tested">
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          {{ 'Post entry' if isNew else 'Save entry' }}
+        </button>
+        <a class="btn btn-outline" href="{{ '' | url }}/builds/{{ build.slug }}">Cancel</a>
+      </div>
+    </form>
+
+    {% if not isNew and entry.photos and entry.photos.length %}
+      <div class="form-card" style="margin-top:1.5rem">
+        <h3>Remove photos</h3>
+        <div class="gallery" style="margin-top:1rem">
+          {% for photo in entry.photos %}
+            <div class="gallery-item">
+              <img src="{{ photo.thumb_path | media }}" alt="{{ photo.caption or '' }}">
+              <form method="post" action="{{ '' | url }}/members/builds/photos/{{ photo.id }}/delete"
+                    data-confirm="Remove this photo?">
+                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                <button type="submit" class="btn btn-danger btn-sm btn-block">Remove</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
