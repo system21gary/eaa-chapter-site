@@ -1,4 +1,4 @@
-import { all, get, run, nowIso } from '../db/index.js';
+import { all, get, run, nowIso, transaction } from '../db/index.js';
 import { hashPassword } from '../lib/passwords.js';
 import { createToken, hashToken, minutesFromNow, daysFromNow, isExpired } from '../lib/tokens.js';
 import config from '../config.js';
@@ -122,6 +122,89 @@ export function setAvatar(userId, avatarPath) {
     nowIso(),
     userId,
   ]);
+}
+
+/**
+ * An administrator correcting someone's details: a mistyped name or email.
+ *
+ * Changing the email has a security edge. If the old address was a typo, an
+ * invitation or reset link may already be sitting in a stranger's inbox, and
+ * that link would still let them set this account's password. So a change of
+ * address voids every unused link for the account and every pending
+ * invitation to the old address. Returns whether the email changed.
+ */
+export function adminUpdateDetails(userId, { firstName, lastName, email, phone, eaaNumber }) {
+  const before = findById(userId);
+  if (!before) return null;
+  const newEmail = String(email).trim().toLowerCase();
+  const emailChanged = newEmail !== String(before.email).toLowerCase();
+  transaction(() => {
+    run(
+      `UPDATE users
+          SET first_name = ?, last_name = ?, email = ?, phone = ?, eaa_number = ?,
+              email_verified = CASE WHEN ? THEN 0 ELSE email_verified END,
+              updated_at = ?
+        WHERE id = ?`,
+      [firstName, lastName, newEmail, phone, eaaNumber, emailChanged ? 1 : 0, nowIso(), userId]
+    );
+    if (emailChanged) {
+      run('UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL', [nowIso(), userId]);
+      run('DELETE FROM invites WHERE email = ? AND accepted_at IS NULL', [String(before.email).toLowerCase()]);
+    }
+  });
+  return { emailChanged, before };
+}
+
+/** What would go with a member if they were removed, for the confirmation. */
+export function memberFootprint(userId) {
+  const n = (sql) => get(sql, [userId]).n;
+  return {
+    tools: n('SELECT COUNT(*) AS n FROM tools WHERE owner_id = ?'),
+    builds: n('SELECT COUNT(*) AS n FROM builds WHERE owner_id = ?'),
+    buildUpdates: n(
+      'SELECT COUNT(*) AS n FROM build_updates x JOIN builds b ON b.id = x.build_id WHERE b.owner_id = ?'
+    ),
+    borrowRequests: n('SELECT COUNT(*) AS n FROM borrow_requests WHERE requester_id = ?'),
+    comments: n('SELECT COUNT(*) AS n FROM comments WHERE user_id = ?'),
+    posts: n('SELECT COUNT(*) AS n FROM posts WHERE author_id = ?'),
+  };
+}
+
+/**
+ * Removes a member for good.
+ *
+ * The database takes their tools, builds (with every log entry and photo),
+ * borrow requests, comments and cheers with them, by its foreign keys. Blog
+ * posts and the activity log stay, with no author. Pending invitations to
+ * their address are deleted too: accepting one would otherwise quietly create
+ * the account again.
+ *
+ * Returns the uploaded files that belonged to them, for the caller to delete
+ * once the database change has committed.
+ */
+export function deleteMember(userId) {
+  return transaction(() => {
+    const user = findById(userId);
+    if (!user) return null;
+    const files = [
+      ...all(
+        `SELECT i.full_path, i.thumb_path FROM tool_images i
+           JOIN tools t ON t.id = i.tool_id WHERE t.owner_id = ?`,
+        [userId]
+      ).flatMap((r) => [r.full_path, r.thumb_path]),
+      ...all(
+        `SELECT p.full_path, p.thumb_path FROM build_update_photos p
+           JOIN build_updates x ON x.id = p.update_id
+           JOIN builds b ON b.id = x.build_id WHERE b.owner_id = ?`,
+        [userId]
+      ).flatMap((r) => [r.full_path, r.thumb_path]),
+      ...all('SELECT cover_path FROM builds WHERE owner_id = ?', [userId]).map((r) => r.cover_path),
+      user.avatar_path,
+    ].filter(Boolean);
+    run('DELETE FROM invites WHERE email = ? AND accepted_at IS NULL', [String(user.email).toLowerCase()]);
+    run('DELETE FROM users WHERE id = ?', [userId]);
+    return { user, files };
+  });
 }
 
 export function setRole(userId, role) {

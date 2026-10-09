@@ -573,6 +573,40 @@ console.log('\nApplication review');
 /* ------------------------------------------------------------- cleanup */
 // The suite must leave the demo data exactly as it found it, so the records
 // it just created are removed through the real delete routes.
+console.log('\nMember administration');
+{
+  // A throwaway member, edited and then removed through the admin forms.
+  const temp = Users.createUser({
+    email: `smoke.temp.${Date.now()}@example.com`,
+    firstName: 'Temp',
+    lastName: 'Membr',
+    role: 'member',
+    status: 'pending',
+  });
+  const editPath = `/members/admin/members/${temp.id}/edit`;
+  let page = await req(editPath);
+  record(page.status === 200 && /Remove this member/.test(page.text), 'a member can be opened for editing', `-> ${page.status}`);
+
+  let res = await req(editPath, {
+    method: 'POST',
+    body: { _csrf: csrfFrom(page.text), first_name: 'Temp', last_name: 'Member', email: temp.email, phone: '', eaa_number: '' },
+  });
+  record(res.status === 302 && Users.findById(temp.id)?.last_name === 'Member', 'a mistyped name can be corrected', `-> ${res.status}`);
+
+  res = await req(editPath, {
+    method: 'POST',
+    body: { _csrf: csrfFrom(page.text), first_name: 'Temp', last_name: 'Member', email: EMAIL },
+  });
+  record(res.status === 400 && /already uses that address/.test(res.text), "another member's email is refused", `-> ${res.status}`);
+
+  const deletePath = `/members/admin/members/${temp.id}/delete`;
+  await req(deletePath, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  record(Boolean(Users.findById(temp.id)), 'removal needs the confirmation box');
+  await req(deletePath, { method: 'POST', body: { _csrf: csrfFrom(page.text), confirm: 'remove' } });
+  record(!Users.findById(temp.id), 'with it ticked, the member is removed');
+  if (Users.findById(temp.id)) run('DELETE FROM users WHERE id = ?', [temp.id]);
+}
+
 console.log('\nChapter time');
 {
   // Event times are typed in chapter (Eastern) time and must not depend on the

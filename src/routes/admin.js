@@ -341,6 +341,118 @@ router.post('/members/:id/status', requireAdmin, writeLimiter, (req, res, next) 
   return req.session.save(() => res.redirect('/members/admin/members'));
 });
 
+const memberDetailsSchema = {
+  first_name: f.string({ min: 1, max: 60, label: 'First name' }),
+  last_name: f.string({ min: 1, max: 60, label: 'Last name' }),
+  email: f.email(),
+  phone: f.phone(),
+  eaa_number: f.optionalString({ max: 20, label: 'EAA number' }),
+};
+
+function renderMemberEdit(res, target, { errors = {}, form = null, status = 200 } = {}) {
+  return res.status(status).render('admin/member-edit.njk', {
+    title: `Edit ${Users.displayName(target)}`,
+    robots: 'noindex',
+    member: target,
+    form: form || target,
+    errors,
+    footprint: Users.memberFootprint(target.id),
+  });
+}
+
+router.get('/members/:id/edit', requireAdmin, (req, res, next) => {
+  const target = Users.findById(req.params.id);
+  if (!target) return next();
+  return renderMemberEdit(res, target);
+});
+
+router.post('/members/:id/edit', requireAdmin, writeLimiter, (req, res, next) => {
+  const target = Users.findById(req.params.id);
+  if (!target) return next();
+
+  let data;
+  try {
+    data = validate(req.body, memberDetailsSchema);
+  } catch (err) {
+    if (err instanceof ValidationError) return renderMemberEdit(res, target, { errors: err.errors, form: req.body, status: 400 });
+    throw err;
+  }
+
+  const clash = Users.findByEmail(data.email);
+  if (clash && Number(clash.id) !== Number(target.id)) {
+    return renderMemberEdit(res, target, {
+      errors: { email: `${Users.displayName(clash)} already uses that address.` },
+      form: req.body,
+      status: 400,
+    });
+  }
+
+  const { emailChanged, before } = Users.adminUpdateDetails(target.id, {
+    firstName: data.first_name,
+    lastName: data.last_name,
+    email: data.email,
+    phone: data.phone,
+    eaaNumber: data.eaa_number,
+  });
+  audit(req, 'admin.member.updated', {
+    entity: 'user',
+    entityId: target.id,
+    detail: emailChanged ? `email ${before.email} -> ${data.email}` : 'details',
+  });
+
+  const name = `${data.first_name} ${data.last_name}`;
+  if (emailChanged && !target.password_set_at) {
+    req.flash(
+      'success',
+      `Saved. ${name}'s email is now ${data.email}. Any link already sent to the old address no longer ` +
+        'works; use Re-invite to send a fresh one.'
+    );
+  } else if (emailChanged) {
+    req.flash('success', `Saved. ${name} now signs in with ${data.email}; their password is unchanged.`);
+  } else {
+    req.flash('success', `Saved ${name}.`);
+  }
+  return req.session.save(() => res.redirect('/members/admin/members'));
+});
+
+router.post(
+  '/members/:id/delete',
+  requireAdmin,
+  writeLimiter,
+  asyncRoute(async (req, res, next) => {
+    const target = Users.findById(req.params.id);
+    if (!target) return next();
+
+    if (Number(target.id) === Number(req.user.id)) {
+      req.flash('error', 'You cannot remove your own account. Ask another administrator.');
+      return req.session.save(() => res.redirect(`/members/admin/members/${target.id}/edit`));
+    }
+    if (target.role === 'admin' && target.status === 'active' && Users.countAdmins() <= 1) {
+      req.flash('error', 'That is the last administrator. Promote someone else first.');
+      return req.session.save(() => res.redirect(`/members/admin/members/${target.id}/edit`));
+    }
+    // A deliberate second step, checked here rather than trusted to a
+    // browser dialog that a script or a stray double-click can skip.
+    if (req.body.confirm !== 'remove') {
+      req.flash('error', 'Tick the box to confirm, then press Remove.');
+      return req.session.save(() => res.redirect(`/members/admin/members/${target.id}/edit`));
+    }
+
+    const footprint = Users.memberFootprint(target.id);
+    const { user, files } = Users.deleteMember(target.id);
+    // Files go only after the database change has committed: a failure here
+    // leaves an unused file behind, never a record pointing at nothing.
+    await deleteImage(...files);
+    audit(req, 'admin.member.deleted', {
+      entity: 'user',
+      entityId: user.id,
+      detail: `${user.email} (${footprint.tools} tools, ${footprint.builds} builds)`,
+    });
+    req.flash('success', `${Users.displayName(user)} has been removed.`);
+    return req.session.save(() => res.redirect('/members/admin/members'));
+  })
+);
+
 router.post(
   '/members/:id/resend',
   requireAdmin,

@@ -29,7 +29,7 @@
               {% for m in members %}
                 <tr>
                   <td>
-                    <strong>{{ displayName(m) }}</strong><br>
+                    <strong><a href="{{ ('/members/admin/members/' ~ m.id ~ '/edit') | url }}">{{ displayName(m) }}</a></strong><br>
                     <span class="tiny muted mono">{{ m.email }}</span>
                     {% if not m.password_set_at %}
                       <br><span class="pill pill-amber">No password set</span>
@@ -54,6 +54,8 @@
                   </td>
                   <td>
                     <div style="display:flex; gap:.35rem; flex-wrap:wrap">
+                      <a class="btn btn-outline btn-sm" href="{{ ('/members/admin/members/' ~ m.id ~ '/edit') | url }}"
+                         aria-label="Edit or remove {{ displayName(m) }}">Edit</a>
                       <form method="post" action="{{ '' | url }}/members/admin/members/{{ m.id }}/resend">
                         <input type="hidden" name="_csrf" value="{{ csrfToken }}">
                         <button type="submit" class="btn btn-outline btn-sm">Re-invite</button>

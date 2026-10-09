@@ -1,0 +1,105 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap-narrow">
+    <p class="crumbs"><a href="{{ '/members/admin/members' | url }}">Manage members</a> <span aria-hidden="true">›</span> Edit</p>
+    <h1>{{ displayName(member) }}</h1>
+    <p class="muted small">
+      {{ member.role | capitalize }} · {{ member.status }}
+      {% if member.password_set_at %}· password set{% else %}· no password set yet{% endif %}
+      · joined {{ member.created_at | shortdate }}
+    </p>
+
+    <form method="post" action="{{ ('/members/admin/members/' ~ member.id ~ '/edit') | url }}" class="form-card" style="margin-top:1.5rem">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <fieldset>
+        <legend>Details</legend>
+
+        <div class="field">
+          <label for="first_name">First name</label>
+          <input type="text" id="first_name" name="first_name" required maxlength="60"
+                 value="{{ form.first_name or '' }}" aria-invalid="{{ 'true' if errors.first_name }}">
+          {{ err(errors, 'first_name') }}
+        </div>
+
+        <div class="field">
+          <label for="last_name">Last name</label>
+          <input type="text" id="last_name" name="last_name" required maxlength="60"
+                 value="{{ form.last_name or '' }}" aria-invalid="{{ 'true' if errors.last_name }}">
+          {{ err(errors, 'last_name') }}
+        </div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required maxlength="254" autocomplete="off"
+                 value="{{ form.email or '' }}" aria-invalid="{{ 'true' if errors.email }}">
+          {{ err(errors, 'email') }}
+          <span class="hint">
+            This is what they sign in with. Changing it cancels any invitation or
+            password link already sent to the old address.
+          </span>
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone <span class="muted">(optional)</span></label>
+          <input type="tel" id="phone" name="phone" maxlength="32"
+                 value="{{ form.phone or '' }}" aria-invalid="{{ 'true' if errors.phone }}">
+          {{ err(errors, 'phone') }}
+        </div>
+
+        <div class="field">
+          <label for="eaa_number">EAA number <span class="muted">(optional)</span></label>
+          <input type="text" id="eaa_number" name="eaa_number" maxlength="20"
+                 value="{{ form.eaa_number or '' }}" aria-invalid="{{ 'true' if errors.eaa_number }}">
+          {{ err(errors, 'eaa_number') }}
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+        <a class="btn btn-outline" href="{{ '/members/admin/members' | url }}">Cancel</a>
+      </div>
+    </form>
+
+    {% if member.id != currentUser.id %}
+      <form method="post" action="{{ ('/members/admin/members/' ~ member.id ~ '/delete') | url }}" class="danger-zone"
+            data-confirm="Remove {{ displayName(member) }} for good?">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <div>
+          <strong>Remove this member</strong>
+          <span class="small muted">
+            Deletes the account. It cannot be undone.
+            {% if footprint.tools or footprint.builds or footprint.borrowRequests or footprint.comments %}
+              Also deleted:
+              {%- if footprint.tools %} {{ footprint.tools }} tool{{ 's' if footprint.tools != 1 }} in the locker,{% endif %}
+              {%- if footprint.builds %} {{ footprint.builds }} build{{ 's' if footprint.builds != 1 }}
+                ({{ footprint.buildUpdates }} log entr{{ 'ies' if footprint.buildUpdates != 1 else 'y' }} and all their photos),{% endif %}
+              {%- if footprint.borrowRequests %} {{ footprint.borrowRequests }} borrow request{{ 's' if footprint.borrowRequests != 1 }},{% endif %}
+              {%- if footprint.comments %} {{ footprint.comments }} comment{{ 's' if footprint.comments != 1 }}.{% endif %}
+            {% endif %}
+            {% if footprint.posts %}
+              Their {{ footprint.posts }} blog post{{ 's' if footprint.posts != 1 }} stay{{ 's' if footprint.posts == 1 }}, without an author.
+            {% endif %}
+            To keep everything and just block sign-in, use Suspend instead.
+          </span>
+          <label class="small" style="display:flex; gap:.5rem; align-items:center; margin-top:.6rem">
+            <input type="checkbox" name="confirm" value="remove" required>
+            I understand this cannot be undone.
+          </label>
+        </div>
+        <button type="submit" class="btn btn-danger btn-sm">Remove member</button>
+      </form>
+    {% else %}
+      <p class="small muted" style="margin-top:1.5rem">
+        You cannot remove your own account; another administrator can.
+      </p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
