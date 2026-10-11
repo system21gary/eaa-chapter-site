@@ -1,4 +1,5 @@
 import { parseLocal } from './localtime.js';
+import { formatPhone } from './phone.js';
 
 /**
  * Small allow-list validator.
@@ -128,7 +129,7 @@ export const f = {
       if (!raw && optional) return null;
       const digits = raw.replace(/\D/g, '');
       if (digits.length < 7 || digits.length > 15) throw `${label} does not look like a valid number.`;
-      return raw.slice(0, 32);
+      return formatPhone(raw).slice(0, 32);
     };
   },
 

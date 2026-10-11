@@ -150,6 +150,30 @@
     }
   });
 
+  /* ------------------------------------------ phone number formatting */
+  // Formats US numbers as you type: (518) 396-6775. A leading "+" means an
+  // international number, which is left exactly as typed.
+  document.querySelectorAll('input[type="tel"]').forEach(function (input) {
+    function format() {
+      var v = input.value;
+      if (v.trim().charAt(0) === '+') return;
+      var d = v.replace(/\D/g, '');
+      if (d.length > 10 && d.charAt(0) === '1') d = d.slice(1);
+      if (d.length > 10) return; // not a plain US number: leave it alone
+      var out = d;
+      if (d.length > 6) out = '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+      else if (d.length > 3) out = '(' + d.slice(0, 3) + ') ' + d.slice(3);
+      else if (d.length > 0) out = d.length === 3 && v.length >= 3 ? '(' + d + ') ' : d;
+      if (out !== v) input.value = out;
+    }
+    input.addEventListener('input', function (e) {
+      // Let backspace delete cleanly instead of re-adding the punctuation.
+      if (e.inputType && e.inputType.indexOf('delete') === 0) return;
+      format();
+    });
+    input.addEventListener('blur', format);
+  });
+
   /* ------------------------------------- cards / compact layout toggle */
   var viewToggle = document.querySelector('[data-view-toggle]');
   var viewTarget = document.querySelector('[data-view-target]');

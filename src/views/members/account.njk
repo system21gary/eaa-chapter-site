@@ -65,6 +65,22 @@
           </div>
 
           <div class="field">
+            <span class="label-text">Contact details in the member directory</span>
+            <div class="check">
+              <input type="checkbox" id="share_email" name="share_email" value="1" {{ 'checked' if form.share_email }}>
+              <label for="share_email">Show my email to other members</label>
+            </div>
+            <div class="check">
+              <input type="checkbox" id="share_phone" name="share_phone" value="1" {{ 'checked' if form.share_phone }}>
+              <label for="share_phone">Show my phone to other members</label>
+            </div>
+            <span class="hint">
+              Untick either to keep it private. Officers can still reach you, and your
+              name, aircraft and photo stay in the directory.
+            </span>
+          </div>
+
+          <div class="field">
             <label for="bio">A line or two about you</label>
             <textarea id="bio" name="bio" rows="4" maxlength="1500">{{ form.bio or '' }}</textarea>
             {{ err(errors, 'bio') }}

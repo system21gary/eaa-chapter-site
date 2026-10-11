@@ -542,6 +542,17 @@ const migrations = [
     CREATE INDEX idx_contact_replies_message ON contact_replies(message_id, created_at);
     `,
   },
+  {
+    version: 10,
+    name: 'member directory privacy',
+    sql: `
+    -- Members choose whether other members can see their email and phone in
+    -- the directory. Existing members stay visible, as they were before the
+    -- choice existed; they can hide either from their account page.
+    ALTER TABLE users ADD COLUMN share_email INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE users ADD COLUMN share_phone INTEGER NOT NULL DEFAULT 1;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

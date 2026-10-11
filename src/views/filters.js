@@ -5,6 +5,7 @@ import { withBase, absoluteUrl } from '../middleware/base-path.js';
 import { renderMarkdown, excerpt } from '../lib/markdown.js';
 
 import { TZ, toLocalInput, toLocalDateInput } from '../lib/localtime.js';
+import { formatPhone } from '../lib/phone.js';
 
 function fmt(value, options) {
   if (!value) return '';
@@ -71,12 +72,7 @@ export function registerFilters(env) {
     return days;
   });
 
-  env.addFilter('phone', (v) => {
-    const d = String(v ?? '').replace(/\D/g, '');
-    if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
-    if (d.length === 11 && d[0] === '1') return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
-    return v ?? '';
-  });
+  env.addFilter('phone', (v) => formatPhone(v));
 
   /**
    * Every internal URL goes through here, so the site works both at a domain

@@ -44,8 +44,9 @@
             {% endif %}
 
             <p class="small" style="margin:.8rem 0 0">
-              <a href="mailto:{{ member.email }}">{{ member.email }}</a>
-              {% if member.phone %}<br><a href="tel:{{ member.phone }}">{{ member.phone | phone }}</a>{% endif %}
+              {% if member.email %}<a href="mailto:{{ member.email }}">{{ member.email }}</a>{% endif %}
+              {% if member.phone %}{{ '<br>' | safe if member.email }}<a href="tel:{{ member.phone }}">{{ member.phone | phone }}</a>{% endif %}
+              {% if not member.email and not member.phone %}<span class="muted">Contact details are private. Ask an officer to pass on a message.</span>{% endif %}
             </p>
           </div>
         </article>

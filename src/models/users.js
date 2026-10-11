@@ -7,7 +7,7 @@ import config from '../config.js';
 const PUBLIC_COLUMNS = `
   id, email, email_verified, first_name, last_name, display_name, phone,
   eaa_number, aircraft, home_base, bio, avatar_path, role, status,
-  password_set_at, last_login_at, created_at, updated_at
+  share_email, share_phone, password_set_at, last_login_at, created_at, updated_at
 `;
 
 export function findById(id) {
@@ -100,7 +100,7 @@ export function createUser({
 }
 
 export function updateProfile(userId, fields) {
-  const allowed = ['display_name', 'phone', 'eaa_number', 'aircraft', 'home_base', 'bio'];
+  const allowed = ['display_name', 'phone', 'eaa_number', 'aircraft', 'home_base', 'bio', 'share_email', 'share_phone'];
   const sets = [];
   const params = [];
   for (const key of allowed) {

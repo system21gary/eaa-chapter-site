@@ -48,7 +48,23 @@ router.get('/directory', (req, res) => {
   res.render('members/directory.njk', {
     title: 'Member directory',
     robots: 'noindex',
-    members: Users.listMembers({ status: 'active' }),
+    // Built field by field, and email/phone dropped here rather than hidden in
+    // the template: a member who opted out must not have those values in the
+    // response at all.
+    members: Users.listMembers({ status: 'active' }).map((m) => ({
+      id: m.id,
+      first_name: m.first_name,
+      last_name: m.last_name,
+      display_name: m.display_name,
+      avatar_path: m.avatar_path,
+      role: m.role,
+      aircraft: m.aircraft,
+      home_base: m.home_base,
+      eaa_number: m.eaa_number,
+      bio: m.bio,
+      email: m.share_email ? m.email : null,
+      phone: m.share_phone ? m.phone : null,
+    })),
   });
 });
 
@@ -78,13 +94,20 @@ router.post(
         aircraft: f.optionalString({ max: 120, label: 'Aircraft' }),
         home_base: f.optionalString({ max: 80, label: 'Home base' }),
         bio: f.optionalString({ max: 1500, label: 'About you' }),
+        share_email: f.bool(),
+        share_phone: f.bool(),
       });
     } catch (err) {
       if (err instanceof ValidationError) {
         return res.status(400).render('members/account.njk', {
           title: 'Your account',
           robots: 'noindex',
-          form: { ...req.user, ...req.body },
+          form: {
+            ...req.user,
+            ...req.body,
+            share_email: req.body.share_email ? 1 : 0,
+            share_phone: req.body.share_phone ? 1 : 0,
+          },
           errors: err.errors,
           sessions: listUserSessions(req.user.id),
           currentSid: req.sessionID,
