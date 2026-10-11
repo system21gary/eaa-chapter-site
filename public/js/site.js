@@ -214,6 +214,32 @@
     input.addEventListener('blur', format);
   });
 
+  /* --------------------------- cards / compact panel toggle (events) */
+  // Two server-rendered versions of the same list; this shows one and remembers
+  // the choice. Without JavaScript the cards show and the toggle stays hidden.
+  var panelToggle = document.querySelector('[data-panel-toggle]');
+  if (panelToggle) {
+    var panels = document.querySelectorAll('[data-panel]');
+    var panelKey = panelToggle.getAttribute('data-key');
+    var showPanel = function (view) {
+      panels.forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== view; });
+      panelToggle.querySelectorAll('[data-view]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === view));
+      });
+    };
+    var savedPanel = null;
+    try { savedPanel = window.localStorage.getItem(panelKey); } catch (e) { /* storage blocked: still works */ }
+    showPanel(savedPanel === 'compact' ? 'compact' : 'cards');
+    panelToggle.hidden = false;
+    panelToggle.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-view]');
+      if (!btn) return;
+      var view = btn.getAttribute('data-view');
+      showPanel(view);
+      try { window.localStorage.setItem(panelKey, view); } catch (err) { /* see above */ }
+    });
+  }
+
   /* ------------------------------------- cards / compact layout toggle */
   var viewToggle = document.querySelector('[data-view-toggle]');
   var viewTarget = document.querySelector('[data-view-target]');

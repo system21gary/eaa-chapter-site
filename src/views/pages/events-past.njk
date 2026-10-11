@@ -22,11 +22,19 @@
     {% endif %}
 
     {% if events.length %}
-      <div class="grid grid-3">
+      <div class="view-toggle" data-panel-toggle data-key="eaa1699.events.view" hidden role="group" aria-label="Layout">
+        <span class="small muted">View</span>
+        <button type="button" class="btn btn-outline btn-sm" data-view="cards" aria-pressed="true">Cards</button>
+        <button type="button" class="btn btn-outline btn-sm" data-view="compact" aria-pressed="false">Compact</button>
+      </div>
+
+      <div class="grid grid-3" data-panel="cards">
         {% for event in events %}
           {% include "partials/event-card.njk" %}
         {% endfor %}
       </div>
+      {% set idSuffix = 'past' %}
+      {% include "partials/event-compact.njk" %}
     {% else %}
       <div class="empty">
         <div class="icon">{{ icon("photo", 44) }}</div>

@@ -26,6 +26,19 @@ export function registerFilters(env) {
   env.addFilter('datetime', (v) =>
     fmt(v, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   );
+  // "Sat, Oct 17"
+  env.addFilter('dayline', (v) => fmt(v, { weekday: 'short', month: 'short', day: 'numeric' }));
+  // Groups an ordered list of events by chapter-time month: [{ label: 'October 2026', events: [...] }]
+  env.addFilter('bymonth', (events) => {
+    const groups = [];
+    for (const e of events ?? []) {
+      const label = fmt(e.starts_at, { month: 'long', year: 'numeric' });
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) last.events.push(e);
+      else groups.push({ label, events: [e] });
+    }
+    return groups;
+  });
   env.addFilter('month', (v) => fmt(v, { month: 'short' }));
   env.addFilter('day', (v) => fmt(v, { day: 'numeric' }));
   env.addFilter('year', (v) => fmt(v, { year: 'numeric' }));

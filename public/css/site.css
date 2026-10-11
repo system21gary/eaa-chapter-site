@@ -478,6 +478,27 @@ table.data input[type="text"] { min-width: 10rem; }
 .tool-card .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tool-card .shot .noshot { position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.4rem; opacity: .35; }
 .tool-card .shot .count { position: absolute; right: .5rem; bottom: .5rem; background: rgba(2, 31, 51, .72); color: #fff; padding: .1rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+/* ---- events: one line per event, grouped by month ---- */
+.event-compact[hidden], [data-panel][hidden] { display: none; }
+.compact-month { margin-bottom: 1.6rem; }
+.compact-month h2 { font-size: 1.15rem; margin: 0 0 .5rem; padding-bottom: .35rem; border-bottom: 2px solid var(--blue-100); color: var(--navy-800); }
+.compact-month ul { list-style: none; margin: 0; padding: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.compact-month li + li { border-top: 1px solid var(--line); }
+.compact-row {
+  display: flex; align-items: center; gap: .4rem 1rem; padding: .6rem 1rem;
+  text-decoration: none; color: inherit;
+}
+.compact-row:hover { background: var(--blue-100); }
+.compact-row .when { flex: none; width: 6.2rem; font-size: .84rem; font-weight: 700; color: var(--blue-600); }
+.compact-row .title { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compact-row .meta { flex: none; display: flex; align-items: center; gap: .5rem; font-size: .84rem; color: var(--ink-soft); }
+.compact-row .time { white-space: nowrap; }
+@media (max-width: 720px) {
+  .compact-row { flex-wrap: wrap; }
+  .compact-row .title { flex-basis: calc(100% - 7rem); white-space: normal; }
+  .compact-row .meta { flex-basis: 100%; flex-wrap: wrap; }
+}
+
 /* ---- compact layout: one slim row per tool, no photo, no blurb ---- */
 .view-toggle[hidden] { display: none; }
 .view-toggle { display: flex; align-items: center; justify-content: flex-end; gap: .4rem; margin-bottom: 1rem; }
