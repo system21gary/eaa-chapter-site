@@ -247,6 +247,7 @@ section.band-alt { background: var(--paper); border-block: 1px solid var(--line)
 .pill-green { background: var(--green-bg); color: var(--green); }
 .pill-red { background: var(--red-bg); color: var(--red); }
 .pill-grey { background: #eef1f4; color: var(--ink-soft); }
+.pill-button { border: 0; cursor: pointer; font-family: inherit; line-height: inherit; }
 .pill-row { display: flex; flex-wrap: wrap; gap: .4rem; }
 
 /* ----------------------------------------------------------- event cards */
@@ -254,6 +255,13 @@ section.band-alt { background: var(--paper); border-block: 1px solid var(--line)
 .event-card { display: flex; flex-direction: column; height: 100%; }
 .event-card .poster { aspect-ratio: 16 / 9; background: var(--blue-100); overflow: hidden; position: relative; }
 .event-card .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Posters come in every shape. Show the whole thing over a blurred copy of
+   itself, so nothing is cropped and there are no empty bars either. */
+.event-card .poster-art::before {
+  content: ''; position: absolute; inset: -12%;
+  background: var(--poster-url) center / cover; filter: blur(18px) saturate(1.2); opacity: .85;
+}
+.event-card .poster-art img { position: relative; object-fit: contain; }
 
 /* Artwork-free events get a type-coloured band with the chapter mark.
    Scoped under .event-card so these beat the default .poster background. */
@@ -287,6 +295,11 @@ section.band-alt { background: var(--paper); border-block: 1px solid var(--line)
 .next-event .details { padding: clamp(1.5rem, 3vw, 2.5rem); }
 .next-event .art { background: var(--navy-800); display: grid; place-items: center; }
 .next-event .art img { width: 100%; height: 100%; object-fit: cover; }
+/* An uploaded poster is shown whole, never cropped; its shape is the uploader's choice. */
+/* The poster is taken out of the flow so a tall upload cannot stretch the card;
+   the details column sets the height and the poster scales to fit inside it. */
+.next-event .art.poster { position: relative; min-height: 22rem; background: var(--paper); }
+.next-event .art.poster img { position: absolute; inset: 1rem; width: calc(100% - 2rem); height: calc(100% - 2rem); object-fit: contain; border-radius: var(--radius); }
 .countdown {
   display: inline-flex; align-items: baseline; gap: .4rem;
   background: var(--amber-100); color: #8a5a10; padding: .3rem .8rem; border-radius: 999px;

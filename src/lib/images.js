@@ -125,6 +125,31 @@ export async function processImage(buffer, { folder = 'misc' } = {}) {
   };
 }
 
+/**
+ * Copies an already-stored image to a new file of its own, so two records can
+ * share a picture without one's deletion removing it from the other.
+ * Returns the new relative path, or null when the source is missing.
+ */
+export async function copyImage(relPath, { folder = 'misc' } = {}) {
+  const src = resolveUploadPath(relPath);
+  if (!src) return null;
+  const safeFolder = String(folder).replace(/[^a-z0-9-]/gi, '') || 'misc';
+  const stamp = new Date();
+  const relDir = path.join(
+    safeFolder,
+    String(stamp.getUTCFullYear()),
+    String(stamp.getUTCMonth() + 1).padStart(2, '0')
+  );
+  await ensureDir(path.join(config.uploadDir, relDir));
+  const rel = path.join(relDir, `${crypto.randomBytes(16).toString('hex')}${path.extname(relPath)}`);
+  try {
+    await fs.copyFile(src, path.join(config.uploadDir, rel));
+  } catch {
+    return null;
+  }
+  return rel.split(path.sep).join('/');
+}
+
 /** Deletes stored derivatives, ignoring files that are already gone. */
 export async function deleteImage(...relPaths) {
   for (const rel of relPaths.filter(Boolean)) {

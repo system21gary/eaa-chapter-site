@@ -14,6 +14,14 @@
           action="{{ ('/members/admin/events/new' if isNew else '/members/admin/events/' ~ event.id ~ '/edit') | url }}"
           enctype="multipart/form-data" class="form-card" style="margin-top:1.5rem">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      {% if cloneOf %}<input type="hidden" name="clone_from" value="{{ cloneOf.id }}">{% endif %}
+
+      {% if cloneOf %}
+        <div class="notice" style="margin-bottom:1.2rem">
+          Copied from <strong>{{ cloneOf.title }}</strong>. Check the dates before you save.
+          The recap, attendance and photos were not copied.
+        </div>
+      {% endif %}
 
       <fieldset>
         <legend>What and when</legend>
@@ -162,9 +170,21 @@
           <p><img src="{{ event.poster_path | media }}" alt="" style="max-width:340px; border-radius:12px"></p>
         {% endif %}
 
+        {% if cloneOf and event.poster_path %}
+          <div class="check">
+            <input type="checkbox" id="keep_poster" name="keep_poster" value="1" checked>
+            <label for="keep_poster">Reuse this poster <span class="muted">(uploading a new one below replaces it)</span></label>
+          </div>
+        {% endif %}
+
         <div class="field">
-          <label for="poster">{{ 'Replace poster' if event.poster_path else 'Event poster' }}</label>
+          <label for="poster">{{ 'Upload a different poster' if cloneOf and event.poster_path else ('Replace poster' if event.poster_path else 'Event poster') }}</label>
           <input type="file" id="poster" name="poster" accept="image/*" data-preview="#poster-preview">
+          <span class="hint">
+            Best size: <strong>1600 × 900 px</strong> (landscape, 16:9). Keep any text away from the
+            edges. Taller or squarer posters work too and are shown whole, just smaller.
+            JPG or PNG, under 12 MB; anything wider than 1600 px is scaled down.
+          </span>
         </div>
         <div id="poster-preview" class="preview-grid"></div>
 

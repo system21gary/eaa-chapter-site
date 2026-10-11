@@ -1,7 +1,7 @@
 <a class="card card-link event-card" href="{{ '' | url }}/events/{{ event.slug }}">
   {# An event with no artwork gets a coloured band keyed to its type, rather
      than borrowing the breakfast poster and implying every event is one. #}
-  <div class="poster poster-{{ event.kind }}">
+  <div class="poster poster-{{ event.kind }}{{ ' poster-art' if event.poster_path }}"{% if event.poster_path %} style="--poster-url: url('{{ event.poster_path | media }}')"{% endif %}>
     {% if event.poster_path %}
       <img src="{{ event.poster_path | media }}" alt="{{ event.poster_alt or event.title }}" loading="lazy">
     {% elif event.first_photo %}

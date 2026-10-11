@@ -49,7 +49,7 @@ export function createApplication(fields) {
 }
 
 export function listApplications({ status = null } = {}) {
-  const where = status ? 'WHERE a.status = ?' : '';
+  const where = status ? 'WHERE a.archived_at IS NULL AND a.status = ?' : 'WHERE a.archived_at IS NULL';
   const params = status ? [status] : [];
   return all(
     `SELECT a.*, r.first_name AS reviewer_first, r.last_name AS reviewer_last
@@ -75,5 +75,15 @@ export function markReviewed(id, { status, reviewerId, note = null, userId = nul
         SET status = ?, reviewed_by = ?, reviewed_at = ?, review_note = ?, user_id = ?
       WHERE id = ?`,
     [status, reviewerId, nowIso(), note, userId, Number(id)]
+  );
+}
+
+/** Hides a dealt-with request from the admin screen. The row is kept for reporting. */
+export function archiveApplication(id, archivedBy) {
+  run(
+    `UPDATE membership_applications
+        SET archived_at = ?, archived_by = ?
+      WHERE id = ? AND status != 'pending' AND archived_at IS NULL`,
+    [nowIso(), archivedBy, Number(id)]
   );
 }

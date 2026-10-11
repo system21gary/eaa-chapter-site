@@ -3,7 +3,11 @@
 {% macro rows(list, empty) %}
   {% if list.length %}
     <div class="table-wrap">
-      <table class="data">
+      <table class="data" style="table-layout:fixed;min-width:640px">
+        <colgroup>
+          <col style="width:28%"><col style="width:16%"><col style="width:16%">
+          <col style="width:15%"><col style="width:8%"><col style="width:17%">
+        </colgroup>
         <thead>
           <tr><th>Event</th><th>When</th><th>Type</th><th>Status</th><th>Photos</th><th></th></tr>
         </thead>
@@ -17,7 +21,10 @@
                 <span class="pill pill-{{ 'green' if e.status == 'published' else ('red' if e.status == 'cancelled' else 'grey') }}">{{ e.status }}</span>
               </td>
               <td>{{ e.photo_count or 0 }}</td>
-              <td><a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/admin/events/{{ e.id }}/edit">Edit</a></td>
+              <td style="white-space:nowrap">
+                <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/admin/events/{{ e.id }}/edit">Edit</a>
+                <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/admin/events/{{ e.id }}/clone" title="New event pre-filled from this one">Clone</a>
+              </td>
             </tr>
           {% endfor %}
         </tbody>

@@ -28,6 +28,13 @@
                 </span>
                 {% if a.eaa_number %}<span class="pill">EAA #{{ a.eaa_number }}</span>{% endif %}
                 {% if a.interest %}<span class="pill pill-grey">{{ a.interest }}</span>{% endif %}
+                {% if a.status != 'pending' %}
+                  <form method="post" style="margin-left:auto" action="{{ '' | url }}/members/admin/applications/{{ a.id }}/archive"
+                        data-confirm="Remove this request from the list? The record is kept for reporting.">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <button type="submit" class="pill pill-green pill-button" title="Remove from this list (record is kept)">Permanently remove</button>
+                  </form>
+                {% endif %}
               </div>
 
               <h3 style="margin-bottom:.2rem">{{ a.first_name }} {{ a.last_name }}</h3>
@@ -75,8 +82,8 @@
                              placeholder="Included in the email if you tell them.">
                     </div>
                     <div class="check">
-                      <input type="checkbox" id="notify-{{ a.id }}" name="notify" value="1" checked>
-                      <label for="notify-{{ a.id }}">Let them know, kindly</label>
+                      <input type="checkbox" id="notify-{{ a.id }}" name="notify" value="1">
+                      <label for="notify-{{ a.id }}">Let them know, kindly (auto-send email)</label>
                     </div>
                     <button type="submit" class="btn btn-outline btn-block">Decline</button>
                   </form>

@@ -509,6 +509,16 @@ const migrations = [
     VALUES ('chapter_time_since', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
     `,
   },
+  {
+    version: 8,
+    name: 'archive membership applications',
+    sql: `
+    -- Cleared requests disappear from the admin screen but the row stays, so
+    -- the chapter can still report on who asked and what was decided.
+    ALTER TABLE membership_applications ADD COLUMN archived_at TEXT;
+    ALTER TABLE membership_applications ADD COLUMN archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

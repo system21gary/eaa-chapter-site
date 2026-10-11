@@ -12,7 +12,7 @@ import { writeLimiter, uploadLimiter } from '../middleware/rate-limit.js';
 import { asyncRoute } from '../middleware/errors.js';
 import { verifyMultipartCsrf } from '../lib/csrf.js';
 import { validate, f, ValidationError } from '../lib/validate.js';
-import { processImage, deleteImage } from '../lib/images.js';
+import { processImage, deleteImage, copyImage } from '../lib/images.js';
 import { destroyUserSessions } from '../lib/session-store.js';
 import {
   sendMail,
@@ -93,6 +93,25 @@ router.get('/events/new', requireEditor, (req, res) => {
   });
 });
 
+/**
+ * Opens the new-event form pre-filled from an existing event. The recap,
+ * attendance and photos belong to that one occurrence and are left behind; the
+ * poster can be reused (it is copied on save) or replaced.
+ */
+router.get('/events/:id/clone', requireEditor, (req, res, next) => {
+  const source = Events.getEventById(req.params.id);
+  if (!source) return next();
+  const { id, slug, recap_md, recap_html, attendance, ...copy } = source;
+  res.render('admin/event-edit.njk', {
+    title: 'New event',
+    robots: 'noindex',
+    event: { ...copy, photos: [] },
+    cloneOf: source,
+    errors: {},
+    isNew: true,
+  });
+});
+
 router.get('/events/:id/edit', requireEditor, (req, res, next) => {
   const event = Events.getEventById(req.params.id);
   if (!event) return next();
@@ -111,6 +130,9 @@ async function saveEventHandler(req, res, next) {
   const existing = id ? Events.getEventById(id) : null;
   if (id && !existing) return next();
 
+  // Set when this form began as a clone of another event.
+  const cloneOf = !id && req.body.clone_from ? Events.getEventById(req.body.clone_from) : null;
+
   let data;
   try {
     // Two rich fields on this form; normalise each before validating.
@@ -121,7 +143,13 @@ async function saveEventHandler(req, res, next) {
       return res.status(400).render('admin/event-edit.njk', {
         title: id ? 'Edit event' : 'New event',
         robots: 'noindex',
-        event: { ...(existing ?? {}), ...req.body, photos: existing?.photos ?? [] },
+        event: {
+          ...(existing ?? {}),
+          ...req.body,
+          ...(cloneOf ? { poster_path: cloneOf.poster_path } : {}),
+          photos: existing?.photos ?? [],
+        },
+        cloneOf,
         errors: err.errors,
         isNew: !id,
       });
@@ -161,6 +189,8 @@ async function saveEventHandler(req, res, next) {
     const img = await processImage(poster.buffer, { folder: 'events' });
     fields.posterPath = img.fullPath;
     if (existing?.poster_path) await deleteImage(existing.poster_path);
+  } else if (cloneOf?.poster_path && req.body.keep_poster === '1') {
+    fields.posterPath = await copyImage(cloneOf.poster_path, { folder: 'events' });
   }
 
   const eventId = Events.saveEvent(fields, id);
@@ -177,7 +207,7 @@ async function saveEventHandler(req, res, next) {
   audit(req, id ? 'event.updated' : 'event.created', {
     entity: 'event',
     entityId: eventId,
-    detail: data.title,
+    detail: cloneOf ? `${data.title} (cloned from #${cloneOf.id})` : data.title,
   });
   req.flash('success', 'Event saved.');
   return req.session.save(() => res.redirect('/members/admin/events'));
@@ -594,6 +624,28 @@ router.post(
       entityId: application.id,
     });
     req.flash('success', notify ? 'Declined, and they have been told.' : 'Declined quietly.');
+    return req.session.save(() => res.redirect('/members/admin/applications'));
+  })
+);
+
+router.post(
+  '/applications/:id/archive',
+  requireAdmin,
+  writeLimiter,
+  asyncRoute(async (req, res, next) => {
+    const application = Applications.getApplication(req.params.id);
+    if (!application || application.archived_at) return next();
+    if (application.status === 'pending') {
+      req.flash('error', 'Approve or decline that request before removing it.');
+      return req.session.save(() => res.redirect('/members/admin/applications'));
+    }
+
+    Applications.archiveApplication(application.id, req.user.id);
+    audit(req, 'application.archived', {
+      entity: 'membership_application',
+      entityId: application.id,
+    });
+    req.flash('success', 'Removed from this list. The record is kept.');
     return req.session.save(() => res.redirect('/members/admin/applications'));
   })
 );

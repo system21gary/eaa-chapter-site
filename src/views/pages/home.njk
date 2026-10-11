@@ -67,7 +67,7 @@
         </div>
       </div>
 
-      <div class="art">
+      <div class="art{{ ' poster' if nextEvent.poster_path }}">
         {% if nextEvent.poster_path %}
           <img src="{{ nextEvent.poster_path | media }}" alt="{{ nextEvent.poster_alt or nextEvent.title }}">
         {% else %}
