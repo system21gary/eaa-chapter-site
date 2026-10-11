@@ -16,21 +16,25 @@
 <section class="band">
   <div class="wrap">
 
-    <div class="statstrip" style="margin-bottom:2.5rem">
+    <div class="statstrip statstrip-slim" style="margin-bottom:1.5rem">
       <div><div class="n">{{ stats.projects }}</div><div class="l">Projects</div></div>
       <div><div class="n">{{ stats.flying }}</div><div class="l">Now flying</div></div>
       <div><div class="n">{{ stats.updates }}</div><div class="l">Log entries</div></div>
       <div><div class="n">{{ stats.hours }}</div><div class="l">Hours logged</div></div>
     </div>
 
-    {% if builds.length %}
+    {# Shown whenever there are projects or a filter is on, so a filter that
+       matches nothing never strands you without the way back. #}
+    {% if builds.length or activeStatus or activeKind %}
       <nav class="chipnav" aria-label="Filter projects">
         <a href="{{ '/builds' | url }}" {% if not activeStatus and not activeKind %}aria-current="page"{% endif %}>Everything</a>
         {% for s in statuses %}
           <a href="{{ '' | url }}/builds?status={{ s }}" {% if activeStatus == s %}aria-current="page"{% endif %}>{{ statusLabels[s] | safe }}</a>
         {% endfor %}
       </nav>
+    {% endif %}
 
+    {% if builds.length %}
       <div class="grid grid-3">
         {% for build in builds %}
           {% include "partials/build-card.njk" %}
@@ -39,6 +43,10 @@
     {% else %}
       <div class="empty">
         <div class="icon">{{ icon("wrench", 44) }}</div>
+        {% if activeStatus or activeKind %}
+        <h3>No projects at that stage</h3>
+        <p>Try another filter, or <a href="{{ '/builds' | url }}">show everything</a>.</p>
+        {% else %}
         <h3>No build logs published yet</h3>
         <p>
           {% if currentUser %}
@@ -48,6 +56,7 @@
             Check back soon, or <a href="{{ '/contact' | url }}">come see the projects in person</a>.
           {% endif %}
         </p>
+        {% endif %}
       </div>
     {% endif %}
 
