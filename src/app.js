@@ -14,6 +14,7 @@ import { loadUser, flashMiddleware } from './middleware/auth.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { registerFilters } from './views/filters.js';
 import { pendingCount as pendingApplicationCount } from './models/applications.js';
+import { waitingCount as waitingMessageCount } from './models/contact.js';
 
 import publicRoutes from './routes/public.js';
 import authRoutes from './routes/auth.js';
@@ -69,6 +70,7 @@ export function createApp() {
     res.locals.currentUser = null;
     res.locals.csrfToken = '';
     res.locals.pendingApplications = 0;
+    res.locals.waitingMessages = 0;
     next();
   });
   app.use(compression());
@@ -131,6 +133,10 @@ export function createApp() {
     // for admins actually inside the members area.
     if (req.user?.role === 'admin' && req.path.startsWith('/members')) {
       res.locals.pendingApplications = pendingApplicationCount();
+    }
+    // The Inbox is open to editors as well, so its count is too.
+    if (['editor', 'admin'].includes(req.user?.role) && req.path.startsWith('/members')) {
+      res.locals.waitingMessages = waitingMessageCount();
     }
     next();
   });

@@ -41,7 +41,9 @@
         <a href="{{ '/members/directory' | url }}" {% if currentPath == '/members/directory' %}aria-current="page"{% endif %}>Directory</a>
         {% if currentUser.role in ['editor', 'admin'] %}
           <a href="{{ '/members/admin/events' | url }}" {% if currentPath.startsWith('/members/admin/events') %}aria-current="page"{% endif %}>Events</a>
-          <a href="{{ '/members/admin/messages' | url }}" {% if currentPath.startsWith('/members/admin/messages') %}aria-current="page"{% endif %}>Inbox</a>
+          <a href="{{ '/members/admin/messages' | url }}" {% if currentPath.startsWith('/members/admin/messages') %}aria-current="page"{% endif %}>
+            Inbox{% if waitingMessages %} <span class="nav-badge">{{ waitingMessages }}</span>{% endif %}
+          </a>
         {% endif %}
         {% if currentUser.role == 'admin' %}
           <a href="{{ '/members/admin/applications' | url }}" {% if currentPath.startsWith('/members/admin/applications') %}aria-current="page"{% endif %}>
