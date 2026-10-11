@@ -543,7 +543,11 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
 .preview-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .gallery-item { border-radius: 10px; overflow: hidden; background: var(--blue-100); }
-.gallery-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+/* The photo is a square at the top of the tile and the Remove button sits under it.
+   height: auto cancels `.gallery img { height: 100% }`, which was making the photo fill
+   the whole tile and push the button out of sight. */
+.gallery-item { display: flex; flex-direction: column; }
+.gallery-item img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block; flex: none; }
 .gallery-item form { padding: .4rem; }
 
 .danger-zone {
