@@ -179,7 +179,8 @@ for (const p of ['/members', '/members/blog', '/members/locker', '/members/build
 console.log('\nURL prefixing');
 {
   const { text } = await req('/');
-  const prefix = (process.env.BASE_PATH || '').replace(/\/+$/, '');
+  // The app's own reading of BASE_PATH (trimmed, normalised), not a copy of it.
+  const prefix = config.basePath;
   const cssHref = text.match(/href="([^"]*\/assets\/css\/site\.css[^"]*)"/)?.[1];
   record(Boolean(cssHref), 'the stylesheet is linked');
   if (cssHref) {

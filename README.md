@@ -10,6 +10,10 @@ the chapter's actual work is the front door.
 
 ---
 
+**Picking this project up?** Start with [RUNBOOK.md](RUNBOOK.md): where the
+site runs, how it is backed up, secrets, open items, and everything learned so
+far.
+
 ## Quick start
 
 ```bash

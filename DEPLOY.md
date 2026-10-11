@@ -74,8 +74,7 @@ picks them up; nothing else to configure.
 **4. Set the secrets.** These are never in a file in the repository.
 
 ```bash
-fly secrets set \
-  SESSION_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")" \
+fly secrets set   SESSION_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")" \
   CSRF_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")"
 
 fly secrets set MAIL_TRANSPORT=smtp SMTP_HOST=smtp.ionos.com SMTP_PORT=587 SMTP_SECURE=0 \
