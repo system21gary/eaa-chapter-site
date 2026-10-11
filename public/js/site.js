@@ -150,6 +150,30 @@
     }
   });
 
+  /* ------------------------------------- cards / compact layout toggle */
+  var viewToggle = document.querySelector('[data-view-toggle]');
+  var viewTarget = document.querySelector('[data-view-target]');
+  if (viewToggle && viewTarget) {
+    var KEY = 'eaa1699.locker.view';
+    var setView = function (view) {
+      viewTarget.classList.toggle('is-compact', view === 'compact');
+      viewToggle.querySelectorAll('[data-view]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-view') === view));
+      });
+    };
+    var saved = null;
+    try { saved = window.localStorage.getItem(KEY); } catch (e) { /* storage blocked: still works, just not remembered */ }
+    setView(saved === 'compact' ? 'compact' : 'cards');
+    viewToggle.hidden = false;
+    viewToggle.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-view]');
+      if (!btn) return;
+      var view = btn.getAttribute('data-view');
+      setView(view);
+      try { window.localStorage.setItem(KEY, view); } catch (err) { /* see above */ }
+    });
+  }
+
   /* ------------------------------------------- confirm destructive actions */
   document.querySelectorAll('form[data-confirm]').forEach(function (form) {
     form.addEventListener('submit', function (e) {

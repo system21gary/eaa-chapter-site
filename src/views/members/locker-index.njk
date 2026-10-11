@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <div class="statstrip" style="margin-bottom:2rem">
+    <div class="statstrip statstrip-slim" style="margin-bottom:1.2rem">
       <div><div class="n">{{ stats.tools }}</div><div class="l">Tools listed</div></div>
       <div><div class="n">{{ stats.available }}</div><div class="l">Available now</div></div>
       <div><div class="n">{{ stats.onLoan }}</div><div class="l">Out on loan</div></div>
@@ -59,7 +59,13 @@
     </form>
 
     {% if tools.length %}
-      <div class="grid grid-3">
+      <div class="view-toggle" data-view-toggle hidden role="group" aria-label="Layout">
+        <span class="small muted">View</span>
+        <button type="button" class="btn btn-outline btn-sm" data-view="cards" aria-pressed="true">Cards</button>
+        <button type="button" class="btn btn-outline btn-sm" data-view="compact" aria-pressed="false">Compact</button>
+      </div>
+
+      <div class="grid grid-3" data-view-target>
         {% for tool in tools %}
           <a class="card card-link tool-card" href="{{ '' | url }}/members/locker/{{ tool.id }}">
             <div class="shot">
