@@ -99,6 +99,7 @@ a:hover { color: var(--navy-800); }
 
 .brand { display: flex; align-items: center; gap: .7rem; text-decoration: none; color: inherit; margin-right: auto; }
 .brand-mark { display: grid; place-items: center; flex: none; }
+.brand-mark img { display: block; width: 44px; height: 44px; }
 .brand-text strong { display: block; font-family: var(--display); font-size: 1.06rem; font-weight: 800; color: var(--navy-800); letter-spacing: -.02em; }
 .brand-text small { display: block; font-size: .72rem; color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
 
