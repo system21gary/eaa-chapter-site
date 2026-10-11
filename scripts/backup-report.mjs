@@ -2,7 +2,9 @@
  * Runs the backup check now, instead of waiting for the morning.
  *
  *   npm run backup:report              print the report; send nothing
- *   npm run backup:report -- --send    also email it to the usual recipients
+ *   npm run backup:report -- --send    also email it to the report recipient(s),
+ *                                      whatever the result (the scheduled check
+ *                                      only emails when something is wrong)
  *
  * On Fly, run it through start.sh so it sees the same backup settings as the
  * site:

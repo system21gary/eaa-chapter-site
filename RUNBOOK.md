@@ -298,7 +298,8 @@ PowerShell does not do this.)
 | `SMTP_PASS` | Fly secrets; local `.env` | The IONOS mailbox password. |
 | `SMTP_USER`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `MAIL_FROM`, `MAIL_TRANSPORT` | Fly secrets | Not secret as such, but kept together. `MAIL_FROM` must be the `SMTP_USER` mailbox. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `BUCKET_NAME` | Fly secrets | Set by `fly storage create`. Do not edit by hand. |
-| `BACKUP_REPORT_TO` | Fly secrets (optional) | Who gets the morning report; default every active admin. |
+| `BACKUP_REPORT_TO` | Fly secrets (optional) | Who gets the backup report (comma-separated). Default: the oldest active admin only. Set it explicitly. |
+| `BACKUP_REPORT_WHEN` | Fly secrets (optional) | `problem` (default: email only when the backup is failing), `warning` (also for "worth a look" items) or `always` (daily all-clear). |
 | `PASSWORD_PEPPER` | **not set** | Do not set it casually: changing or adding it makes every existing password stop working, and everyone would need a reset link. |
 
 `fly secrets list -a eaa-chapter-site-lfhcfw` shows names, never values.
@@ -418,8 +419,11 @@ restart**. Only `/data` survives.
 3. **Morning report.** After 6:00 Eastern the site restores the latest backup
    into a scratch file, runs SQLite's integrity check, confirms it holds every
    change the live site recorded up to two minutes earlier, and emails the
-   admins. The subject says **PROBLEM** if the backup is missing, unrestorable
-   or behind, or if the data is not on the volume. It also reports counts,
+   one person (`BACKUP_REPORT_TO`; default the oldest active admin) **only when
+   something is wrong** (`BACKUP_REPORT_WHEN`). The subject says **PROBLEM** if
+   the backup is missing, unrestorable or behind, or if the data is not on the
+   volume. **No email means the check passed**, with one caveat: if the site itself
+   is down, nothing is sent either. The report includes counts,
    database size, photo count, volume free space and undelivered mail.
    Run on demand: `/app/scripts/start.sh npm run backup:report -- --send`.
    On in production, off in development (`BACKUP_REPORT=1`/`0` overrides).

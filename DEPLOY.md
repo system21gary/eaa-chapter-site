@@ -81,7 +81,8 @@ fly secrets set MAIL_TRANSPORT=smtp SMTP_HOST=smtp.ionos.com SMTP_PORT=587 SMTP_
   SMTP_USER='the mailbox address' SMTP_PASS='its password' \
   MAIL_FROM='EAA Chapter 1699 <the same mailbox address>'
 
-# Optional: who gets the morning backup report. Default: every active admin.
+# Who gets the backup report, which is emailed only when the backup is failing.
+# Default if unset: the oldest active admin. Set it so it is explicit.
 fly secrets set BACKUP_REPORT_TO=gary.jones@hawthorncs.com
 ```
 

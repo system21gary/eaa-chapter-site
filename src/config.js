@@ -240,11 +240,18 @@ export const config = {
     // overrides either way. Only ever runs from server.js, never from tests or
     // scripts that merely import the app.
     reportEnabled: process.env.BACKUP_REPORT ? process.env.BACKUP_REPORT !== '0' : isProd,
-    // Comma-separated. Empty means every active administrator.
+    // Comma-separated. Empty means the oldest active administrator only: the
+    // report is for whoever looks after the site, not the whole committee.
     reportTo: (process.env.BACKUP_REPORT_TO || '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    // What makes the scheduled check send mail: 'problem' (default: only when
+    // the backup is failing), 'warning' (also for the "worth a look" items) or
+    // 'always' (the old daily all-clear). Running the script by hand always sends.
+    reportWhen: ['problem', 'warning', 'always'].includes(process.env.BACKUP_REPORT_WHEN)
+      ? process.env.BACKUP_REPORT_WHEN
+      : 'problem',
     // Hour of the day, chapter time (Eastern), at or after which it is sent.
     reportHour: Math.min(23, Math.max(0, int('BACKUP_REPORT_HOUR', 6))),
     // Set by scripts/start.sh when a Tigris bucket (or other replica) is

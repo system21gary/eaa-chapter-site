@@ -355,8 +355,8 @@ export function formatReport(report) {
     'Restore steps are in DEPLOY.md, under "Restoring".',
     '',
     '--',
-    'Sent automatically each morning by the EAA Chapter 1699 website.',
-    'To stop these: set BACKUP_REPORT=0. To change who gets them: BACKUP_REPORT_TO.'
+    'Sent automatically by the EAA Chapter 1699 website when the daily backup check finds a problem.',
+    'To change who gets it: BACKUP_REPORT_TO. To get it every day: BACKUP_REPORT_WHEN=always. To stop it: BACKUP_REPORT=0.'
   );
 
   const subject =
@@ -369,21 +369,31 @@ export function formatReport(report) {
   return { subject, text: lines.join('\n') };
 }
 
-/** Who gets it: BACKUP_REPORT_TO, or else every active administrator. */
+/** Who gets it: BACKUP_REPORT_TO, or else only the oldest active administrator. */
 export function reportRecipients() {
   if (config.backup.reportTo.length) return config.backup.reportTo;
-  return all("SELECT email FROM users WHERE role = 'admin' AND status = 'active' ORDER BY id").map((r) => r.email);
+  return all("SELECT email FROM users WHERE role = 'admin' AND status = 'active' ORDER BY id LIMIT 1").map((r) => r.email);
 }
 
-/** Builds the report and queues one email per recipient. */
-export async function sendReport() {
+const SEVERITY = { OK: 0, WARNING: 1, PROBLEM: 2 };
+const THRESHOLD = { always: 0, warning: 1, problem: 2 };
+
+/**
+ * Builds the report and queues one email per recipient -- unless the result is
+ * less serious than `onlyWhen` ('problem', 'warning' or 'always'), in which
+ * case nothing is sent and `sent` is false.
+ */
+export async function sendReport({ onlyWhen = 'always' } = {}) {
   const report = await buildReport();
   const message = formatReport(report);
+  if (SEVERITY[report.status] < THRESHOLD[onlyWhen]) {
+    return { report, message, recipients: [], sent: false };
+  }
   const recipients = reportRecipients();
   for (const to of recipients) {
     await sendMail({ to, ...message });
   }
-  return { report, message, recipients };
+  return { report, message, recipients, sent: true };
 }
 
 /* --------------------------------------------------------------- schedule */
@@ -406,8 +416,12 @@ export async function maybeSendDailyReport(now = new Date()) {
   ).changes;
   if (!claimed) return false;
 
-  const { report, recipients } = await sendReport();
-  console.log(`[backup] daily report: ${report.status}, queued for ${recipients.length} recipient(s)`);
+  const { report, recipients, sent } = await sendReport({ onlyWhen: config.backup.reportWhen });
+  console.log(
+    sent
+      ? `[backup] daily check: ${report.status}, queued for ${recipients.length} recipient(s)`
+      : `[backup] daily check: ${report.status}, no email needed`
+  );
   return true;
 }
 
