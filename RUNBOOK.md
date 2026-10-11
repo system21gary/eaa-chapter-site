@@ -598,6 +598,13 @@ bash.
   `BASE_URL=https://<coder host>:3000` and `REDIRECT_MODE=absolute` in the
   development `.env`. The task id changes with each task: `echo $TASK_ID`.
   The session cookie path stays `/` (the app sees the stripped path).
+  The preview may instead be opened at `/tasks/<task id>/app/3000/` (the
+  CoderFlow app proxy). `BASE_PATH` must match the URL actually in the
+  browser, so use `BASE_PATH=/tasks/<task id>/app/3000` for that form. A
+  mismatch gives an unstyled page with a broken image: the HTML loads but the
+  CSS, JS and image links point at the wrong prefix and 404. Check the page's
+  `<link rel="stylesheet">` href against the address bar. Restart the server
+  after changing it.
 - **Start a server that outlives the turn** with
   `setsid nohup node server.js > /tmp/eaa-server.log 2>&1 < /dev/null &`.
   Stop it with `for p in $(pgrep -f "^node server.js"); do kill $p; done`.
@@ -756,4 +763,4 @@ Condensed; Git has the code history from `ad55261` onwards.
   fixed 4B0's description; fixed memory, the Git Bash and root-shell traps, and
   the `DATA_DIR` secret override. First report email arrived.
 - **Oct 9-10:** chapter time for all dates, plus `fix:times` for old rows;
-  member edit and removal; this runbook.
+  member edit and removal; this runbook. 
