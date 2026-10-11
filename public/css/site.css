@@ -473,6 +473,9 @@ table.data input[type="text"] { min-width: 10rem; }
 .page-head { background: linear-gradient(160deg, var(--navy-800), var(--navy-900)); color: #fff; padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(2.5rem, 5vw, 3.5rem); }
 .page-head h1 { color: #fff; margin-bottom: .3em; }
 .page-head p { color: #c8dcf0; max-width: 60ch; margin: 0; }
+/* Beats the margin reset above, which was squeezing the breadcrumb against what follows. */
+.page-head .crumbs { margin-bottom: 1.5rem; max-width: none; }
+.page-head .pill-row { margin-bottom: 1.1rem !important; }
 
 .strength { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: .5rem; }
 .strength span { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--red); transition: width .25s, background .25s; }

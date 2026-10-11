@@ -18,6 +18,7 @@ import {
   sendMail,
   inviteEmail,
   applicationDeclinedEmail,
+  contactReplyEmail,
   recentOutbox,
   requeueMail,
   outboxHealth,
@@ -652,17 +653,145 @@ router.post(
 
 /* ============================ inbox & logging =========================== */
 
-router.get('/messages', requireEditor, (req, res) => {
-  res.render('admin/messages.njk', {
+/** j***@example.com -- enough to tell messages apart, not enough to copy. */
+function maskEmail(address) {
+  const [local = '', domain = ''] = String(address).split('@');
+  return `${local.slice(0, 1)}***@${domain}`;
+}
+
+function renderMessages(req, res, { status = 200, draft = null, error = null } = {}) {
+  const filter = ['waiting', 'handled', 'all'].includes(req.query.filter) ? req.query.filter : 'all';
+  const counts = get(
+    `SELECT COUNT(*) AS total,
+            SUM(handled_at IS NULL) AS waiting,
+            SUM(handled_at IS NOT NULL) AS handled
+       FROM contact_messages WHERE archived_at IS NULL`
+  );
+  const where = { waiting: 'AND m.handled_at IS NULL', handled: 'AND m.handled_at IS NOT NULL', all: '' }[filter];
+  const messages = all(
+    `SELECT m.*, h.first_name AS handler_first, h.last_name AS handler_last
+       FROM contact_messages m
+       LEFT JOIN users h ON h.id = m.handled_by
+      WHERE m.archived_at IS NULL ${where}
+      ORDER BY m.handled_at IS NULL DESC, m.id DESC
+      LIMIT 200`
+  ).map((m) => ({
+    ...m,
+    email_masked: maskEmail(m.email),
+    replies: all(
+      `SELECT r.*, u.first_name AS sender_first, u.last_name AS sender_last
+         FROM contact_replies r LEFT JOIN users u ON u.id = r.sent_by
+        WHERE r.message_id = ? ORDER BY r.id`,
+      [m.id]
+    ),
+  }));
+  res.status(status).render('admin/messages.njk', {
     title: 'Contact messages',
     robots: 'noindex',
-    messages: all('SELECT * FROM contact_messages ORDER BY id DESC LIMIT 200'),
+    messages,
+    filter,
+    counts: { total: counts.total ?? 0, waiting: counts.waiting ?? 0, handled: counts.handled ?? 0 },
+    draft,
+    error,
+    canReply: true,
   });
+}
+
+router.get('/messages', requireEditor, (req, res) => renderMessages(req, res));
+
+function openMessage(id) {
+  return get('SELECT * FROM contact_messages WHERE id = ? AND archived_at IS NULL', [Number(id)]);
+}
+
+router.post('/messages/:id/handled', requireEditor, writeLimiter, (req, res, next) => {
+  const message = openMessage(req.params.id);
+  if (!message) return next();
+  if (!message.handled_at) {
+    run('UPDATE contact_messages SET handled_at = ?, handled_by = ? WHERE id = ?', [
+      nowIso(),
+      req.user.id,
+      message.id,
+    ]);
+    audit(req, 'contact.handled', { entity: 'contact_message', entityId: message.id });
+  }
+  req.flash('success', 'Marked as handled.');
+  return req.session.save(() => res.redirect('/members/admin/messages'));
 });
 
-router.post('/messages/:id/handled', requireEditor, writeLimiter, (req, res) => {
-  run('UPDATE contact_messages SET handled_at = ? WHERE id = ?', [nowIso(), Number(req.params.id)]);
-  req.flash('success', 'Marked as handled.');
+router.post('/messages/:id/reopen', requireEditor, writeLimiter, (req, res, next) => {
+  const message = openMessage(req.params.id);
+  if (!message) return next();
+  run('UPDATE contact_messages SET handled_at = NULL, handled_by = NULL WHERE id = ?', [message.id]);
+  audit(req, 'contact.reopened', { entity: 'contact_message', entityId: message.id });
+  req.flash('success', 'Moved back to needs a reply.');
+  return req.session.save(() => res.redirect('/members/admin/messages'));
+});
+
+/**
+ * Replies go out from the chapter's address, so an officer's own mailbox is
+ * never exposed to the visitor -- and the visitor's address is never shown to
+ * the officer in full. Sending a reply also marks the message handled.
+ */
+router.post(
+  '/messages/:id/reply',
+  requireEditor,
+  writeLimiter,
+  asyncRoute(async (req, res, next) => {
+    const message = openMessage(req.params.id);
+    if (!message) return next();
+
+    const body = String(req.body.body ?? '').replace(/\r\n/g, '\n').trim();
+    if (body.length < 2 || body.length > 5000) {
+      return renderMessages(req, res, {
+        status: 400,
+        draft: { id: message.id, body },
+        error: body.length < 2 ? 'Write a reply first.' : 'Replies are limited to 5,000 characters.',
+      });
+    }
+
+    await sendMail({
+      to: message.email,
+      ...contactReplyEmail({
+        name: message.name.split(' ')[0],
+        topic: message.topic,
+        body,
+        signedBy: req.user.first_name,
+        original: message.message,
+      }),
+    });
+
+    run(
+      'INSERT INTO contact_replies (message_id, sent_by, body, created_at) VALUES (?, ?, ?, ?)',
+      [message.id, req.user.id, body, nowIso()]
+    );
+    if (!message.handled_at) {
+      run('UPDATE contact_messages SET handled_at = ?, handled_by = ? WHERE id = ?', [
+        nowIso(),
+        req.user.id,
+        message.id,
+      ]);
+    }
+    // The text of the reply is deliberately left out of the audit log.
+    audit(req, 'contact.replied', { entity: 'contact_message', entityId: message.id });
+    req.flash('success', 'Reply sent.');
+    return req.session.save(() => res.redirect('/members/admin/messages'));
+  })
+);
+
+router.post('/messages/:id/archive', requireEditor, writeLimiter, (req, res, next) => {
+  const message = openMessage(req.params.id);
+  if (!message) return next();
+  if (!message.handled_at) {
+    req.flash('error', 'Reply to or mark that message handled before removing it.');
+    return req.session.save(() => res.redirect('/members/admin/messages'));
+  }
+  run('UPDATE contact_messages SET archived_at = ?, archived_by = ? WHERE id = ?', [
+    nowIso(),
+    req.user.id,
+    message.id,
+  ]);
+  audit(req, 'contact.archived', { entity: 'contact_message', entityId: message.id });
+  req.flash('success', 'Removed from this list. The record is kept.');
   return req.session.save(() => res.redirect('/members/admin/messages'));
 });
 

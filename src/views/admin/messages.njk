@@ -5,37 +5,103 @@
   <div class="wrap">
     <span class="eyebrow">Editors</span>
     <h1>Contact messages</h1>
-    <p class="muted">Everything sent through the public contact form.</p>
+    <p class="muted" style="max-width:65ch">
+      Everything sent through the public contact form. Reply from here and it goes
+      out from the chapter's address, so nobody's personal email is shared in either direction.
+    </p>
+
+    {% if counts.waiting %}
+      <div class="notice" style="margin:1.5rem 0">
+        <strong>{{ counts.waiting }} message{{ 's' if counts.waiting != 1 }} waiting on a reply.</strong>
+      </div>
+    {% endif %}
+
+    <div class="pill-row" style="margin:1.2rem 0 0" role="navigation" aria-label="Filter messages">
+      {% for key, label in { all: 'All', waiting: 'Needs a reply', handled: 'Handled' } %}
+        <a class="pill {{ 'pill-amber' if filter == key else 'pill-grey' }}"
+           href="{{ '/members/admin/messages' | url }}?filter={{ key }}"
+           {{ 'aria-current="page"' | safe if filter == key }}>
+          {{ label }} ({{ counts.total if key == 'all' else counts[key] }})
+        </a>
+      {% endfor %}
+    </div>
 
     {% if messages.length %}
-      <div class="stack" style="margin-top:2rem">
+      <div class="stack" style="margin-top:1.5rem">
         {% for m in messages %}
-          <article class="card">
+          <article class="card" id="message-{{ m.id }}">
             <div class="card-body">
               <div class="pill-row" style="margin-bottom:.6rem">
                 <span class="pill">{{ m.topic or 'General' }}</span>
                 {% if m.handled_at %}
-                  <span class="pill pill-green">Handled {{ m.handled_at | relative }}</span>
+                  <span class="pill pill-green">
+                    Handled{% if m.handler_first %} by {{ m.handler_first }} {{ m.handler_last }}{% endif %}
+                    {{ m.handled_at | relative }}
+                  </span>
                 {% else %}
                   <span class="pill pill-amber">Needs a reply</span>
+                {% endif %}
+                {% if m.handled_at %}
+                  <form method="post" style="margin-left:auto"
+                        action="{{ '' | url }}/members/admin/messages/{{ m.id }}/archive"
+                        data-confirm="Remove this message from the list? The record is kept for reporting.">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <button type="submit" class="pill pill-green pill-button" title="Remove from this list (record is kept)">Permanently remove</button>
+                  </form>
                 {% endif %}
               </div>
 
               <h3 style="margin-bottom:.2rem">{{ m.name }}</h3>
               <p class="small muted" style="margin:0 0 .9rem">
-                <a href="mailto:{{ m.email }}">{{ m.email }}</a> · {{ m.created_at | datetime }}
-                ({{ m.created_at | relative }})
+                <span title="Hidden for privacy. Replies are sent from here.">{{ m.email_masked }}</span>
+                · {{ m.created_at | datetime }} ({{ m.created_at | relative }})
               </p>
 
               <p style="white-space:pre-wrap">{{ m.message }}</p>
 
+              {% for r in m.replies %}
+                <div class="notice" style="margin-top:1rem">
+                  <p class="small muted" style="margin:0 0 .4rem">
+                    Reply from {{ r.sender_first or 'an officer' }}{% if r.sender_last %} {{ r.sender_last }}{% endif %},
+                    {{ r.created_at | relative }}
+                  </p>
+                  <p style="white-space:pre-wrap;margin:0">{{ r.body }}</p>
+                </div>
+              {% endfor %}
+
+              {% if draft and draft.id == m.id and error %}
+                <p class="err" role="alert" style="margin-top:1rem">{{ error }}</p>
+              {% endif %}
+
+              <details style="margin-top:1rem" {{ 'open' if draft and draft.id == m.id }}>
+                <summary class="btn btn-primary btn-sm" style="display:inline-flex;cursor:pointer">
+                  {{ 'Reply again' if m.replies.length else 'Reply' }}
+                </summary>
+                <form method="post" action="{{ '' | url }}/members/admin/messages/{{ m.id }}/reply"
+                      data-confirm="Send this reply to {{ m.name }}?" style="margin-top:1rem">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <div class="field">
+                    <label for="reply-{{ m.id }}">Your reply to {{ m.name }}</label>
+                    <textarea id="reply-{{ m.id }}" name="body" rows="6" maxlength="5000" required>{{ draft.body if draft and draft.id == m.id }}</textarea>
+                    <span class="hint">
+                      Sent from the chapter's address and signed with your first name only. Their
+                      message is quoted underneath. Sending marks this handled.
+                    </span>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm">Send reply</button>
+                </form>
+              </details>
+
               <div class="entry-actions">
-                <a class="btn btn-primary btn-sm"
-                   href="mailto:{{ m.email }}?subject=Re:%20EAA%20Chapter%201699">Reply by email</a>
                 {% if not m.handled_at %}
                   <form method="post" action="{{ '' | url }}/members/admin/messages/{{ m.id }}/handled">
                     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                    <button type="submit" class="btn btn-outline btn-sm">Mark handled</button>
+                    <button type="submit" class="btn btn-outline btn-sm">Mark handled (no reply)</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ '' | url }}/members/admin/messages/{{ m.id }}/reopen">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                    <button type="submit" class="btn btn-outline btn-sm">Reopen</button>
                   </form>
                 {% endif %}
               </div>
@@ -46,8 +112,8 @@
     {% else %}
       <div class="empty">
         <div class="icon">{{ icon("mail", 44) }}</div>
-        <h3>No messages</h3>
-        <p>Nothing has come in through the contact form yet.</p>
+        <h3>{{ 'No messages' if filter == 'all' else 'Nothing here' }}</h3>
+        <p>{{ 'Nothing has come in through the contact form yet.' if filter == 'all' else 'No messages match this filter.' }}</p>
       </div>
     {% endif %}
   </div>

@@ -519,6 +519,29 @@ const migrations = [
     ALTER TABLE membership_applications ADD COLUMN archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
     `,
   },
+  {
+    version: 9,
+    name: 'contact message handling',
+    sql: `
+    -- Who dealt with a message, and a way to clear it from the inbox without
+    -- losing it: archived rows are hidden, never deleted, so they can still be
+    -- reported on.
+    ALTER TABLE contact_messages ADD COLUMN handled_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE contact_messages ADD COLUMN archived_at TEXT;
+    ALTER TABLE contact_messages ADD COLUMN archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+    -- Replies sent from the site. The visitor's address stays on the message
+    -- row; it is not copied here.
+    CREATE TABLE contact_replies (
+      id         INTEGER PRIMARY KEY,
+      message_id INTEGER NOT NULL REFERENCES contact_messages(id) ON DELETE CASCADE,
+      sent_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      body       TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_contact_replies_message ON contact_replies(message_id, created_at);
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

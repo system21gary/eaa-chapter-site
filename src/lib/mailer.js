@@ -521,3 +521,30 @@ export function contactNotificationEmail({ name, email, topic, message }) {
     ].join('\n'),
   };
 }
+
+/**
+ * A reply to a contact-form message, sent from the site. The officer's own
+ * address never appears: it goes out from the chapter's address, signed with
+ * their first name only.
+ */
+export function contactReplyEmail({ name, topic, body, signedBy, original }) {
+  const quoted = String(original)
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n');
+  return {
+    subject: `Re: ${topic || 'your message to EAA Chapter 1699'}`,
+    text: [
+      `Hi ${name},`,
+      '',
+      body,
+      '',
+      'Blue skies,',
+      `${signedBy}`,
+      'EAA Chapter 1699 - South Albany Airport (4B0)',
+      '',
+      'You wrote:',
+      quoted,
+    ].join('\n'),
+  };
+}
