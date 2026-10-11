@@ -28,11 +28,18 @@ export function registerFilters(env) {
   );
   // "Sat, Oct 17"
   env.addFilter('dayline', (v) => fmt(v, { weekday: 'short', month: 'short', day: 'numeric' }));
-  // Groups an ordered list of events by chapter-time month: [{ label: 'October 2026', events: [...] }]
-  env.addFilter('bymonth', (events) => {
+  // Groups an ordered list by chapter-time month: [{ label: 'October 2026', events: [...] }].
+  // `fields` is a comma-separated list of date fields; the first one that is set wins.
+  // Pass `newestFirst` to ignore the incoming order (e.g. pinned posts) and sort by date.
+  env.addFilter('bymonth', (items, fields = 'starts_at', newestFirst = false) => {
+    const names = String(fields).split(',').map((n) => n.trim());
+    const dateOf = (e) => names.map((n) => e[n]).find(Boolean) ?? '';
+    const list = [...(items ?? [])];
+    if (newestFirst) list.sort((a, b) => String(dateOf(b)).localeCompare(String(dateOf(a))));
     const groups = [];
-    for (const e of events ?? []) {
-      const label = fmt(e.starts_at, { month: 'long', year: 'numeric' });
+    for (const e of list) {
+      const when = dateOf(e);
+      const label = fmt(when, { month: 'long', year: 'numeric' });
       const last = groups[groups.length - 1];
       if (last && last.label === label) last.events.push(e);
       else groups.push({ label, events: [e] });

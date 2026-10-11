@@ -27,7 +27,13 @@
     {% endif %}
 
     {% if posts.length %}
-      <div class="grid grid-3">
+      <div class="view-toggle" data-panel-toggle data-key="eaa1699.blog.view" hidden role="group" aria-label="Layout">
+        <span class="small muted">View</span>
+        <button type="button" class="btn btn-outline btn-sm" data-view="cards" aria-pressed="true">Cards</button>
+        <button type="button" class="btn btn-outline btn-sm" data-view="compact" aria-pressed="false">Compact</button>
+      </div>
+
+      <div class="grid grid-3" data-panel="cards">
         {% for post in posts %}
           <article class="card card-link event-card">
             {% if post.cover_path %}
@@ -55,6 +61,32 @@
               <p class="small muted" style="margin:0">{{ post.summary | truncate(140) }}</p>
             </div>
           </article>
+        {% endfor %}
+      </div>
+
+      {# The same posts, one line each, grouped by month. The toggle chooses which is shown. #}
+      <div class="event-compact" data-panel="compact" hidden>
+        {% for group in posts | bymonth('published_at,created_at', true) %}
+          <section class="compact-month" aria-labelledby="blog-month-{{ loop.index }}">
+            <h2 id="blog-month-{{ loop.index }}">{{ group.label }}</h2>
+            <ul>
+              {% for post in group.events %}
+                <li>
+                  <a class="compact-row" href="{{ '' | url }}/members/blog/{{ post.slug }}">
+                    <span class="when">{{ (post.published_at or post.created_at) | dayline }}</span>
+                    <span class="title">{{ post.title }}</span>
+                    <span class="meta">
+                      {% if post.pinned %}<span class="pill pill-amber">Pinned</span>{% endif %}
+                      {% if post.status == 'draft' %}<span class="pill pill-grey">Draft</span>{% endif %}
+                      {% if post.visibility == 'public' %}<span class="pill">Public</span>{% endif %}
+                      {% if post.comment_count %}<span class="time">{{ post.comment_count }} comment{{ 's' if post.comment_count != 1 }}</span>{% endif %}
+                      <span class="time">{{ post.author_display or (post.author_first ~ ' ' ~ post.author_last) }}</span>
+                    </span>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
         {% endfor %}
       </div>
 
