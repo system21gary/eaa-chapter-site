@@ -150,6 +150,46 @@
     }
   });
 
+  /* --------------------------------------------- hero scroll cue */
+  // A floating button that stays on screen and steps down the page one section
+  // at a time. At the last section it turns around and goes back to the top.
+  var cue = document.querySelector('[data-scroll-cue]');
+  if (cue) {
+    var sections = Array.prototype.slice.call(document.querySelectorAll('main > .hero, main > section'));
+    var header = document.querySelector('.site-header');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var nextSection = function () {
+      var headerH = header ? header.offsetHeight : 0;
+      // At the very bottom there is nowhere further to go, even if a short
+      // last section never reaches the top of the screen.
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4) return null;
+      for (var i = 0; i < sections.length; i++) {
+        // "Next" is the first section whose top is still below the header.
+        if (sections[i].getBoundingClientRect().top > headerH + 8) return sections[i];
+      }
+      return null;
+    };
+    var cueTimer = null;
+    var refreshCue = function () {
+      cueTimer = null;
+      var up = !nextSection();
+      cue.classList.toggle('is-up', up);
+      cue.setAttribute('aria-label', up ? 'Back to the top' : 'Scroll down to see more');
+    };
+    var queueRefresh = function () { if (!cueTimer) cueTimer = window.requestAnimationFrame(refreshCue); };
+    window.addEventListener('scroll', queueRefresh, { passive: true });
+    window.addEventListener('resize', queueRefresh);
+    cue.addEventListener('click', function (e) {
+      e.preventDefault();
+      var target = nextSection();
+      var top = target
+        ? window.scrollY + target.getBoundingClientRect().top - (header ? header.offsetHeight : 0)
+        : 0;
+      window.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+    });
+    refreshCue();
+  }
+
   /* ------------------------------------------ phone number formatting */
   // Formats US numbers as you type: (518) 396-6775. A leading "+" means an
   // international number, which is left exactly as typed.

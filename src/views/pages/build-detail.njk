@@ -33,7 +33,7 @@
         <div class="progress progress-lg" style="margin-top:1.6rem">
           <span style="width: {{ build.percent_complete }}%"></span>
         </div>
-        <p class="small" style="color:#c8dcf0; margin:.5rem 0 0">
+        <p class="small" style="color:#c8e0f0; margin:.5rem 0 0">
           {{ build.percent_complete }}% complete · {{ totals.entries }} log
           entr{{ 'y' if totals.entries == 1 else 'ies' }}
           {%- if totals.hours %} · {{ totals.hours | round }} hours logged{% endif %}
