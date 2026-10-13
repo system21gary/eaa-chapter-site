@@ -25,8 +25,10 @@ import {
 } from '../lib/mailer.js';
 import { recentAudit } from '../lib/audit.js';
 import { audit } from '../lib/audit.js';
+import { suggestLocals } from '../lib/suggestions.js';
 
 const router = express.Router();
+router.use(suggestLocals({ eventLocationOptions: ['events', 'location_name'] }));
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: config.uploads.maxBytes, files: 8, fields: 40 },

@@ -34,7 +34,7 @@
           <div class="field">
             <label for="brand">Brand</label>
             <input type="text" id="brand" name="brand" maxlength="60" value="{{ tool.brand or '' }}"
-                   placeholder="Cleaveland">
+                   placeholder="Cleaveland" data-suggest="{{ brandOptions | dump }}" autocomplete="off">
           </div>
           <div class="field">
             <label for="model">Model</label>
@@ -96,7 +96,7 @@
         <div class="field">
           <label for="location_label">Location</label>
           <input type="text" id="location_label" name="location_label" maxlength="120"
-                 value="{{ tool.location_label or '' }}" placeholder="Hangar 6, South Albany (4B0)">
+                 value="{{ tool.location_label or '' }}" placeholder="Hangar 6, South Albany (4B0)" data-suggest="{{ locationOptions | dump }}" autocomplete="off">
         </div>
 
         <div class="field">

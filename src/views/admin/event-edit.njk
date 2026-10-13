@@ -105,7 +105,7 @@
 
         <div class="field">
           <label for="location_name">Location name</label>
-          <input type="text" id="location_name" name="location_name" maxlength="120" value="{{ event.location_name or '' }}">
+          <input type="text" id="location_name" name="location_name" maxlength="120" value="{{ event.location_name or '' }}" data-suggest="{{ eventLocationOptions | dump }}" autocomplete="off">
         </div>
 
         <div class="field-row">

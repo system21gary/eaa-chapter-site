@@ -21,7 +21,7 @@
             <span class="label-text">Name on file</span>
             <p class="muted" style="margin:0">
               {{ currentUser.first_name }} {{ currentUser.last_name }} ·
-              <span class="mono">{{ currentUser.email }}</span>
+              {{ currentUser.email }}
             </p>
             <span class="hint">
               Ask an officer if your name or email needs changing — those are
@@ -60,7 +60,7 @@
             <div class="field">
               <label for="home_base">Home base</label>
               <input type="text" id="home_base" name="home_base" maxlength="80"
-                     value="{{ form.home_base or '' }}" placeholder="South Albany (4B0)">
+                     value="{{ form.home_base or '' }}" placeholder="South Albany (4B0)" data-suggest="{{ homeBaseOptions | dump }}" autocomplete="off">
             </div>
           </div>
 

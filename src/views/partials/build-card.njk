@@ -15,7 +15,7 @@
       <span class="pill pill-{{ 'green' if build.status == 'flying' else 'amber' }}">
         {{ statusLabels[build.status] | safe }}
       </span>
-      {% if build.tail_number %}<span class="pill pill-grey mono">{{ build.tail_number }}</span>{% endif %}
+      {% if build.tail_number %}<span class="pill pill-grey">{{ build.tail_number }}</span>{% endif %}
     </div>
 
     <h3 style="margin-bottom:.15rem">{{ build.title }}</h3>

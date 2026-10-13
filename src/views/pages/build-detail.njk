@@ -10,7 +10,7 @@
       <div class="pill-row" style="margin-bottom:.8rem">
         <span class="pill pill-{{ 'green' if build.status == 'flying' else 'amber' }}">{{ statusLabels[build.status] | safe }}</span>
         <span class="pill">{{ kindLabels[build.build_kind] }}</span>
-        {% if build.tail_number %}<span class="pill pill-grey mono">{{ build.tail_number }}</span>{% endif %}
+        {% if build.tail_number %}<span class="pill pill-grey">{{ build.tail_number }}</span>{% endif %}
         {% if build.visibility == 'members' %}<span class="pill pill-red">Members only</span>{% endif %}
       </div>
 
@@ -140,7 +140,7 @@
           <ul class="factlist" style="margin-top:1rem">
             <li><span class="label">Aircraft</span><span>{{ build.aircraft_type }}</span></li>
             <li><span class="label">Type</span><span>{{ kindLabels[build.build_kind] }}</span></li>
-            {% if build.tail_number %}<li><span class="label">Reg.</span><span class="mono">{{ build.tail_number }}</span></li>{% endif %}
+            {% if build.tail_number %}<li><span class="label">Reg.</span><span>{{ build.tail_number }}</span></li>{% endif %}
             {% if build.engine %}<li><span class="label">Engine</span><span>{{ build.engine }}</span></li>{% endif %}
             {% if build.panel %}<li><span class="label">Panel</span><span>{{ build.panel }}</span></li>{% endif %}
             {% if build.started_on %}<li><span class="label">Started</span><span>{{ build.started_on | shortdate }}</span></li>{% endif %}

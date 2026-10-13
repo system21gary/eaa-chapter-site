@@ -36,7 +36,7 @@
             <label for="aircraft_type">Aircraft type</label>
             <input type="text" id="aircraft_type" name="aircraft_type" required maxlength="100"
                    value="{{ build.aircraft_type or '' }}"
-                   placeholder="Van's RV-7A"
+                   placeholder="Van's RV-7A" data-suggest="{{ aircraftOptions | dump }}" autocomplete="off"
                    aria-invalid="{{ 'true' if errors.aircraft_type }}">
             {{ err(errors, 'aircraft_type') }}
           </div>
@@ -107,7 +107,7 @@
           <div class="field">
             <label for="hangar">Where it lives</label>
             <input type="text" id="hangar" name="hangar" maxlength="120"
-                   value="{{ build.hangar or '' }}" placeholder="Hangar 4, 4B0">
+                   value="{{ build.hangar or '' }}" placeholder="Hangar 4, 4B0" data-suggest="{{ hangarOptions | dump }}" autocomplete="off">
           </div>
         </div>
 

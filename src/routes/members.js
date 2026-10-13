@@ -7,6 +7,7 @@ import * as Posts from '../models/posts.js';
 import * as Tools from '../models/tools.js';
 import * as Events from '../models/events.js';
 import { requireAuth } from '../middleware/auth.js';
+import { suggestLocals } from '../lib/suggestions.js';
 import { writeLimiter, uploadLimiter } from '../middleware/rate-limit.js';
 import { asyncRoute } from '../middleware/errors.js';
 import { verifyMultipartCsrf } from '../lib/csrf.js';
@@ -25,6 +26,7 @@ const upload = multer({
 });
 
 router.use(requireAuth);
+router.use(suggestLocals({ homeBaseOptions: ['users', 'home_base'] }));
 
 /* -------------------------------------------------------------- dashboard */
 

@@ -443,6 +443,113 @@
     sync();
   });
 
+  /* ------------------------------------------ inline suggestions */
+  // For ordinary text boxes that tend to repeat ("Hangar 6", "DeWalt"). Shows
+  // values already in use as you type, but never forces a choice: nothing is
+  // pre-selected, so Enter and Tab behave as normal unless you have deliberately
+  // moved onto a suggestion with the arrow keys or the mouse. Keep typing and
+  // your own text stands.
+  document.querySelectorAll('input[data-suggest]').forEach(function (input, index) {
+    var values = [];
+    try { values = JSON.parse(input.getAttribute('data-suggest') || '[]'); } catch (e) { values = []; }
+    if (!values.length) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'suggest-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    var listId = 'suggest-list-' + index;
+    var list = document.createElement('ul');
+    list.className = 'tag-list suggest-list';
+    list.id = listId;
+    list.setAttribute('role', 'listbox');
+    list.hidden = true;
+    wrap.appendChild(list);
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    input.setAttribute('aria-controls', listId);
+
+    var shown = [];
+    var active = -1; // -1: nothing chosen, so keys behave normally
+
+    function close() {
+      list.hidden = true;
+      active = -1;
+      shown = [];
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+    }
+
+    function render() {
+      var q = input.value.trim().toLowerCase();
+      list.textContent = '';
+      if (!q) { close(); return; }
+      shown = values
+        .filter(function (v) { var l = v.toLowerCase(); return l.indexOf(q) >= 0 && l !== q; })
+        .sort(function (a, b) {
+          var ap = a.toLowerCase().indexOf(q) === 0 ? 0 : 1;
+          var bp = b.toLowerCase().indexOf(q) === 0 ? 0 : 1;
+          return ap - bp;
+        })
+        .slice(0, 6);
+      if (!shown.length) { close(); return; }
+      var head = document.createElement('li');
+      head.className = 'suggest-head';
+      head.setAttribute('role', 'presentation');
+      head.textContent = 'Already used — or keep typing your own';
+      list.appendChild(head);
+      shown.forEach(function (v, i) {
+        var li = document.createElement('li');
+        li.id = listId + '-' + i;
+        li.setAttribute('role', 'option');
+        li.setAttribute('aria-selected', String(i === active));
+        li.className = 'tag-option' + (i === active ? ' is-active' : '');
+        var at = v.toLowerCase().indexOf(q);
+        var name = document.createElement('span');
+        name.className = 'tag-name';
+        name.appendChild(document.createTextNode(v.slice(0, at)));
+        var b = document.createElement('strong');
+        b.textContent = v.slice(at, at + q.length);
+        name.appendChild(b);
+        name.appendChild(document.createTextNode(v.slice(at + q.length)));
+        li.appendChild(name);
+        li.addEventListener('mousedown', function (e) { e.preventDefault(); pick(i); });
+        list.appendChild(li);
+      });
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      if (active >= 0) input.setAttribute('aria-activedescendant', listId + '-' + active);
+      else input.removeAttribute('aria-activedescendant');
+    }
+
+    function pick(i) {
+      if (shown[i] === undefined) return;
+      input.value = shown[i];
+      close();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    input.addEventListener('input', function () { active = -1; render(); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!shown.length) { render(); if (!shown.length) return; }
+        e.preventDefault();
+        var step = e.key === 'ArrowDown' ? 1 : -1;
+        // From "nothing chosen" the first press lands on the first/last suggestion.
+        active = active < 0 ? (step > 0 ? 0 : shown.length - 1) : active + step;
+        if (active < 0 || active >= shown.length) active = -1; // wrap back to "just my text"
+        render();
+      } else if ((e.key === 'Enter' || e.key === 'Tab') && active >= 0 && !list.hidden) {
+        e.preventDefault();
+        pick(active);
+      } else if (e.key === 'Escape') {
+        close();
+      }
+    });
+    input.addEventListener('blur', close);
+  });
+
   /* --------------------------- cards / compact panel toggle (events) */
   // Two server-rendered versions of the same list; this shows one and remembers
   // the choice. Without JavaScript the cards show and the toggle stays hidden.

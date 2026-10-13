@@ -6,6 +6,7 @@ import { absoluteUrl } from '../middleware/base-path.js';
 import * as Tools from '../models/tools.js';
 import * as Users from '../models/users.js';
 import { requireAuth, canManage } from '../middleware/auth.js';
+import { suggestLocals } from '../lib/suggestions.js';
 import { writeLimiter, uploadLimiter } from '../middleware/rate-limit.js';
 import { asyncRoute } from '../middleware/errors.js';
 import { verifyMultipartCsrf } from '../lib/csrf.js';
@@ -31,6 +32,7 @@ const upload = multer({
 });
 
 router.use(requireAuth);
+router.use(suggestLocals({ brandOptions: ['tools', 'brand'], locationOptions: ['tools', 'location_label'] }));
 
 const CONDITIONS = ['excellent', 'good', 'fair', 'needs-tlc'];
 const AVAILABILITY = ['available', 'on-loan', 'unavailable'];

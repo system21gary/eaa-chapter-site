@@ -4,6 +4,7 @@ import config from '../config.js';
 import { normaliseRichField } from '../lib/richtext.js';
 import * as Builds from '../models/builds.js';
 import { requireAuth, canManage } from '../middleware/auth.js';
+import { suggestLocals } from '../lib/suggestions.js';
 import { writeLimiter, uploadLimiter } from '../middleware/rate-limit.js';
 import { asyncRoute } from '../middleware/errors.js';
 import { verifyMultipartCsrf } from '../lib/csrf.js';
@@ -18,6 +19,7 @@ const upload = multer({
 });
 
 router.use(requireAuth);
+router.use(suggestLocals({ hangarOptions: ['builds', 'hangar'], aircraftOptions: ['builds', 'aircraft_type'] }));
 
 const buildSchema = {
   title: f.string({ min: 3, max: 120, label: 'Project name' }),
