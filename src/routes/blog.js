@@ -20,6 +20,13 @@ const upload = multer({
 
 router.use(requireAuth);
 
+// Existing tags for the picker on the write/edit form. A getter, so the query
+// only runs on the pages that actually render it.
+router.use((req, res, next) => {
+  Object.defineProperty(res.locals, 'knownTags', { get: () => Posts.knownTags(), enumerable: true, configurable: true });
+  next();
+});
+
 /* ------------------------------------------------------------------ index */
 
 router.get('/', (req, res) => {

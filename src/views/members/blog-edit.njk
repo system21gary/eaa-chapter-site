@@ -79,11 +79,17 @@
         </div>
 
         <div class="field">
-          <label for="tags">Tags</label>
-          <input type="text" id="tags" name="tags" maxlength="200"
-                 value="{{ post.tags | join(', ') if post.tags else '' }}"
-                 placeholder="meeting-notes, young-eagles, safety">
-          <span class="hint">Comma separated, up to eight.</span>
+          <label for="tags-input">Tags</label>
+          {# Works as a plain comma-separated box without JavaScript; the script turns it into a tag picker. #}
+          <div class="tag-picker" data-tag-picker data-known="{{ knownTags | dump }}" data-max="8">
+            <input type="text" id="tags" name="tags" maxlength="200"
+                   value="{{ post.tags | join(', ') if post.tags else '' }}"
+                   placeholder="meeting-notes, young-eagles, safety" data-tag-store>
+          </div>
+          <span class="hint" data-tag-hint>
+            Start typing to see tags already in use and pick one, so we don't end up with
+            near-duplicates. Anything new becomes a new tag. Space, comma or Enter adds it. Up to eight.
+          </span>
         </div>
 
         <div class="check">

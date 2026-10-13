@@ -214,6 +214,235 @@
     input.addEventListener('blur', format);
   });
 
+  /* ------------------------------------------------------- tag picker */
+  // Turns the plain comma-separated tags box into chips with type-ahead. It
+  // suggests tags already in use (substring match, so "bui" finds both
+  // "builders" and "homebuild") and still lets the writer make a new one. The
+  // original input stays in the form, hidden, holding a comma-separated value,
+  // so the server sees exactly what it always did.
+  document.querySelectorAll('[data-tag-picker]').forEach(function (picker, pickerIndex) {
+    var store = picker.querySelector('[data-tag-store]');
+    if (!store) return;
+    var known = [];
+    try { known = JSON.parse(picker.getAttribute('data-known') || '[]'); } catch (e) { known = []; }
+    var knownCount = {};
+    known.forEach(function (k) { knownCount[k.tag] = k.n; });
+    var max = parseInt(picker.getAttribute('data-max'), 10) || 8;
+
+    function normalize(t) {
+      return String(t || '').toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '').slice(0, 40);
+    }
+
+    var tags = [];
+    store.value.split(',').forEach(function (t) {
+      t = normalize(t);
+      if (t && tags.indexOf(t) < 0 && tags.length < max) tags.push(t);
+    });
+
+    // Build the interface.
+    var listId = 'tag-list-' + pickerIndex;
+    var box = document.createElement('div');
+    box.className = 'tag-box';
+    var entry = document.createElement('input');
+    entry.type = 'text';
+    entry.className = 'tag-entry';
+    entry.id = 'tags-input';
+    entry.setAttribute('autocomplete', 'off');
+    entry.setAttribute('autocapitalize', 'off');
+    entry.setAttribute('spellcheck', 'false');
+    entry.setAttribute('role', 'combobox');
+    entry.setAttribute('aria-autocomplete', 'list');
+    entry.setAttribute('aria-expanded', 'false');
+    entry.setAttribute('aria-controls', listId);
+    entry.setAttribute('maxlength', '40');
+    var list = document.createElement('ul');
+    list.className = 'tag-list';
+    list.id = listId;
+    list.setAttribute('role', 'listbox');
+    list.hidden = true;
+    var status = document.createElement('div');
+    status.className = 'sr-only';
+    status.setAttribute('aria-live', 'polite');
+    box.appendChild(entry);
+    picker.appendChild(box);
+    picker.appendChild(list);
+    picker.appendChild(status);
+    store.type = 'hidden';
+
+    var rows = []; // what the dropdown is showing: { tag, isNew }
+    var active = 0;
+
+    function say(msg) { status.textContent = msg; }
+
+    function sync() {
+      store.value = tags.join(', ');
+      box.querySelectorAll('.tag-chip').forEach(function (c) { c.remove(); });
+      tags.forEach(function (t) {
+        var chip = document.createElement('span');
+        var isNew = !(t in knownCount);
+        chip.className = 'tag-chip' + (isNew ? ' is-new' : '');
+        chip.appendChild(document.createTextNode(t));
+        if (isNew) {
+          var badge = document.createElement('span');
+          badge.className = 'tag-new';
+          badge.textContent = 'new';
+          chip.appendChild(badge);
+        }
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.setAttribute('aria-label', 'Remove tag ' + t);
+        x.textContent = '×';
+        x.addEventListener('click', function () { removeTag(t); entry.focus(); });
+        chip.appendChild(x);
+        box.insertBefore(chip, entry);
+      });
+      var full = tags.length >= max;
+      entry.disabled = full;
+      entry.placeholder = full ? 'Tag limit reached' : (tags.length ? '' : 'meeting-notes, young-eagles, safety');
+    }
+
+    function addTag(raw) {
+      var t = normalize(raw);
+      if (!t) return false;
+      if (tags.indexOf(t) >= 0) { say(t + ' is already added'); return false; }
+      if (tags.length >= max) { say('You can add up to ' + max + ' tags'); return false; }
+      tags.push(t);
+      sync();
+      say(t in knownCount ? 'Added existing tag ' + t : 'Added new tag ' + t);
+      return true;
+    }
+
+    function removeTag(t) {
+      tags = tags.filter(function (x) { return x !== t; });
+      sync();
+      say('Removed tag ' + t);
+    }
+
+    function matchesFor(q) {
+      if (!q) return [];
+      return known
+        .filter(function (k) { return tags.indexOf(k.tag) < 0 && k.tag.indexOf(q) >= 0; })
+        .sort(function (a, b) {
+          var ap = a.tag.indexOf(q) === 0 ? 0 : 1;
+          var bp = b.tag.indexOf(q) === 0 ? 0 : 1;
+          return ap - bp || b.n - a.n || (a.tag < b.tag ? -1 : 1);
+        })
+        .slice(0, 6);
+    }
+
+    function closeList() {
+      list.hidden = true;
+      entry.setAttribute('aria-expanded', 'false');
+      entry.removeAttribute('aria-activedescendant');
+      rows = [];
+    }
+
+    function renderList() {
+      var q = normalize(entry.value);
+      list.textContent = '';
+      rows = [];
+      if (!q || entry.disabled) { closeList(); return; }
+      matchesFor(q).forEach(function (k) { rows.push({ tag: k.tag, isNew: false, n: k.n }); });
+      if (!(q in knownCount) && tags.indexOf(q) < 0) rows.push({ tag: q, isNew: true });
+      if (!rows.length) { closeList(); return; }
+      if (active >= rows.length) active = 0;
+      rows.forEach(function (r, i) {
+        var li = document.createElement('li');
+        li.id = listId + '-' + i;
+        li.setAttribute('role', 'option');
+        li.setAttribute('aria-selected', String(i === active));
+        li.className = 'tag-option' + (i === active ? ' is-active' : '') + (r.isNew ? ' is-create' : '');
+        // The name is one element so the row's flex gap never splits the word.
+        var name = document.createElement('span');
+        name.className = 'tag-name';
+        li.appendChild(name);
+        if (r.isNew) {
+          name.appendChild(document.createTextNode('Create new tag “' + r.tag + '”'));
+        } else {
+          var at = r.tag.indexOf(q);
+          name.appendChild(document.createTextNode(r.tag.slice(0, at)));
+          var b = document.createElement('strong');
+          b.textContent = r.tag.slice(at, at + q.length);
+          name.appendChild(b);
+          name.appendChild(document.createTextNode(r.tag.slice(at + q.length)));
+          var used = document.createElement('span');
+          used.className = 'tag-used';
+          used.textContent = r.n === 1 ? 'used once' : 'used ' + r.n + ' times';
+          li.appendChild(used);
+        }
+        // mousedown, not click, so the field keeps focus.
+        li.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          choose(i);
+        });
+        list.appendChild(li);
+      });
+      list.hidden = false;
+      entry.setAttribute('aria-expanded', 'true');
+      entry.setAttribute('aria-activedescendant', listId + '-' + active);
+    }
+
+    function choose(i) {
+      var r = rows[i];
+      if (!r) return false;
+      var ok = addTag(r.tag);
+      entry.value = '';
+      active = 0;
+      closeList();
+      return ok;
+    }
+
+    entry.addEventListener('input', function () {
+      // Pasted or typed separators finish the tags before them.
+      if (/[\s,]/.test(entry.value)) {
+        var parts = entry.value.split(/[\s,]+/);
+        var rest = parts.pop();
+        parts.forEach(addTag);
+        entry.value = rest;
+      }
+      active = 0;
+      renderList();
+    });
+
+    entry.addEventListener('keydown', function (e) {
+      var hasText = normalize(entry.value) !== '';
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!rows.length) { renderList(); if (!rows.length) return; }
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+        renderList();
+      } else if (e.key === 'Enter') {
+        if (rows.length) { e.preventDefault(); choose(active); }
+        else if (hasText) { e.preventDefault(); addTag(entry.value); entry.value = ''; }
+        // Empty field: let Enter submit the form as usual.
+      } else if (e.key === 'Tab' && !e.shiftKey && hasText) {
+        e.preventDefault();
+        if (rows.length) choose(active);
+        else { addTag(entry.value); entry.value = ''; closeList(); }
+      } else if (e.key === ' ' || e.key === ',') {
+        e.preventDefault();
+        if (hasText) { addTag(entry.value); entry.value = ''; active = 0; closeList(); }
+      } else if (e.key === 'Backspace' && !entry.value && tags.length) {
+        removeTag(tags[tags.length - 1]);
+      } else if (e.key === 'Escape') {
+        closeList();
+      }
+    });
+
+    entry.addEventListener('blur', function () { closeList(); });
+    box.addEventListener('click', function (e) { if (e.target === box) entry.focus(); });
+
+    // Anything typed but not yet added still counts when the form is sent.
+    var form = store.closest('form');
+    if (form) {
+      form.addEventListener('submit', function () {
+        if (normalize(entry.value)) { addTag(entry.value); entry.value = ''; }
+      });
+    }
+
+    sync();
+  });
+
   /* --------------------------- cards / compact panel toggle (events) */
   // Two server-rendered versions of the same list; this shows one and remembers
   // the choice. Without JavaScript the cards show and the toggle stays hidden.

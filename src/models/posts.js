@@ -217,6 +217,11 @@ export function allTags() {
   );
 }
 
+/** Every tag in use, drafts included, most used first: what the tag picker suggests. */
+export function knownTags() {
+  return all('SELECT tag, COUNT(*) AS n FROM post_tags GROUP BY tag ORDER BY n DESC, tag');
+}
+
 export function revisions(postId) {
   return all(
     `SELECT r.id, r.title, r.created_at, u.first_name, u.last_name
