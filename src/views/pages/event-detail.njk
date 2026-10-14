@@ -106,7 +106,7 @@
             <a class="btn btn-primary btn-block btn-sm" href="{{ '/events/calendar.ics' | url }}" style="margin-top:.6rem">Add to your calendar</a>
           {% endif %}
           {% if event.external_url %}
-            <a class="btn btn-outline btn-block btn-sm" href="{{ event.external_url }}" target="_blank" rel="noopener noreferrer nofollow" style="margin-top:.6rem">More info ↗</a>
+            <a class="btn btn-outline btn-block btn-sm" href="{{ ('/events/' ~ event.slug ~ '/more-info') | url }}" target="_blank" rel="noopener noreferrer nofollow" style="margin-top:.6rem">More info ↗</a>
           {% endif %}
         </div>
       </div>

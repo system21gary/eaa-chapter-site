@@ -553,6 +553,45 @@ const migrations = [
     ALTER TABLE users ADD COLUMN share_phone INTEGER NOT NULL DEFAULT 1;
     `,
   },
+  {
+    version: 11,
+    name: 'site stats',
+    sql: `
+    -- Aggregate counters only. No IP addresses, no user agents, no per-visit
+    -- rows: one row per day, page, audience, referring site and device class.
+    -- "audience" is who was looking: a signed-out 'visitor' or a signed-in 'member'.
+    CREATE TABLE stats_daily (
+      day      TEXT NOT NULL,
+      audience TEXT NOT NULL CHECK (audience IN ('visitor','member')),
+      path     TEXT NOT NULL,
+      referrer TEXT NOT NULL DEFAULT '',
+      campaign TEXT NOT NULL DEFAULT '',
+      device   TEXT NOT NULL DEFAULT 'desktop',
+      views    INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, path, referrer, campaign, device)
+    ) WITHOUT ROWID;
+    CREATE INDEX idx_stats_daily_path ON stats_daily(path, day);
+
+    -- Roughly how many different people came each day. Counted from a one-way
+    -- fingerprint that is held in memory and changes every day, never stored.
+    CREATE TABLE stats_visitors (
+      day      TEXT NOT NULL,
+      audience TEXT NOT NULL CHECK (audience IN ('visitor','member')),
+      visitors INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience)
+    ) WITHOUT ROWID;
+
+    -- Things that are not page views: calendar downloads, clicks out to an
+    -- event's external listing.
+    CREATE TABLE stats_events (
+      day    TEXT NOT NULL,
+      name   TEXT NOT NULL,
+      detail TEXT NOT NULL DEFAULT '',
+      count  INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, name, detail)
+    ) WITHOUT ROWID;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

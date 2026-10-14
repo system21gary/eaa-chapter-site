@@ -233,6 +233,11 @@ export const config = {
    * The nightly backup report: an email saying whether the backup is working,
    * proved by actually restoring it. See src/lib/backup-report.js.
    */
+  // First-party visit counting (see src/lib/stats.js). STATS=0 turns it off.
+  stats: {
+    enabled: process.env.STATS !== '0',
+  },
+
   backup: {
     // On in production, off in development, so a laptop or test container
     // does not email the chapter's admins a PROBLEM report every morning

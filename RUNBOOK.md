@@ -30,12 +30,13 @@ PowerShell commands here were tested in PowerShell 7.
 6. [Secrets](#secrets)
 7. [Email](#email)
 8. [Data, backups and restoring](#data-backups-and-restoring)
-9. [Everyday operations](#everyday-operations)
-10. [Developing and testing](#developing-and-testing)
-11. [Working in CoderFlow](#working-in-coderflow)
-12. [Lessons learned](#lessons-learned)
-13. [Current state and open items](#current-state-and-open-items)
-14. [History](#history)
+9. [Site stats](#site-stats)
+10. [Everyday operations](#everyday-operations)
+11. [Developing and testing](#developing-and-testing)
+12. [Working in CoderFlow](#working-in-coderflow)
+13. [Lessons learned](#lessons-learned)
+14. [Current state and open items](#current-state-and-open-items)
+15. [History](#history)
 
 ---
 
@@ -476,6 +477,43 @@ yet (see open items).
   it, letting the latest come back from the bucket. Rare and fiddly; take care.
 
 ---
+
+## Site stats
+
+First-party visit counting, shown to admins at **Members Corner → Stats**
+(`/members/admin/stats`, last 7 / 30 / 90 days). Built on our own server: no
+cookies, no third-party script, no change to the security policy.
+
+**What is kept:** daily counters only (tables `stats_daily`, `stats_visitors`,
+`stats_events`): views per page, per referring *site name*, per `?src=` tag and
+per device class (phone / tablet / computer), plus a rough count of different
+people per day. **Never kept:** IP addresses, user agents, cookies, or a row per
+visit. "Different people" comes from a keyed one-way fingerprint held in memory
+that changes every day, so nobody can be followed across days.
+
+**What counts:** successful HTML page views by signed-out visitors and
+signed-in members (split in every report). Not counted: assets, `/healthz`,
+sign-in and token pages, the admin screens (including Stats itself), anyone who
+sends Do Not Track or Global Privacy Control, prefetches, and bots (filtered
+by a best-guess user-agent list, so numbers are approximate). Everything is
+`src/lib/stats.js`; the footer carries a one-line notice.
+
+**Also tracked:** clicks on "Add to your calendar" (browser navigations only;
+calendar apps polling the feed are not counted) and clicks on an event's "More
+info" link, which now goes via `/events/<slug>/more-info` and redirects to the
+stored listing URL. Contact messages, join requests, tool requests and sign-ins
+come from the existing tables, so they need no tracking.
+
+**QR codes and flyers:** add `?src=poster` (any word: flyer, facebook, ...) to a
+printed link or QR code, e.g. `https://<site>/events?src=poster`. It shows up
+under "Poster & QR tags".
+
+**How it behaves:** counts are held in memory and written once a minute (and on
+shutdown), so a page view costs no database write; a crash loses under a minute
+of counts. The tables are small and covered by the Litestream backup. Turn the
+whole thing off with the setting `STATS=0` (a plain `fly.toml` `[env]` setting,
+not a secret). There is no purge; if the tables ever grow too large, old days
+can simply be deleted from `stats_daily` by date.
 
 ## Everyday operations
 

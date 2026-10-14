@@ -26,6 +26,8 @@ import {
 import { recentAudit } from '../lib/audit.js';
 import { audit } from '../lib/audit.js';
 import { suggestLocals } from '../lib/suggestions.js';
+import { buildReport, flushStats } from '../lib/stats.js';
+import { columnChart } from '../lib/stats-chart.js';
 
 const router = express.Router();
 router.use(suggestLocals({ eventLocationOptions: ['events', 'location_name'] }));
@@ -795,6 +797,25 @@ router.post('/messages/:id/archive', requireEditor, writeLimiter, (req, res, nex
   audit(req, 'contact.archived', { entity: 'contact_message', entityId: message.id });
   req.flash('success', 'Removed from this list. The record is kept.');
   return req.session.save(() => res.redirect('/members/admin/messages'));
+});
+
+/* ================================ site stats ============================== */
+
+router.get('/stats', requireAdmin, (req, res) => {
+  const days = [7, 30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+  flushStats(); // include what is still waiting in memory
+  const report = buildReport(days);
+  res.render('admin/stats.njk', {
+    title: 'Site stats',
+    robots: 'noindex',
+    report,
+    days,
+    charts: {
+      visitors: columnChart(report.daily, 'visitorViews', { noun: 'page views' }),
+      members: columnChart(report.daily, 'memberViews', { noun: 'page views' }),
+    },
+    exampleLink: absoluteUrl('/events?src=poster'),
+  });
 });
 
 router.get('/log', requireAdmin, (req, res) => {

@@ -19,6 +19,7 @@ import {
 } from '../lib/mailer.js';
 import { hashIp } from '../lib/tokens.js';
 import { audit } from '../lib/audit.js';
+import { recordEvent, humanRequest } from '../lib/stats.js';
 
 const router = express.Router();
 
@@ -82,10 +83,21 @@ router.get('/events/past', (req, res) => {
 
 /** Subscribable calendar feed: ForeFlight, Google Calendar, Outlook, Apple. */
 router.get('/events/calendar.ics', (req, res) => {
+  // Calendar apps poll this feed on their own; only someone clicking the link
+  // (a browser navigation) counts as a click on "Add to calendar".
+  if (req.get('sec-fetch-dest') === 'document' && humanRequest(req)) recordEvent('calendar');
   const events = [...Events.upcomingEvents({ limit: 100 }), ...Events.pastEvents({ limit: 100 })];
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Content-Disposition', 'inline; filename="eaa1699.ics"');
   res.send(Events.toIcs(events, { baseUrl: absoluteUrl('') }));
+});
+
+/** Sends people on to an event's outside listing, counting the click on the way. */
+router.get('/events/:slug/more-info', (req, res, next) => {
+  const event = Events.getEventBySlug(req.params.slug, { viewer: req.user });
+  if (!event || !/^https?:\/\//i.test(event.external_url ?? '')) return next();
+  if (humanRequest(req)) recordEvent('listing', event.slug);
+  return res.redirect(302, event.external_url);
 });
 
 router.get('/events/:slug', (req, res, next) => {

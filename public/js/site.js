@@ -214,6 +214,40 @@
     input.addEventListener('blur', format);
   });
 
+  /* ------------------------------------------- stats chart tooltips */
+  // Hover (or tap) a column to read its number. The same figures are in the
+  // "Show as a table" list under each chart, for keyboards and screen readers.
+  var statTip = null;
+  function showTip(target, x, y) {
+    if (!statTip) {
+      statTip = document.createElement('div');
+      statTip.className = 'stat-tip';
+      statTip.setAttribute('role', 'status');
+      document.body.appendChild(statTip);
+    }
+    statTip.textContent = target.getAttribute('data-tip');
+    statTip.hidden = false;
+    var w = statTip.offsetWidth;
+    statTip.style.left = Math.max(8, Math.min(x + 12, window.innerWidth - w - 8)) + 'px';
+    statTip.style.top = Math.max(8, y - 38) + 'px';
+  }
+  document.addEventListener('mouseover', function (e) {
+    var g = e.target.closest && e.target.closest('.stat-chart [data-tip]');
+    if (g) showTip(g, e.clientX, e.clientY);
+  });
+  document.addEventListener('mousemove', function (e) {
+    var g = e.target.closest && e.target.closest('.stat-chart [data-tip]');
+    if (g && statTip && !statTip.hidden) showTip(g, e.clientX, e.clientY);
+  });
+  document.addEventListener('mouseout', function (e) {
+    if (statTip && e.target.closest && e.target.closest('.stat-chart [data-tip]')) statTip.hidden = true;
+  });
+  document.addEventListener('click', function (e) {
+    var g = e.target.closest && e.target.closest('.stat-chart [data-tip]');
+    if (g) showTip(g, e.clientX, e.clientY);
+    else if (statTip) statTip.hidden = true;
+  });
+
   /* ------------------------------------------------------- tag picker */
   // Turns the plain comma-separated tags box into chips with type-ahead. It
   // suggests tags already in use (substring match, so "bui" finds both

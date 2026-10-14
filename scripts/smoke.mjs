@@ -388,7 +388,7 @@ const rawToken = Users.createPasswordResetToken(admin.id);
 
 /* -------------------------------------------------------- members area */
 console.log('\nMembers area (signed in as admin)');
-for (const p of ['/members', '/members/blog', '/members/locker', '/members/locker/new', '/members/locker/requests', '/members/builds', '/members/builds/new', '/members/directory', '/members/account', '/members/admin/events', '/members/admin/events/new', '/members/admin/members', '/members/admin/messages', '/members/admin/log']) {
+for (const p of ['/members', '/members/blog', '/members/locker', '/members/locker/new', '/members/locker/requests', '/members/builds', '/members/builds/new', '/members/directory', '/members/account', '/members/admin/events', '/members/admin/events/new', '/members/admin/members', '/members/admin/messages', '/members/admin/stats', '/members/admin/log']) {
   await req(p, { expect: 200 });
 }
 

@@ -1,0 +1,156 @@
+{% extends "layouts/base.njk" %}
+
+{# One list of horizontal bars. `items` need label and value (or total); entity lists also carry path and a visitor/member split. #}
+{% macro statlist(items, empty, split) %}
+  {% if items.length %}
+    {% set peak = 0 %}
+    {% for it in items %}{% set v = it.total if it.total is defined else it.value %}{% if v > peak %}{% set peak = v %}{% endif %}{% endfor %}
+    <ol class="stat-list">
+      {% for it in items %}
+        {% set v = it.total if it.total is defined else it.value %}
+        <li>
+          <span class="lbl">
+            {% if it.path %}<a href="{{ it.path | url }}">{{ it.label }}</a>{% else %}{{ it.label }}{% endif %}
+            {% if split and it.members is defined %}
+              <span class="sub">{{ it.visitors }} visitor{{ 's' if it.visitors != 1 }} · {{ it.members }} member{{ 's' if it.members != 1 }}</span>
+            {% endif %}
+          </span>
+          <span class="track" aria-hidden="true"><i style="width: {{ ((v / peak) * 100) | round }}%"></i></span>
+          <span class="val">{{ v }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <p class="muted small" style="margin:0">{{ empty }}</p>
+  {% endif %}
+{% endmacro %}
+
+{% macro rate(part, whole) %}{% if whole > 0 %} ({{ ((part / whole) * 100) | round }}% of page visits){% endif %}{% endmacro %}
+
+{% block content %}
+{% set t = report.totals %}
+{% set c = report.conversions %}
+{% set m = report.members %}
+{% set l = report.lists %}
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow">Administrators</span>
+    <h1>Site stats</h1>
+    <p class="muted" style="max-width:68ch">
+      How the site is being used, counted on our own server: no cookies, no
+      third parties, and no personal data stored. Numbers are approximate, because
+      search-engine and monitoring bots are filtered by a best guess.
+    </p>
+
+    <nav class="chipnav" aria-label="Time range" style="margin-top:1.2rem">
+      {% for d in [7, 30, 90] %}
+        <a href="{{ '/members/admin/stats' | url }}?days={{ d }}" {% if days == d %}aria-current="page"{% endif %}>Last {{ d }} days</a>
+      {% endfor %}
+    </nav>
+
+    <h2 class="stat-h">Public website</h2>
+    <div class="statstrip statstrip-slim">
+      <div><div class="n">{{ t.visitorVisits }}</div><div class="l">Visits</div></div>
+      <div><div class="n">{{ t.visitorViews }}</div><div class="l">Page views</div></div>
+      <div><div class="n">{{ c.messages }}</div><div class="l">Messages sent</div></div>
+      <div><div class="n">{{ c.applications }}</div><div class="l">Join requests</div></div>
+      <div><div class="n">{{ c.calendar }}</div><div class="l">Calendar clicks</div></div>
+      <div><div class="n">{{ c.listingClicks }}</div><div class="l">Listing clicks</div></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>Public page views per day</h3>
+      <div class="stat-chart-wrap">{{ charts.visitors | safe }}</div>
+      <details class="stat-table">
+        <summary>Show as a table</summary>
+        <table class="data">
+          <thead><tr><th>Day</th><th>Page views</th></tr></thead>
+          <tbody>{% for d in report.daily %}<tr><td>{{ d.day }}</td><td>{{ d.visitorViews }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </details>
+    </div>
+
+    <div class="stat-grid-2">
+      <div class="stat-card">
+        <h3>Popular pages</h3>
+        {{ statlist(l.visitorPages, 'No visits recorded yet.') }}
+      </div>
+      <div class="stat-card">
+        <h3>Events people look at</h3>
+        {{ statlist(l.events, 'No event pages viewed yet.', true) }}
+      </div>
+      <div class="stat-card">
+        <h3>Where visitors come from</h3>
+        {% if l.directViews %}<p class="small muted" style="margin:0 0 .6rem">{{ l.directViews }} view{{ 's' if l.directViews != 1 }} came straight to the site (typed the address, a bookmark, or an app that hides where it came from).</p>{% endif %}
+        {{ statlist(l.referrers, 'No other websites have sent anyone yet.') }}
+      </div>
+      <div class="stat-card">
+        <h3>Poster &amp; QR tags</h3>
+        {{ statlist(l.campaigns, 'None yet. Add ?src=poster to a link to start tracking it.') }}
+        <p class="tiny muted" style="margin:.8rem 0 0">
+          Put a tag on a printed link or QR code and it shows up here, for example
+          <span class="mono">{{ exampleLink }}</span>. Use a different word for each flyer (poster, flyer, facebook).
+        </p>
+      </div>
+      <div class="stat-card">
+        <h3>Phone, tablet or computer</h3>
+        {{ statlist(l.devices, 'No visits recorded yet.') }}
+      </div>
+      <div class="stat-card">
+        <h3>Do visits turn into contact?</h3>
+        <ul class="plain small" style="margin:0">
+          <li><strong>{{ c.messages }}</strong> contact message{{ 's' if c.messages != 1 }} from {{ c.contactViews }} visit{{ 's' if c.contactViews != 1 }} to the contact page{{ rate(c.messages, c.contactViews) }}</li>
+          <li style="margin-top:.4rem"><strong>{{ c.applications }}</strong> membership request{{ 's' if c.applications != 1 }} from {{ c.joinViews }} visit{{ 's' if c.joinViews != 1 }} to the join page{{ rate(c.applications, c.joinViews) }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 class="stat-h">Members Corner</h2>
+    <div class="statstrip statstrip-slim">
+      <div><div class="n">{{ m.loginPeople }}</div><div class="l">Members signed in</div></div>
+      <div><div class="n">{{ m.logins }}</div><div class="l">Sign-ins</div></div>
+      <div><div class="n">{{ m.activeMembers }}</div><div class="l">Active members</div></div>
+      <div><div class="n">{{ t.memberViews }}</div><div class="l">Page views</div></div>
+      <div><div class="n">{{ c.toolRequests }}</div><div class="l">Tool requests</div></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>Signed-in page views per day</h3>
+      <div class="stat-chart-wrap">{{ charts.members | safe }}</div>
+      <details class="stat-table">
+        <summary>Show as a table</summary>
+        <table class="data">
+          <thead><tr><th>Day</th><th>Page views</th></tr></thead>
+          <tbody>{% for d in report.daily %}<tr><td>{{ d.day }}</td><td>{{ d.memberViews }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </details>
+    </div>
+
+    <div class="stat-grid-2">
+      <div class="stat-card">
+        <h3>Blog posts</h3>
+        {{ statlist(l.posts, 'No posts read yet.', true) }}
+      </div>
+      <div class="stat-card">
+        <h3>Build logs</h3>
+        {{ statlist(l.builds, 'No build pages viewed yet.', true) }}
+      </div>
+      <div class="stat-card">
+        <h3>Tool Locker</h3>
+        {{ statlist(l.tools, 'No tool pages viewed yet.', true) }}
+      </div>
+      <div class="stat-card">
+        <h3>Members Corner pages</h3>
+        {{ statlist(l.memberPages, 'No signed-in visits recorded yet.') }}
+      </div>
+    </div>
+
+    <p class="small muted" style="max-width:70ch; margin-top:2rem">
+      <strong>How to read this.</strong> A <em>visit</em> is one person on one day, however many pages they open
+      (the same person on three days is three visits). People are told apart only by a one-way fingerprint that is
+      kept in memory and changes every day, so nobody can be followed across days. Visitors who send "do not track" or
+      Global Privacy Control are not counted at all. Counts are saved once a minute.
+    </p>
+  </div>
+</section>
+{% endblock %}

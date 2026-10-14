@@ -1,6 +1,7 @@
 import config from './src/config.js';
 import { createApp } from './src/app.js';
 import { startMailWorker, stopMailWorker, closeMailTransport, outboxHealth } from './src/lib/mailer.js';
+import { startStats, stopStats } from './src/lib/stats.js';
 import { startBackupReporter, stopBackupReporter, describeReplica, storageProblem } from './src/lib/backup-report.js';
 
 const app = createApp();
@@ -32,6 +33,9 @@ const server = app.listen(config.port, config.host, () => {
   } else {
     console.log('  Backup: NONE. The database is not being backed up (see DEPLOY.md).');
   }
+  if (startStats()) {
+    console.log('  Visit stats: counting page views (no cookies, nothing personal stored)');
+  }
   if (startBackupReporter()) {
     console.log(`  Backup report: emailed daily after ${config.backup.reportHour}:00 Eastern\n`);
   } else {
@@ -50,6 +54,7 @@ function shutdown(signal) {
   console.log(`\n[${signal}] shutting down…`);
   stopMailWorker();
   stopBackupReporter();
+  stopStats();
   server.close(async () => {
     // Closing the pool sends QUIT instead of dropping the connection, which
     // some relays count against you.

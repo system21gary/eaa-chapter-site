@@ -14,6 +14,7 @@ import { loadUser, flashMiddleware } from './middleware/auth.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { registerFilters } from './views/filters.js';
 import { pendingCount as pendingApplicationCount } from './models/applications.js';
+import { statsMiddleware } from './lib/stats.js';
 import { waitingCount as waitingMessageCount } from './models/contact.js';
 
 import publicRoutes from './routes/public.js';
@@ -124,6 +125,7 @@ export function createApp() {
   app.use(verifyOrigin);
   app.use(loadUser);
   app.use(flashMiddleware);
+  app.use(statsMiddleware);
   app.use(csrfProtection);
   app.use(auditDeferredCsrf);
 
