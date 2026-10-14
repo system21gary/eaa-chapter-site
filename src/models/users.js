@@ -7,7 +7,7 @@ import config from '../config.js';
 const PUBLIC_COLUMNS = `
   id, email, email_verified, first_name, last_name, display_name, phone,
   eaa_number, aircraft, home_base, bio, avatar_path, role, status,
-  share_email, share_phone, password_set_at, last_login_at, created_at, updated_at
+  share_email, share_phone, cc_membership_requests, cc_contact_messages, password_set_at, last_login_at, created_at, updated_at
 `;
 
 export function findById(id) {
@@ -209,6 +209,36 @@ export function deleteMember(userId) {
 
 export function setRole(userId, role) {
   run('UPDATE users SET role = ?, updated_at = ? WHERE id = ?', [role, nowIso(), userId]);
+  // Only editors and administrators are copied on inbound email, so a demotion
+  // switches that off rather than leaving it to come back on a later promotion.
+  if (role === 'member') {
+    run('UPDATE users SET cc_membership_requests = 0, cc_contact_messages = 0 WHERE id = ?', [userId]);
+  }
+}
+
+const CC_COLUMNS = { membership: 'cc_membership_requests', contact: 'cc_contact_messages' };
+
+/**
+ * Turns "copy this person on <membership|contact> emails" on or off. Only
+ * editors and administrators can be copied; returns false for anyone else.
+ */
+export function setCc(userId, kind, on) {
+  const column = CC_COLUMNS[kind];
+  if (!column) throw new Error(`Unknown copy type: ${kind}`);
+  const info = run(
+    `UPDATE users SET ${column} = ?, updated_at = ? WHERE id = ? AND role IN ('editor', 'admin')`,
+    [on ? 1 : 0, nowIso(), userId]
+  );
+  return Number(info.changes) > 0;
+}
+
+/** Addresses to copy on this kind of email: active editors and administrators switched on for it. */
+export function ccRecipients(kind) {
+  const column = CC_COLUMNS[kind];
+  if (!column) return [];
+  return all(
+    `SELECT email FROM users WHERE status = 'active' AND role IN ('editor', 'admin') AND ${column} = 1 ORDER BY id`
+  ).map((r) => r.email);
 }
 
 export function setStatus(userId, status) {

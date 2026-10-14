@@ -704,6 +704,18 @@ const migrations = [
     ALTER TABLE stats_attention_new RENAME TO stats_attention;
     `,
   },
+  {
+    version: 14,
+    name: 'copy people on inbound requests and messages',
+    sql: `
+    -- Which people are copied (Cc) when a membership request or a contact-form
+    -- message arrives. Off for everyone until an administrator turns it on, so
+    -- nothing changes the day this is deployed.
+    ALTER TABLE users ADD COLUMN cc_membership_requests INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN cc_contact_messages INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE email_outbox ADD COLUMN cc TEXT;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

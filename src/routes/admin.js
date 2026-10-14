@@ -355,6 +355,29 @@ router.post('/members/:id/role', requireAdmin, writeLimiter, (req, res, next) =>
   return req.session.save(() => res.redirect('/members/admin/members'));
 });
 
+/** Switches "copy this person on emails about <membership requests|contact messages>" on or off. */
+router.post('/members/:id/cc', requireAdmin, writeLimiter, (req, res, next) => {
+  const target = Users.findById(req.params.id);
+  if (!target) return next();
+  const kind = ['membership', 'contact'].includes(req.body.kind) ? req.body.kind : null;
+  if (!kind) return next();
+  const on = req.body.on === '1';
+  // The People tab saves this in the background and shows its own toast.
+  const background = req.get('x-requested-with') === 'fetch';
+  if (!Users.setCc(target.id, kind, on)) {
+    const message = 'Only editors and administrators can be copied on these emails.';
+    if (background) return res.status(403).json({ ok: false, message });
+    req.flash('error', message);
+    return req.session.save(() => res.redirect('/members/admin/members'));
+  }
+  audit(req, 'admin.cc.changed', { entity: 'user', entityId: target.id, detail: `${kind}:${on ? 'on' : 'off'}` });
+  const what = kind === 'membership' ? 'membership requests' : 'contact messages';
+  const message = `${Users.displayName(target)} will ${on ? 'now' : 'no longer'} be copied on ${what}.`;
+  if (background) return res.json({ ok: true, message });
+  req.flash('success', message);
+  return req.session.save(() => res.redirect('/members/admin/members'));
+});
+
 router.post('/members/:id/status', requireAdmin, writeLimiter, (req, res, next) => {
   const target = Users.findById(req.params.id);
   if (!target) return next();

@@ -383,6 +383,13 @@ which contain live password-reset links.
 - **Suppressed domains:** mail to `example.com/.org/.net`, `.test`,
   `.invalid` and `localhost` is never attempted (the demo members use these).
   `MAIL_SUPPRESS_DOMAINS` overrides the list.
+- **Who is copied on inbound mail:** membership requests and contact-form messages go
+  to the chapter inbox (`CONTACT_EMAIL`) and are also copied (Cc) to any active member an
+  administrator has ticked on the **People** tab, in the *Copied on* column (separate
+  switches for *Join requests* and *Contact form*; off for everyone by default, and not
+  applied to suspended people). Changes take effect immediately and are recorded in the
+  activity log (`admin.cc.changed`). Cc'd people can see each other's addresses and a
+  reply-all reaches the sender; the in-app reply on the Inbox page is unchanged.
 - **What sends mail:** invitations, password resets, membership requests and
   decisions, contact-form notices to `CONTACT_EMAIL`, borrow requests to the
   tool's owner and decisions back to the borrower, and the morning backup

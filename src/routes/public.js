@@ -194,6 +194,8 @@ router.post(
     markAction(req); // sending a message is what we hope people do
     await sendMail({
       to: config.site.contactEmail,
+      // Members an administrator has switched on (People tab) are copied.
+      cc: Users.ccRecipients('contact'),
       // So an officer can just hit reply. Safe to expose here in a way it is
       // not in the Tool Locker: the sender gave this address for the express
       // purpose of being replied to.
@@ -291,6 +293,7 @@ router.post(
       });
       await sendMail({
         to: config.site.contactEmail,
+        cc: Users.ccRecipients('membership'),
         replyTo: data.email,
         ...applicationNotificationEmail({
           name: `${data.first_name} ${data.last_name}`,

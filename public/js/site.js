@@ -708,17 +708,119 @@
     });
   });
 
-  /* -------------------------------------------------- auto-submit filters */
-  document.querySelectorAll('form[data-autosubmit] select').forEach(function (select) {
-    select.addEventListener('change', function () { select.form.submit(); });
+  /* --------------------------------------------------------- toasts */
+  // Short messages that float over the page and fade by themselves, so saving
+  // something never shoves the page around. Success and info fade quickly; an
+  // error stays longer so it is not missed, and any toast can be closed.
+  var toastHost = null;
+  function showToast(message, type) {
+    type = type || 'success';
+    if (!toastHost) {
+      toastHost = document.createElement('div');
+      toastHost.className = 'toasts';
+      toastHost.setAttribute('role', 'status');
+      toastHost.setAttribute('aria-live', 'polite');
+      document.body.appendChild(toastHost);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'toast flash flash-' + type;
+    var icon = document.createElement('span');
+    icon.className = 'flash-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = type === 'success' ? '✓' : type === 'error' ? '!' : 'i';
+    var text = document.createElement('p');
+    text.textContent = message;
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'toast-close';
+    close.setAttribute('aria-label', 'Dismiss');
+    close.textContent = '×';
+    toast.appendChild(icon);
+    toast.appendChild(text);
+    toast.appendChild(close);
+    toastHost.appendChild(toast);
+
+    var timer = null;
+    function leave() {
+      window.clearTimeout(timer);
+      toast.classList.add('is-leaving');
+      window.setTimeout(function () { toast.remove(); }, 400);
+    }
+    close.addEventListener('click', leave);
+    timer = window.setTimeout(leave, type === 'error' ? 9000 : 4000);
+    return toast;
+  }
+
+  // Messages the server put at the top of the page become toasts too.
+  document.querySelectorAll('main .flash').forEach(function (flash) {
+    var p = flash.querySelector('p');
+    var type = (flash.className.match(/flash-(success|error|info)/) || [])[1] || 'info';
+    if (p) showToast(p.textContent, type);
+    var holder = flash.parentNode;
+    (holder && holder.classList.contains('wrap') ? holder : flash).remove();
   });
 
-  /* -------------------------------------------- dismiss flash after a bit */
-  document.querySelectorAll('.flash-success').forEach(function (flash) {
-    window.setTimeout(function () {
-      flash.style.transition = 'opacity .4s';
-      flash.style.opacity = '0';
-      window.setTimeout(function () { flash.remove(); }, 400);
-    }, 6000);
+  /* ------------------------------------------ keep your place on reload */
+  // A form that has to reload the page (a role change, suspend) remembers how
+  // far down you were and puts you back there, instead of jumping to the top.
+  var SCROLL_KEY = 'eaa.scroll';
+  function rememberScroll() {
+    try { window.sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ p: location.pathname, y: window.scrollY })); } catch (e) { /* ignore */ }
+  }
+  try {
+    var kept = JSON.parse(window.sessionStorage.getItem(SCROLL_KEY) || 'null');
+    window.sessionStorage.removeItem(SCROLL_KEY);
+    if (kept && kept.p === location.pathname && kept.y > 0) window.scrollTo(0, kept.y);
+  } catch (e) { /* ignore */ }
+  document.addEventListener('submit', function (e) {
+    if (e.target.hasAttribute && e.target.hasAttribute('data-keep-scroll')) rememberScroll();
+  });
+
+  /* ----------------------------------------------- auto-submit controls */
+  // A checkbox in a form marked data-ajax saves in the background and reports
+  // with a toast; the page does not move. Anything else submits the form, and
+  // keeps your scroll position if the form asks for that.
+  function saveInBackground(form, control) {
+    var wasChecked = control.checked;
+    // Read the form BEFORE disabling the control: a disabled field is left out of the data.
+    var body = new URLSearchParams(new FormData(form)).toString();
+    control.disabled = true;
+    window.fetch(form.action, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'fetch',
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: body
+    })
+      .then(function (res) {
+        return res.json().then(
+          function (data) { return { ok: res.ok && data.ok, message: data.message }; },
+          function () { return { ok: false, message: 'That did not save. Please reload the page and try again.' }; }
+        );
+      })
+      .then(function (result) {
+        if (!result.ok) control.checked = !wasChecked;
+        showToast(result.message || (result.ok ? 'Saved.' : 'That did not save.'), result.ok ? 'success' : 'error');
+      })
+      .catch(function () {
+        control.checked = !wasChecked;
+        showToast('Could not save. Check your connection and try again.', 'error');
+      })
+      .then(function () { control.disabled = false; });
+  }
+
+  document.querySelectorAll('form[data-autosubmit] select, form[data-autosubmit] input[type="checkbox"]').forEach(function (control) {
+    control.addEventListener('change', function () {
+      var form = control.form;
+      if (form.hasAttribute('data-ajax') && window.fetch && control.type === 'checkbox') {
+        saveInBackground(form, control);
+        return;
+      }
+      if (form.hasAttribute('data-keep-scroll')) rememberScroll();
+      form.submit();
+    });
   });
 })();

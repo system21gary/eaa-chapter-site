@@ -44,22 +44,26 @@ function isSuppressed(address) {
   return config.mail.suppressDomains.has(domain);
 }
 
-export async function sendMail({ to, subject, text, html = null, replyTo = null }) {
+export async function sendMail({ to, subject, text, html = null, replyTo = null, cc = [] }) {
   const now = nowIso();
+  // Copies go in the Cc header (so a reply-all reaches them too). Never the To address twice.
+  const ccList = [...new Set([].concat(cc ?? []).map((a) => String(a).trim()).filter(Boolean))].filter(
+    (a) => a.toLowerCase() !== String(to).toLowerCase()
+  );
   const info = run(
     `INSERT INTO email_outbox
-       (to_addr, subject, body_text, body_html, reply_to, created_at, next_attempt_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (to_addr, subject, body_text, body_html, reply_to, cc, created_at, next_attempt_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     // next_attempt_at NULL when there is no transport: the row is a record,
     // not a pending delivery, so turning SMTP on later does not flush it.
-    [to, subject, text, html, replyTo, now, isLive() ? now : null]
+    [to, subject, text, html, replyTo, ccList.join(', ') || null, now, isLive() ? now : null]
   );
   const id = Number(info.lastInsertRowid);
 
   if (!isLive()) {
     if (config.isDev) {
       console.log(
-        `\n──────── outbox #${id} ────────\nTo:      ${to}\nSubject: ${subject}\n\n${text}\n────────────────────────────\n`
+        `\n──────── outbox #${id} ────────\nTo:      ${to}${ccList.length ? `\nCc:      ${ccList.join(', ')}` : ''}\nSubject: ${subject}\n\n${text}\n────────────────────────────\n`
       );
     }
     return { id, queued: true, delivered: false };
@@ -92,7 +96,7 @@ export async function deliverOutbox({ limit = 25 } = {}) {
 
   try {
     const due = all(
-      `SELECT id, to_addr, subject, body_text, body_html, reply_to, attempts, next_attempt_at
+      `SELECT id, to_addr, subject, body_text, body_html, reply_to, cc, attempts, next_attempt_at
          FROM email_outbox
         WHERE sent_at IS NULL
           AND next_attempt_at IS NOT NULL
@@ -299,11 +303,17 @@ export async function verifyTransport() {
   return true;
 }
 
-async function sendViaSmtp({ to_addr: to, subject, body_text: text, body_html: html, reply_to: replyTo }) {
+async function sendViaSmtp({ to_addr: to, subject, body_text: text, body_html: html, reply_to: replyTo, cc }) {
   const t = await smtpTransport();
+  // Documentation-only domains (example.com and friends) cannot receive mail; leave them out of the Cc.
+  const copies = String(cc ?? '')
+    .split(',')
+    .map((a) => a.trim())
+    .filter((a) => a && !isSuppressed(a));
   await t.sendMail({
     from: config.mail.from,
     to,
+    ...(copies.length ? { cc: copies } : {}),
     subject,
     text,
     ...(html ? { html } : {}),

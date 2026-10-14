@@ -16,6 +16,7 @@
       <div class="card-body">
         <ul class="factlist">
           <li><span class="label">To</span><span class="mono">{{ mail.to_addr }}</span></li>
+          {% if mail.cc %}<li><span class="label">Cc</span><span class="mono">{{ mail.cc }}</span></li>{% endif %}
           <li><span class="label">Queued</span><span>{{ mail.created_at | datetime }}</span></li>
           <li><span class="label">Status</span>
             <span>
