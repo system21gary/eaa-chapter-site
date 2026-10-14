@@ -63,10 +63,10 @@
       <div class="stat-chart-wrap">{{ charts.visitors | safe }}</div>
       <details class="stat-table">
         <summary>Show as a table</summary>
-        <table class="data">
+        <div class="table-scroll"><table class="data">
           <thead><tr><th>Day</th><th>Page views</th></tr></thead>
-          <tbody>{% for d in report.daily %}<tr><td>{{ d.day }}</td><td>{{ d.visitorViews }}</td></tr>{% endfor %}</tbody>
-        </table>
+          <tbody>{% for d in report.daily | reverse %}<tr><td>{{ d.day }}</td><td>{{ d.visitorViews }}</td></tr>{% endfor %}</tbody>
+        </table></div>
       </details>
     </div>
 
@@ -119,10 +119,10 @@
       <div class="stat-chart-wrap">{{ charts.members | safe }}</div>
       <details class="stat-table">
         <summary>Show as a table</summary>
-        <table class="data">
+        <div class="table-scroll"><table class="data">
           <thead><tr><th>Day</th><th>Page views</th></tr></thead>
-          <tbody>{% for d in report.daily %}<tr><td>{{ d.day }}</td><td>{{ d.memberViews }}</td></tr>{% endfor %}</tbody>
-        </table>
+          <tbody>{% for d in report.daily | reverse %}<tr><td>{{ d.day }}</td><td>{{ d.memberViews }}</td></tr>{% endfor %}</tbody>
+        </table></div>
       </details>
     </div>
 
