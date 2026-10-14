@@ -113,3 +113,17 @@ export function localDaysFromToday(days, hour = 12, minute = 0, now = new Date()
   const target = new Date(Date.UTC(today.year, today.month - 1, today.day + days));
   return zonedToUtc(target.getUTCFullYear(), target.getUTCMonth() + 1, target.getUTCDate(), hour, minute);
 }
+
+/**
+ * A greeting for the time of day in chapter time (America/New_York), not the
+ * server's: Fly runs in UTC, so using the server's clock says "Afternoon" at night.
+ */
+export function greetingFor(now = new Date()) {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' }).format(now)
+  );
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17) return 'Good evening';
+  return 'Hello'; // 12am to 5am: "Good morning" at 2am reads oddly
+}

@@ -8,6 +8,7 @@ import * as Tools from '../models/tools.js';
 import * as Events from '../models/events.js';
 import { requireAuth } from '../middleware/auth.js';
 import { suggestLocals } from '../lib/suggestions.js';
+import { greetingFor } from '../lib/localtime.js';
 import { writeLimiter, uploadLimiter } from '../middleware/rate-limit.js';
 import { asyncRoute } from '../middleware/errors.js';
 import { verifyMultipartCsrf } from '../lib/csrf.js';
@@ -41,6 +42,7 @@ router.get('/', (req, res) => {
     myRequests: Tools.requestsByRequester(req.user.id).slice(0, 5),
     upcoming: Events.upcomingEvents({ limit: 3 }),
     stats: Tools.lockerStats(),
+    greeting: greetingFor(),
   });
 });
 

@@ -18,14 +18,22 @@
       <p class="hero-lede">{{ build.summary }}</p>
 
       <div class="builder-line">
-        {% if build.owner_avatar %}
+        {# Profile photos are members-only (see routes/media.js), so a signed-out visitor gets initials, not a broken image. #}
+        {% if build.owner_avatar and currentUser %}
           <img src="{{ build.owner_avatar | media }}" alt="" class="avatar avatar-lg">
-        {% else %}
+        {% elif currentUser %}
           <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ build | initials }}</span>
+        {% else %}
+          {# Signed-out visitors get a first name and a single initial: no surname, no location. #}
+          <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ (build.owner_first or '?') | first | upper }}</span>
         {% endif %}
         <div>
-          <strong>{{ build.owner_display or (build.owner_first ~ ' ' ~ build.owner_last) }}</strong>
-          <span class="small">{{ build.hangar or build.owner_home_base or 'EAA Chapter 1699' }}</span>
+          {% if currentUser %}
+            <strong>{{ build.owner_display or (build.owner_first ~ ' ' ~ build.owner_last) }}</strong>
+            <span class="small">{{ build.hangar or build.owner_home_base or 'EAA Chapter 1699' }}</span>
+          {% else %}
+            <strong>{{ build.owner_first }}</strong>
+          {% endif %}
         </div>
       </div>
 
@@ -145,7 +153,7 @@
             {% if build.panel %}<li><span class="label">Panel</span><span>{{ build.panel }}</span></li>{% endif %}
             {% if build.started_on %}<li><span class="label">Started</span><span>{{ build.started_on | shortdate }}</span></li>{% endif %}
             {% if build.first_flight_on %}<li><span class="label">First flight</span><span>{{ build.first_flight_on | shortdate }}</span></li>{% endif %}
-            {% if build.hangar %}<li><span class="label">Based</span><span>{{ build.hangar }}</span></li>{% endif %}
+            {% if build.hangar and currentUser %}<li><span class="label">Based</span><span>{{ build.hangar }}</span></li>{% endif %}
           </ul>
         </div>
       </div>
