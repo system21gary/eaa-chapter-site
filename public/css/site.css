@@ -629,7 +629,8 @@ table.data input[type="text"] { min-width: 10rem; }
 .page-head .eyebrow { margin-bottom: .45rem; }
 .page-head p { color: #c8e0f0; max-width: 72ch; margin: 0; font-size: 1rem; }
 /* Beats the margin reset above, which was squeezing the breadcrumb against what follows. */
-.page-head .crumbs { margin-bottom: 1rem; max-width: none; }
+.page-head .crumbs { margin-bottom: 1rem; max-width: none; color: #9fc1d8; }
+.page-head .crumbs a { color: #dbe9f3; }
 .page-head .pill-row { margin-bottom: .7rem !important; }
 
 .strength { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: .5rem; }

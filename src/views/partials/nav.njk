@@ -17,8 +17,8 @@
     <nav id="primary-nav" class="primary-nav" aria-label="Main">
       <ul>
         <li><a href="{{ '/' | url }}" {% if currentPath == '/' %}aria-current="page"{% endif %}>Welcome</a></li>
-        <li><a href="{{ '/events' | url }}" {% if currentPath.startsWith('/events') and currentPath != '/events/past' %}aria-current="page"{% endif %}>Upcoming Events</a></li>
-        <li><a href="{{ '/events/past' | url }}" {% if currentPath == '/events/past' %}aria-current="page"{% endif %}>Past Events</a></li>
+        <li><a href="{{ '/events' | url }}" {% if currentPath.startsWith('/events') and currentPath != '/events/past' and navSection != 'past' %}aria-current="page"{% endif %}>Upcoming Events</a></li>
+        <li><a href="{{ '/events/past' | url }}" {% if currentPath == '/events/past' or navSection == 'past' %}aria-current="page"{% endif %}>Past Events</a></li>
         <li><a href="{{ '/builds' | url }}" {% if currentPath.startsWith('/builds') %}aria-current="page"{% endif %}>Member Builds</a></li>
         <li><a href="{{ '/contact' | url }}" {% if currentPath == '/contact' %}aria-current="page"{% endif %}>Contact Us</a></li>
         {% if currentUser %}

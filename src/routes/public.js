@@ -119,6 +119,8 @@ router.get('/events/:slug', (req, res, next) => {
     ogImage: event.poster_path ? `/media/${event.poster_path}` : null,
     event,
     isPast: new Date(event.ends_at || event.starts_at) < new Date(),
+    // Which tab to light up: a past event belongs under Past Events.
+    navSection: new Date(event.ends_at || event.starts_at) < new Date() ? 'past' : 'upcoming',
   });
 });
 
