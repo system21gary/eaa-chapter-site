@@ -486,6 +486,14 @@ table.data input[type="text"] { min-width: 10rem; }
 .statstrip-tiles .n { font-size: 1.7rem; font-variant-numeric: tabular-nums; }
 .statstrip-tiles .l { margin: 0; min-height: 2.5em; display: flex; align-items: flex-start; justify-content: center; font-size: .68rem; line-height: 1.25; }
 
+/* ---- members dashboard: four compact tiles on one line ---- */
+.dash-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+.dash-tiles .card-body { padding: .85rem 1rem .9rem; }
+.dash-tiles h3 { margin: 0 0 .25rem; font-size: 1.05rem; }
+.dash-tiles p { margin: 0; font-size: .8rem; line-height: 1.4; }
+@media (max-width: 960px) { .dash-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .dash-tiles { grid-template-columns: 1fr; } }
+
 /* ---- stats dashboard ---- */
 .stat-h { margin: 2.2rem 0 .8rem; font-size: 1.3rem; }
 .stat-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.2rem; margin-top: 1.2rem; }
@@ -572,7 +580,17 @@ table.data input[type="text"] { min-width: 10rem; }
 .compact-row .title { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .compact-row .meta { flex: none; display: flex; align-items: center; gap: .5rem; font-size: .84rem; color: var(--ink-soft); }
 .compact-row .time { white-space: nowrap; }
+/* The right-hand details are a grid of fixed columns, the same on every row, so pills,
+   counts, names and times line up down the page instead of drifting with their neighbours. */
+.compact-row .meta.meta-blog,
+.compact-row .meta.meta-event { display: grid; align-items: center; gap: .5rem 1rem; }
+.compact-row .meta-blog { grid-template-columns: 6.5rem 6.5rem 10rem; }
+.compact-row .meta-event { grid-template-columns: 12.5rem 11rem; }
+.compact-row .meta .cell { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compact-row .meta .cell.pills { display: flex; align-items: center; gap: .35rem; overflow: visible; }
 @media (max-width: 720px) {
+  .compact-row .meta.meta-blog, .compact-row .meta.meta-event { display: flex; flex-wrap: wrap; }
+  .compact-row .meta-blog .cell:empty, .compact-row .meta .cell.pills:empty { display: none; }
   .compact-row { flex-wrap: wrap; }
   .compact-row .title { flex-basis: calc(100% - 7rem); white-space: normal; }
   .compact-row .meta { flex-basis: 100%; flex-wrap: wrap; }

@@ -9,12 +9,14 @@
             <a class="compact-row" href="{{ '' | url }}/events/{{ event.slug }}">
               <span class="when">{{ event.starts_at | dayline }}</span>
               <span class="title">{{ event.title }}</span>
-              <span class="meta">
-                {% if event.status == 'cancelled' %}<span class="pill pill-red">Cancelled</span>{% endif %}
-                {% if event.status == 'draft' %}<span class="pill pill-grey">Draft</span>{% endif %}
-                {% if event.photo_count %}<span class="pill pill-amber">{{ event.photo_count }} photos</span>{% endif %}
-                <span class="pill">{{ event.kind | replace("-", " ") }}</span>
-                <span class="time">{{ event.starts_at | timerange(event.ends_at, event.all_day) }}</span>
+              <span class="meta meta-event">
+                <span class="cell pills">
+                  {% if event.status == 'cancelled' %}<span class="pill pill-red">Cancelled</span>{% endif %}
+                  {% if event.status == 'draft' %}<span class="pill pill-grey">Draft</span>{% endif %}
+                  {% if event.photo_count %}<span class="pill pill-amber">{{ event.photo_count }} photos</span>{% endif %}
+                  <span class="pill">{{ event.kind | replace("-", " ") }}</span>
+                </span>
+                <span class="cell">{{ event.starts_at | timerange(event.ends_at, event.all_day) }}</span>
               </span>
             </a>
           </li>
