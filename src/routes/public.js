@@ -19,7 +19,8 @@ import {
 } from '../lib/mailer.js';
 import { hashIp } from '../lib/tokens.js';
 import { audit } from '../lib/audit.js';
-import { recordEvent, humanRequest } from '../lib/stats.js';
+import { recordEvent, humanRequest, markAction } from '../lib/stats.js';
+import { mapUrl } from '../views/filters.js';
 
 const router = express.Router();
 
@@ -85,7 +86,7 @@ router.get('/events/past', (req, res) => {
 router.get('/events/calendar.ics', (req, res) => {
   // Calendar apps poll this feed on their own; only someone clicking the link
   // (a browser navigation) counts as a click on "Add to calendar".
-  if (req.get('sec-fetch-dest') === 'document' && humanRequest(req)) recordEvent('calendar');
+  if (req.get('sec-fetch-dest') === 'document' && humanRequest(req)) recordEvent('calendar', '', req);
   const events = [...Events.upcomingEvents({ limit: 100 }), ...Events.pastEvents({ limit: 100 })];
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Content-Disposition', 'inline; filename="eaa1699.ics"');
@@ -96,8 +97,17 @@ router.get('/events/calendar.ics', (req, res) => {
 router.get('/events/:slug/more-info', (req, res, next) => {
   const event = Events.getEventBySlug(req.params.slug, { viewer: req.user });
   if (!event || !/^https?:\/\//i.test(event.external_url ?? '')) return next();
-  if (humanRequest(req)) recordEvent('listing', event.slug);
+  if (humanRequest(req)) recordEvent('listing', event.slug, req);
   return res.redirect(302, event.external_url);
+});
+
+/** Same idea for "Directions": count the click, then go to the map. */
+router.get('/events/:slug/directions', (req, res, next) => {
+  const event = Events.getEventBySlug(req.params.slug, { viewer: req.user });
+  const target = event && mapUrl(event);
+  if (!target) return next();
+  if (humanRequest(req)) recordEvent('directions', event.slug, req);
+  return res.redirect(302, target);
 });
 
 router.get('/events/:slug', (req, res, next) => {
@@ -179,6 +189,7 @@ router.post(
       ]
     );
 
+    markAction(req); // sending a message is what we hope people do
     await sendMail({
       to: config.site.contactEmail,
       // So an officer can just hit reply. Safe to expose here in a way it is
@@ -254,6 +265,7 @@ router.post(
     // otherwise anyone could fill an administrator's inbox with requests for
     // addresses they merely suspect are members. The redirect below is the
     // same in every branch, so nothing about which case applied is observable.
+    markAction(req);
     const applicationId = Users.findByEmail(data.email)
       ? null
       : Applications.createApplication({

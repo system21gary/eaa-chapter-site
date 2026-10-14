@@ -14,6 +14,14 @@ function fmt(value, options) {
   return new Intl.DateTimeFormat('en-US', { timeZone: TZ, ...options }).format(d);
 }
 
+/** Google Maps link built from coordinates we control, never user input. */
+export function mapUrl(obj) {
+  const lat = Number(obj?.latitude);
+  const lon = Number(obj?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+}
+
 export function registerFilters(env) {
   // "Saturday, May 30, 2026"
   env.addFilter('date', (v) =>
@@ -134,13 +142,7 @@ export function registerFilters(env) {
 
   env.addFilter('absolute', (p) => absoluteUrl(p));
 
-  /** Google Maps link built from coordinates we control, never user input. */
-  env.addFilter('maplink', (obj) => {
-    const lat = Number(obj?.latitude);
-    const lon = Number(obj?.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-  });
+  env.addFilter('maplink', (obj) => mapUrl(obj));
 
   env.addGlobal('now', () => new Date().toISOString());
   env.addGlobal('currentYear', new Date().getFullYear());

@@ -14,7 +14,8 @@ import { loadUser, flashMiddleware } from './middleware/auth.js';
 import { notFound, errorHandler } from './middleware/errors.js';
 import { registerFilters } from './views/filters.js';
 import { pendingCount as pendingApplicationCount } from './models/applications.js';
-import { statsMiddleware } from './lib/stats.js';
+import { statsMiddleware, pingHandler } from './lib/stats.js';
+import { statsLimiter } from './middleware/rate-limit.js';
 import { waitingCount as waitingMessageCount } from './models/contact.js';
 
 import publicRoutes from './routes/public.js';
@@ -71,6 +72,7 @@ export function createApp() {
     res.locals.currentUser = null;
     res.locals.csrfToken = '';
     res.locals.pendingApplications = 0;
+    res.locals.statsEnabled = config.stats.enabled;
     res.locals.waitingMessages = 0;
     next();
   });
@@ -124,6 +126,10 @@ export function createApp() {
 
   app.use(verifyOrigin);
   app.use(loadUser);
+  // The page's time-on-page report. Mounted before the CSRF and flash layers on purpose: it changes
+  // no one's data and must never create a session. It is guarded by the origin check above, a
+  // rate limit, a size limit and strict validation instead.
+  app.post('/stats/ping', statsLimiter, express.text({ type: () => true, limit: '1kb' }), pingHandler);
   app.use(flashMiddleware);
   app.use(statsMiddleware);
   app.use(csrfProtection);

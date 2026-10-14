@@ -478,6 +478,14 @@ table.data input[type="text"] { min-width: 10rem; }
 .tool-card .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tool-card .shot .noshot { position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.4rem; opacity: .35; }
 .tool-card .shot .count { position: absolute; right: .5rem; bottom: .5rem; background: rgba(2, 31, 51, .72); color: #fff; padding: .1rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+/* Even tiles for the dashboard: number on top, label under it in a fixed two-line slot,
+   so every number sits on the same line whatever the label length. */
+.statstrip-tiles { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+.statstrip-tiles > div { display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: .85rem .6rem .75rem; text-align: center; }
+.statstrip-tiles > div > div { padding: 0; }
+.statstrip-tiles .n { font-size: 1.7rem; font-variant-numeric: tabular-nums; }
+.statstrip-tiles .l { margin: 0; min-height: 2.5em; display: flex; align-items: flex-start; justify-content: center; font-size: .68rem; line-height: 1.25; }
+
 /* ---- stats dashboard ---- */
 .stat-h { margin: 2.2rem 0 .8rem; font-size: 1.3rem; }
 .stat-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.2rem; margin-top: 1.2rem; }
@@ -500,6 +508,13 @@ table.data input[type="text"] { min-width: 10rem; }
   position: fixed; z-index: 60; pointer-events: none; padding: .35rem .6rem; border-radius: 8px;
   background: var(--navy-800); color: #fff; font-size: .8rem; font-weight: 600; box-shadow: var(--shadow-md); white-space: nowrap;
 }
+.table-scroll-x { overflow-x: auto; }
+.stat-rate { width: 100%; font-size: .9rem; }
+.stat-rate th, .stat-rate td { padding: .5rem .6rem; text-align: left; vertical-align: top; }
+.stat-rate th:not(:first-child), .stat-rate td:not(:first-child) { text-align: right; white-space: nowrap; }
+.stat-rate td[colspan] { text-align: right; }
+.stat-rate td a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.stat-rate td a:hover { color: var(--blue-600); text-decoration: underline; }
 .stat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
 .stat-list li { display: grid; grid-template-columns: minmax(0, 1fr) 7rem 2.6rem; gap: .8rem; align-items: center; }
 .stat-list .lbl { min-width: 0; font-size: .92rem; overflow-wrap: anywhere; }

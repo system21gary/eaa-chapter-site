@@ -481,8 +481,11 @@ yet (see open items).
 ## Site stats
 
 First-party visit counting, shown to admins at **Members Corner → Stats**
-(`/members/admin/stats`, last 7 / 30 / 90 days). Built on our own server: no
-cookies, no third-party script, no change to the security policy.
+(`/members/admin/stats`, last 7 / 30 / 90 days). Built on our own server: the
+counting sets no cookies of its own, uses no third-party script and needs no change to
+the security policy. (The site itself does set a session cookie on every page, because
+the CSRF token for forms lives in the session; the footer therefore says only that the
+*visit counting* uses no cookies.)
 
 **What is kept:** daily counters only (tables `stats_daily`, `stats_visitors`,
 `stats_events`): views per page, per referring *site name*, per `?src=` tag and
@@ -491,17 +494,43 @@ people per day. **Never kept:** IP addresses, user agents, cookies, or a row per
 visit. "Different people" comes from a keyed one-way fingerprint held in memory
 that changes every day, so nobody can be followed across days.
 
-**What counts:** successful HTML page views by signed-out visitors and
-signed-in members (split in every report). Not counted: assets, `/healthz`,
+**What counts:** successful HTML page views, split into three audiences: signed-out
+visitors, signed-in members, and **officers** (admins and editors, so their own testing
+stays out of the real numbers). Officers appear only in their own section at the bottom
+of the Stats page and are left out of the rankings, sources, time-on-page figures and
+click counts. Not counted: assets, `/healthz`,
 sign-in and token pages, the admin screens (including Stats itself), anyone who
 sends Do Not Track or Global Privacy Control, prefetches, and bots (filtered
 by a best-guess user-agent list, so numbers are approximate). Everything is
 `src/lib/stats.js`; the footer carries a one-line notice.
 
+**Engagement ("Do people stay?"):** each person-day is followed in memory only
+(entry page, how many different pages, whether they did anything) and only
+totals are saved (`stats_visits`, `stats_depth`). The dashboard shows pages per
+visit, where visits start, and which sources/QR tags bring people who go
+further. A single-page visit is not treated as a failure (finding the date and
+leaving is a success); the number to watch is **left without doing anything**,
+where "doing something" is adding the calendar, asking for directions, following
+a listing, or sending a message or join request. Reloading a page is not a second
+page. Rates show "too few visits to judge" under 5 visits.
+
+**Time on page and scroll depth:** a small script (`public/js/site.js`) reports
+visible time and scroll depth, in coarse buckets, when a page is hidden or left.
+It posts to `/stats/ping` (`pingHandler` in `src/lib/stats.js`), which is mounted
+before the CSRF and flash layers so it never creates a session, and is guarded
+by the origin check, a rate limit (120/min per address), a 1 KB body limit, a
+same-origin `Sec-Fetch-Site` check, and acceptance only for a page that person
+has already viewed today. It answers 204 to everything. Bots do not run it, and
+Do Not Track / Global Privacy Control skip it entirely.
+
+**Members:** the Members section shows sign-in activity from the members list
+(signed in this week / month, never signed in, not seen in 60+ days), page views
+and depth, and which blog posts, builds and tools are read.
+
 **Also tracked:** clicks on "Add to your calendar" (browser navigations only;
-calendar apps polling the feed are not counted) and clicks on an event's "More
-info" link, which now goes via `/events/<slug>/more-info` and redirects to the
-stored listing URL. Contact messages, join requests, tool requests and sign-ins
+calendar apps polling the feed are not counted), on an event's "More info" link
+(`/events/<slug>/more-info`) and on "Directions" (`/events/<slug>/directions`);
+the last two count the click and redirect to the stored listing URL or the map. Contact messages, join requests, tool requests and sign-ins
 come from the existing tables, so they need no tracking.
 
 **QR codes and flyers:** add `?src=poster` (any word: flyer, facebook, ...) to a

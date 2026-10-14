@@ -25,6 +25,34 @@
   {% endif %}
 {% endmacro %}
 
+{# Rows of landing page / source with the share who stayed, did something, or left quietly. #}
+{% macro ratetable(rows, firstHeader, empty) %}
+  {% if rows.length %}
+    <div class="table-scroll-x">
+      <table class="data stat-rate">
+        <thead><tr><th>{{ firstHeader }}</th><th>Visits</th><th>Looked at more pages</th><th>Took an action</th><th>Left without doing anything</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td>{% if r.path %}<a href="{{ r.path | url }}">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}</td>
+              <td>{{ r.visits }}</td>
+              {% if r.enough %}
+                <td>{{ r.stayedPct }}%</td><td>{{ r.actedPct }}%</td><td>{{ r.quietPct }}%</td>
+              {% else %}
+                <td colspan="3" class="muted">too few visits to judge</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted small" style="margin:0">{{ empty }}</p>
+  {% endif %}
+{% endmacro %}
+
+{% macro pct(row, field) %}{% if row.visits %}{{ row[field] }}%{% else %}&ndash;{% endif %}{% endmacro %}
+
 {% macro rate(part, whole) %}{% if whole > 0 %} ({{ ((part / whole) * 100) | round }}% of page visits){% endif %}{% endmacro %}
 
 {% block content %}
@@ -32,6 +60,7 @@
 {% set c = report.conversions %}
 {% set m = report.members %}
 {% set l = report.lists %}
+{% set e = report.engagement %}
 <section class="band">
   <div class="wrap">
     <span class="eyebrow">Administrators</span>
@@ -49,13 +78,14 @@
     </nav>
 
     <h2 class="stat-h">Public website</h2>
-    <div class="statstrip statstrip-slim">
+    <div class="statstrip statstrip-tiles">
       <div><div class="n">{{ t.visitorVisits }}</div><div class="l">Visits</div></div>
       <div><div class="n">{{ t.visitorViews }}</div><div class="l">Page views</div></div>
       <div><div class="n">{{ c.messages }}</div><div class="l">Messages sent</div></div>
       <div><div class="n">{{ c.applications }}</div><div class="l">Join requests</div></div>
       <div><div class="n">{{ c.calendar }}</div><div class="l">Calendar clicks</div></div>
       <div><div class="n">{{ c.listingClicks }}</div><div class="l">Listing clicks</div></div>
+      <div><div class="n">{{ c.directions }}</div><div class="l">Directions clicks</div></div>
     </div>
 
     <div class="stat-card">
@@ -105,13 +135,77 @@
       </div>
     </div>
 
+    <h2 class="stat-h">Do people stay?</h2>
+    <p class="muted small" style="max-width:70ch; margin:0 0 .8rem">
+      Of the {{ e.visitor.visits }} visit{{ 's' if e.visitor.visits != 1 }} to the public site. Leaving after one page is not always bad:
+      someone who finds the date and address and goes has been helped. So the number to watch is
+      <strong>left without doing anything</strong>, which counts a visit as a success if the person added the
+      calendar, asked for directions, followed a listing, or sent a message or request.
+      Only signed-out visitors are counted here. Signed-in members appear under Members Corner, and
+      admins and editors (including you, when you are testing) are counted separately under Officers at the bottom.
+    </p>
+    <div class="statstrip statstrip-tiles">
+      <div><div class="n">{{ pct(e.visitor, 'stayedPct') }}</div><div class="l">Looked at more pages</div></div>
+      <div><div class="n">{{ pct(e.visitor, 'actedPct') }}</div><div class="l">Took an action</div></div>
+      <div><div class="n">{{ pct(e.visitor, 'quietPct') }}</div><div class="l">Left without doing anything</div></div>
+    </div>
+
+    <div class="stat-grid-2">
+      <div class="stat-card">
+        <h3>How many pages each visit looked at</h3>
+        {{ statlist(e.visitorDepth, 'No visits recorded yet.') }}
+      </div>
+      <div class="stat-card">
+        <h3>How long people stay on a page</h3>
+        {% if e.attention.length %}
+          <div class="table-scroll-x">
+            <table class="data stat-rate">
+              <thead><tr><th>Page</th><th>Typical time</th><th>Read most of it</th></tr></thead>
+              <tbody>
+                {% for a in e.attention %}
+                  <tr>
+                    <td><a href="{{ a.path | url }}">{{ a.label }}</a></td>
+                    {% if a.enough %}<td>{{ a.typical }}</td><td>{{ a.deepPct }}%</td>{% else %}<td colspan="2" class="muted">too few reports to judge</td>{% endif %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p class="tiny muted" style="margin:.7rem 0 0">Time counts only while the page is on screen. "Read most of it" means they scrolled at least three quarters of the way down. Bots are left out because they do not run the page script.</p>
+        {% else %}
+          <p class="muted small" style="margin:0">Nothing reported yet. This fills in as people read pages.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <h3>Where visits start, and whether people go further</h3>
+      {{ ratetable(e.landings, 'First page seen', 'No visits recorded yet.') }}
+    </div>
+    <div class="stat-card">
+      <h3>Which sources bring people who stay</h3>
+      {{ ratetable(e.sources, 'Source', 'No visits recorded yet.') }}
+    </div>
+
     <h2 class="stat-h">Members Corner</h2>
-    <div class="statstrip statstrip-slim">
-      <div><div class="n">{{ m.loginPeople }}</div><div class="l">Members signed in</div></div>
-      <div><div class="n">{{ m.logins }}</div><div class="l">Sign-ins</div></div>
-      <div><div class="n">{{ m.activeMembers }}</div><div class="l">Active members</div></div>
+    <div class="statstrip statstrip-tiles">
+      <div><div class="n">{{ m.last7 }}</div><div class="l">Signed in this week</div></div>
+      <div><div class="n">{{ m.last30 }}</div><div class="l">Signed in this month</div></div>
+      <div><div class="n">{{ m.active }}</div><div class="l">Active members</div></div>
+      <div><div class="n">{{ m.never }}</div><div class="l">Never signed in</div></div>
+      <div><div class="n">{{ m.quiet60 }}</div><div class="l">Not seen in 60+ days</div></div>
       <div><div class="n">{{ t.memberViews }}</div><div class="l">Page views</div></div>
       <div><div class="n">{{ c.toolRequests }}</div><div class="l">Tool requests</div></div>
+    </div>
+    <p class="tiny muted" style="margin:.5rem 0 0">Sign-in dates come from the members list. {{ m.logins }} sign-in{{ 's' if m.logins != 1 }} by {{ m.loginPeople }} member{{ 's' if m.loginPeople != 1 }} in the last {{ days }} days.</p>
+
+    <p class="muted small" style="max-width:70ch; margin:1.2rem 0 .6rem">
+      Of the {{ e.member.visits }} visit{{ 's' if e.member.visits != 1 }} by signed-in members (admins and editors are counted separately below):
+    </p>
+    <div class="statstrip statstrip-tiles">
+      <div><div class="n">{{ pct(e.member, 'stayedPct') }}</div><div class="l">Looked at more pages</div></div>
+      <div><div class="n">{{ pct(e.member, 'actedPct') }}</div><div class="l">Took an action</div></div>
+      <div><div class="n">{{ pct(e.member, 'quietPct') }}</div><div class="l">Left without doing anything</div></div>
     </div>
 
     <div class="stat-card">
@@ -143,13 +237,36 @@
         <h3>Members Corner pages</h3>
         {{ statlist(l.memberPages, 'No signed-in visits recorded yet.') }}
       </div>
+      <div class="stat-card">
+        <h3>How many pages members look at per visit</h3>
+        {{ statlist(e.memberDepth, 'No signed-in visits recorded yet.') }}
+        <p class="tiny muted" style="margin:.8rem 0 0">{{ pct(e.member, 'stayedPct') }} of the {{ e.member.visits }} member visit{{ 's' if e.member.visits != 1 }} went on to a second page.</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <h3>Where member visits start</h3>
+      {{ ratetable(e.memberLandings, 'First page seen', 'No signed-in visits recorded yet.') }}
+    </div>
+
+    <h2 class="stat-h">Officers (admins and editors)</h2>
+    <p class="muted small" style="max-width:70ch; margin:0 0 .8rem">
+      Your own looking around, kept apart so testing the site does not blur the real numbers above. Officers are left out of
+      the popular-page lists, the sources, the time-on-page figures and the click counts.
+    </p>
+    <div class="statstrip statstrip-tiles">
+      <div><div class="n">{{ t.staffVisits }}</div><div class="l">Visits</div></div>
+      <div><div class="n">{{ t.staffViews }}</div><div class="l">Page views</div></div>
+      <div><div class="n">{{ pct(e.staff, 'stayedPct') }}</div><div class="l">Looked at more pages</div></div>
+      <div><div class="n">{{ pct(e.staff, 'actedPct') }}</div><div class="l">Took an action</div></div>
+      <div><div class="n">{{ pct(e.staff, 'quietPct') }}</div><div class="l">Left without doing anything</div></div>
     </div>
 
     <p class="small muted" style="max-width:70ch; margin-top:2rem">
       <strong>How to read this.</strong> A <em>visit</em> is one person on one day, however many pages they open
       (the same person on three days is three visits). People are told apart only by a one-way fingerprint that is
       kept in memory and changes every day, so nobody can be followed across days. Visitors who send "do not track" or
-      Global Privacy Control are not counted at all. Counts are saved once a minute.
+      Global Privacy Control are not counted at all. Counts are saved once a minute. "Stay" figures count different pages in a visit (reloading the same page does not count), and a visit that returns later the same day is the same visit.
     </p>
   </div>
 </section>

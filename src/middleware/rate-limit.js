@@ -82,3 +82,10 @@ export const writeLimiter = make({
   max: 100,
   message: 'Too many changes submitted at once. Please pause for a few minutes.',
 });
+
+/** The stats beacon: one report per page view, so a generous ceiling per address. */
+export const statsLimiter = make({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: 'Too many reports.',
+});

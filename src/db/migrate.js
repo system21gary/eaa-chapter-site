@@ -592,6 +592,118 @@ const migrations = [
     ) WITHOUT ROWID;
     `,
   },
+  {
+    version: 12,
+    name: 'site stats: engagement',
+    sql: `
+    -- One row per day, audience and way in (landing page + referrer + tag +
+    -- device). Totals only. visits = people who started here; engaged = went
+    -- on to a second page; acted = did something that counts (calendar,
+    -- directions, listing, contact, join); quiet = looked at one page and did
+    -- nothing else.
+    CREATE TABLE stats_visits (
+      day        TEXT NOT NULL,
+      audience   TEXT NOT NULL CHECK (audience IN ('visitor','member')),
+      entry_path TEXT NOT NULL,
+      referrer   TEXT NOT NULL DEFAULT '',
+      campaign   TEXT NOT NULL DEFAULT '',
+      device     TEXT NOT NULL DEFAULT 'desktop',
+      visits     INTEGER NOT NULL DEFAULT 0,
+      engaged    INTEGER NOT NULL DEFAULT 0,
+      acted      INTEGER NOT NULL DEFAULT 0,
+      quiet      INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, entry_path, referrer, campaign, device)
+    ) WITHOUT ROWID;
+
+    -- How many pages each day's visits looked at: '1', '2', '3-5', '6+'.
+    CREATE TABLE stats_depth (
+      day      TEXT NOT NULL,
+      audience TEXT NOT NULL CHECK (audience IN ('visitor','member')),
+      bucket   TEXT NOT NULL,
+      visits   INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, bucket)
+    ) WITHOUT ROWID;
+
+    -- How long people stayed on a page and how far down they got, in coarse
+    -- buckets, reported by a small script in the page.
+    CREATE TABLE stats_attention (
+      day      TEXT NOT NULL,
+      audience TEXT NOT NULL CHECK (audience IN ('visitor','member')),
+      path     TEXT NOT NULL,
+      secs     TEXT NOT NULL,
+      scroll   TEXT NOT NULL,
+      n        INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, path, secs, scroll)
+    ) WITHOUT ROWID;
+    `,
+  },
+  {
+    version: 13,
+    name: 'site stats: officers counted separately',
+    sql: `
+    -- Admins and editors testing the site should not mix with real traffic, so
+    -- they get their own audience, 'staff'. SQLite cannot change a CHECK
+    -- constraint in place, so each stats table is rebuilt with the wider rule
+    -- and its rows copied across. Event clicks also learn who made them
+    -- (rows recorded before this are filed under 'visitor').
+    CREATE TABLE stats_daily_new (
+      day TEXT NOT NULL, audience TEXT NOT NULL CHECK (audience IN ('visitor','member','staff')),
+      path TEXT NOT NULL, referrer TEXT NOT NULL DEFAULT '', campaign TEXT NOT NULL DEFAULT '',
+      device TEXT NOT NULL DEFAULT 'desktop', views INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, path, referrer, campaign, device)
+    ) WITHOUT ROWID;
+    INSERT INTO stats_daily_new SELECT day, audience, path, referrer, campaign, device, views FROM stats_daily;
+    DROP TABLE stats_daily;
+    ALTER TABLE stats_daily_new RENAME TO stats_daily;
+    CREATE INDEX idx_stats_daily_path ON stats_daily(path, day);
+
+    CREATE TABLE stats_visitors_new (
+      day TEXT NOT NULL, audience TEXT NOT NULL CHECK (audience IN ('visitor','member','staff')),
+      visitors INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, audience)
+    ) WITHOUT ROWID;
+    INSERT INTO stats_visitors_new SELECT day, audience, visitors FROM stats_visitors;
+    DROP TABLE stats_visitors;
+    ALTER TABLE stats_visitors_new RENAME TO stats_visitors;
+
+    CREATE TABLE stats_events_new (
+      day TEXT NOT NULL, audience TEXT NOT NULL DEFAULT 'visitor' CHECK (audience IN ('visitor','member','staff')),
+      name TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, name, detail)
+    ) WITHOUT ROWID;
+    INSERT INTO stats_events_new (day, audience, name, detail, count)
+      SELECT day, 'visitor', name, detail, count FROM stats_events;
+    DROP TABLE stats_events;
+    ALTER TABLE stats_events_new RENAME TO stats_events;
+
+    CREATE TABLE stats_visits_new (
+      day TEXT NOT NULL, audience TEXT NOT NULL CHECK (audience IN ('visitor','member','staff')),
+      entry_path TEXT NOT NULL, referrer TEXT NOT NULL DEFAULT '', campaign TEXT NOT NULL DEFAULT '',
+      device TEXT NOT NULL DEFAULT 'desktop', visits INTEGER NOT NULL DEFAULT 0, engaged INTEGER NOT NULL DEFAULT 0,
+      acted INTEGER NOT NULL DEFAULT 0, quiet INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, entry_path, referrer, campaign, device)
+    ) WITHOUT ROWID;
+    INSERT INTO stats_visits_new SELECT day, audience, entry_path, referrer, campaign, device, visits, engaged, acted, quiet FROM stats_visits;
+    DROP TABLE stats_visits;
+    ALTER TABLE stats_visits_new RENAME TO stats_visits;
+
+    CREATE TABLE stats_depth_new (
+      day TEXT NOT NULL, audience TEXT NOT NULL CHECK (audience IN ('visitor','member','staff')),
+      bucket TEXT NOT NULL, visits INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, audience, bucket)
+    ) WITHOUT ROWID;
+    INSERT INTO stats_depth_new SELECT day, audience, bucket, visits FROM stats_depth;
+    DROP TABLE stats_depth;
+    ALTER TABLE stats_depth_new RENAME TO stats_depth;
+
+    CREATE TABLE stats_attention_new (
+      day TEXT NOT NULL, audience TEXT NOT NULL CHECK (audience IN ('visitor','member','staff')),
+      path TEXT NOT NULL, secs TEXT NOT NULL, scroll TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, audience, path, secs, scroll)
+    ) WITHOUT ROWID;
+    INSERT INTO stats_attention_new SELECT day, audience, path, secs, scroll, n FROM stats_attention;
+    DROP TABLE stats_attention;
+    ALTER TABLE stats_attention_new RENAME TO stats_attention;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

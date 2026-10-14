@@ -100,7 +100,7 @@
           </ul>
 
           {% if event | maplink %}
-            <a class="btn btn-outline btn-block btn-sm" href="{{ event | maplink }}" target="_blank" rel="noopener noreferrer">Directions</a>
+            <a class="btn btn-outline btn-block btn-sm" href="{{ ('/events/' ~ event.slug ~ '/directions') | url }}" target="_blank" rel="noopener noreferrer">Directions</a>
           {% endif %}
           {% if not isPast %}
             <a class="btn btn-primary btn-block btn-sm" href="{{ '/events/calendar.ics' | url }}" style="margin-top:.6rem">Add to your calendar</a>

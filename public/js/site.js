@@ -214,6 +214,48 @@
     input.addEventListener('blur', format);
   });
 
+  /* ------------------------------------------------ time on page */
+  // Reports how long this page was actually in front of the reader and how far
+  // down they got, so the chapter can tell "read it" from "bounced". Counts only
+  // time the tab is visible, sends a tiny summary (never the page's content, never
+  // an identity) when the page is hidden or left, and does nothing at all if the
+  // browser says "do not track". Bots do not run this, which keeps them out too.
+  (function () {
+    var meta = document.querySelector('meta[name="eaa-stats"]');
+    if (!meta || !navigator.sendBeacon) return;
+    if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return;
+    var base = meta.getAttribute('data-base') || '';
+    var path = location.pathname;
+    if (base && path.indexOf(base) === 0) path = path.slice(base.length) || '/';
+    if (/^\/(members\/(admin|account)|login|logout|forgot|reset|invite)(\/|$)/.test(path)) return;
+
+    var id = Math.random().toString(36).slice(2, 10);
+    var visibleMs = 0;
+    var shownAt = document.visibilityState === 'visible' ? Date.now() : null;
+    var deepest = 0;
+    function depth() {
+      var d = document.documentElement;
+      var room = d.scrollHeight - window.innerHeight;
+      var pct = room <= 0 ? 100 : Math.round((window.scrollY / room) * 100);
+      if (pct > deepest) deepest = Math.min(100, pct);
+    }
+    depth();
+    window.addEventListener('scroll', depth, { passive: true });
+
+    function report() {
+      if (shownAt) { visibleMs += Date.now() - shownAt; shownAt = null; }
+      var secs = Math.round(visibleMs / 1000);
+      if (secs < 1) return;
+      depth();
+      navigator.sendBeacon(meta.getAttribute('content'), JSON.stringify({ i: id, p: path, t: secs, s: deepest }));
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') report();
+      else shownAt = Date.now();
+    });
+    window.addEventListener('pagehide', report);
+  })();
+
   /* ------------------------------------------- stats chart tooltips */
   // Hover (or tap) a column to read its number. The same figures are in the
   // "Show as a table" list under each chart, for keyboards and screen readers.
