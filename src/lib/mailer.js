@@ -445,13 +445,32 @@ function dateRange(from, to) {
 }
 
 export function borrowDecisionEmail({ requesterName, toolName, ownerName, status, reply, link }) {
-  const verdict = status === 'approved' ? 'approved' : 'declined';
+  // Three outcomes the owner can send. Anything unexpected falls back to the
+  // neutral wording rather than claiming the request was declined.
+  const outcomes = {
+    approved: {
+      subject: `Your borrow request for ${toolName} was approved`,
+      line: `${ownerName} approved your request to borrow the ${toolName}.`,
+    },
+    declined: {
+      subject: `Your borrow request for ${toolName} was declined`,
+      line: `${ownerName} declined your request to borrow the ${toolName}.`,
+    },
+    returned: {
+      subject: `The ${toolName} has been marked as returned`,
+      line: `${ownerName} has marked the ${toolName} as returned. Thank you for bringing it back.`,
+    },
+  };
+  const outcome = outcomes[status] ?? {
+    subject: `Update on your borrow request for ${toolName}`,
+    line: `${ownerName} updated your request to borrow the ${toolName}.`,
+  };
   return {
-    subject: `Your borrow request for ${toolName} was ${verdict}`,
+    subject: outcome.subject,
     text: [
       `Hi ${requesterName},`,
       '',
-      `${ownerName} ${verdict} your request to borrow the ${toolName}.`,
+      outcome.line,
       reply ? `\nTheir note:\n${reply}\n` : '',
       `Details: ${link}`,
       '',
