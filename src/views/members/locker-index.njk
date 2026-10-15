@@ -15,10 +15,10 @@
       <div style="display:flex; gap:.6rem; flex-wrap:wrap">
         {% if pendingCount %}
           <a class="btn btn-outline" href="{{ '/members/locker/requests' | url }}">
-            Requests <span class="pill pill-amber">{{ pendingCount }}</span>
+            Requests &amp; returns <span class="pill pill-amber">{{ pendingCount }}</span>
           </a>
         {% else %}
-          <a class="btn btn-outline" href="{{ '/members/locker/requests' | url }}">Requests</a>
+          <a class="btn btn-outline" href="{{ '/members/locker/requests' | url }}">Requests &amp; returns</a>
         {% endif %}
         <a class="btn btn-primary" href="{{ '/members/locker/new' | url }}">Add a tool</a>
       </div>

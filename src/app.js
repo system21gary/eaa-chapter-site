@@ -17,6 +17,7 @@ import { pendingCount as pendingApplicationCount } from './models/applications.j
 import { statsMiddleware, pingHandler } from './lib/stats.js';
 import { statsLimiter } from './middleware/rate-limit.js';
 import { waitingCount as waitingMessageCount } from './models/contact.js';
+import { pendingRequestCount as pendingToolRequestCount } from './models/tools.js';
 
 import publicRoutes from './routes/public.js';
 import authRoutes from './routes/auth.js';
@@ -74,6 +75,7 @@ export function createApp() {
     res.locals.pendingApplications = 0;
     res.locals.statsEnabled = config.stats.enabled;
     res.locals.waitingMessages = 0;
+    res.locals.pendingToolRequests = 0;
     next();
   });
   app.use(compression());
@@ -141,6 +143,10 @@ export function createApp() {
     // for admins actually inside the members area.
     if (req.user?.role === 'admin' && req.path.startsWith('/members')) {
       res.locals.pendingApplications = pendingApplicationCount();
+    }
+    // Tool loan requests waiting on this member to answer, for the Tool Locker tab.
+    if (req.user && req.path.startsWith('/members')) {
+      res.locals.pendingToolRequests = pendingToolRequestCount(req.user.id);
     }
     // The Inbox is open to editors as well, so its count is too.
     if (['editor', 'admin'].includes(req.user?.role) && req.path.startsWith('/members')) {

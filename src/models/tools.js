@@ -224,13 +224,32 @@ export function getBorrowRequest(id) {
 }
 
 /** Requests for tools I own (inbox) plus requests I have made (outbox). */
-export function requestsForOwner(ownerId, { status = null } = {}) {
+/** How long a returned loan stays on the Requests & returns lists before dropping off. */
+export const RETURNED_VISIBLE_DAYS = 7;
+
+/**
+ * SQL (and its parameter) that hides loans returned more than a week ago. Nothing
+ * is deleted: the rows stay in the table for reporting, they just stop being listed.
+ */
+function recentOnly(includeOld) {
+  if (includeOld) return { sql: '', params: [] };
+  const cutoff = new Date(Date.now() - RETURNED_VISIBLE_DAYS * 86400000).toISOString();
+  return {
+    sql: "AND NOT (b.status = 'returned' AND COALESCE(b.responded_at, b.created_at) < ?)",
+    params: [cutoff],
+  };
+}
+
+export function requestsForOwner(ownerId, { status = null, includeOld = false } = {}) {
   const params = [Number(ownerId)];
   let clause = '';
   if (status) {
     clause = 'AND b.status = ?';
     params.push(status);
   }
+  const recent = recentOnly(includeOld);
+  clause += ` ${recent.sql}`;
+  params.push(...recent.params);
   return all(
     `SELECT b.*, t.name AS tool_name,
             r.first_name AS req_first, r.last_name AS req_last,
@@ -244,16 +263,17 @@ export function requestsForOwner(ownerId, { status = null } = {}) {
   );
 }
 
-export function requestsByRequester(requesterId) {
+export function requestsByRequester(requesterId, { includeOld = false } = {}) {
+  const recent = recentOnly(includeOld);
   return all(
     `SELECT b.*, t.name AS tool_name,
             o.first_name AS owner_first, o.last_name AS owner_last, o.display_name AS owner_display
        FROM borrow_requests b
        JOIN tools t ON t.id = b.tool_id
        JOIN users o ON o.id = t.owner_id
-      WHERE b.requester_id = ?
+      WHERE b.requester_id = ? ${recent.sql}
       ORDER BY b.created_at DESC`,
-    [Number(requesterId)]
+    [Number(requesterId), ...recent.params]
   );
 }
 

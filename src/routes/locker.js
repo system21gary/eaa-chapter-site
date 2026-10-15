@@ -158,7 +158,7 @@ router.post(
 
 router.get('/requests', (req, res) => {
   res.render('members/locker-requests.njk', {
-    title: 'Borrow requests',
+    title: 'Requests & returns',
     robots: 'noindex',
     inbox: Tools.requestsForOwner(req.user.id),
     outbox: Tools.requestsByRequester(req.user.id),

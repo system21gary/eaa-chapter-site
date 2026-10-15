@@ -36,7 +36,9 @@
       <nav aria-label="Members Corner">
         <a href="{{ '/members' | url }}" {% if currentPath == '/members' %}aria-current="page"{% endif %}>Dashboard</a>
         <a href="{{ '/members/blog' | url }}" {% if currentPath.startsWith('/members/blog') %}aria-current="page"{% endif %}>Blog</a>
-        <a href="{{ '/members/locker' | url }}" {% if currentPath.startsWith('/members/locker') %}aria-current="page"{% endif %}>Tool Locker</a>
+        <a href="{{ '/members/locker' | url }}" {% if currentPath.startsWith('/members/locker') %}aria-current="page"{% endif %}>
+          Tool Locker{% if pendingToolRequests %} <span class="nav-badge" title="{{ pendingToolRequests }} loan request{{ 's' if pendingToolRequests != 1 }} waiting for you">{{ pendingToolRequests }}</span>{% endif %}
+        </a>
         <a href="{{ '/members/builds' | url }}" {% if currentPath.startsWith('/members/builds') %}aria-current="page"{% endif %}>Your Builds</a>
         <a href="{{ '/members/directory' | url }}" {% if currentPath == '/members/directory' %}aria-current="page"{% endif %}>Directory</a>
         {% if currentUser.role in ['editor', 'admin'] %}
