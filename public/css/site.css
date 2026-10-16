@@ -45,6 +45,20 @@
   --wrap: 1160px;
 }
 
+/* --------------------------------------------------------- EAA watermark
+   A quiet, grayscale EAA logo behind every page: fixed to the screen, scaled to fill it with its
+   proportions kept (never stretched; whatever does not fit is trimmed at the edges), and faded to a
+   hint. Source: the "Black" logo from EAA HQ's verified-logos page (public/img/eaa-logo-black.png);
+   public/img/eaa-watermark.webp is the same artwork enlarged for full-screen use.
+   TO REMOVE: delete this block (the body::before rule) -- nothing else depends on it. */
+:root { --watermark-opacity: .045; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: url("../img/eaa-watermark.webp") center / cover no-repeat;
+  opacity: var(--watermark-opacity);
+}
+@media print, (forced-colors: active) { body::before { display: none; } }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
@@ -251,7 +265,7 @@ a:hover { color: var(--navy-800); }
 /* ----------------------------------------------------------------- surface */
 
 section.band { padding: clamp(3rem, 5vw, 4.5rem) 0; }
-section.band-alt { background: var(--paper); border-block: 1px solid var(--line); }
+section.band-alt { background: rgba(255, 255, 255, .8); border-block: 1px solid var(--line); }
 
 .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
 .section-head p { margin: 0; color: var(--ink-soft); max-width: 60ch; }
