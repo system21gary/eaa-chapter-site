@@ -7,7 +7,8 @@ import config from '../config.js';
 const PUBLIC_COLUMNS = `
   id, email, email_verified, first_name, last_name, display_name, phone,
   eaa_number, aircraft, home_base, bio, avatar_path, role, status,
-  share_email, share_phone, cc_membership_requests, cc_contact_messages, password_set_at, last_login_at, created_at, updated_at
+  share_email, share_phone, cc_membership_requests, cc_contact_messages,
+  board_role, mail_newsletter, mail_meeting_notices, mail_reminders, password_set_at, last_login_at, created_at, updated_at
 `;
 
 export function findById(id) {
@@ -239,6 +240,69 @@ export function ccRecipients(kind) {
   return all(
     `SELECT email FROM users WHERE status = 'active' AND role IN ('editor', 'admin') AND ${column} = 1 ORDER BY id`
   ).map((r) => r.email);
+}
+
+/** Offices on the chapter board, in the order they are listed. */
+export const BOARD_ROLES = {
+  president: 'President',
+  vice_president: 'Vice President',
+  secretary: 'Secretary',
+  treasurer: 'Treasurer',
+};
+
+/** Offices whose holders can approve documents and notices. */
+const APPROVER_ROLES = ['president', 'vice_president'];
+
+export const isBoard = (user) => Boolean(user?.board_role);
+export const canApprove = (user) => APPROVER_ROLES.includes(user?.board_role);
+
+/**
+ * Puts somebody in an office, or (with null) takes them out of one. An office
+ * has a single holder, so naming a new one releases the previous holder in the
+ * same transaction. Returns the person who was released, if any.
+ */
+export function setBoardRole(userId, office) {
+  if (office !== null && !BOARD_ROLES[office]) throw new Error(`Unknown office: ${office}`);
+  return transaction(() => {
+    let released = null;
+    if (office) {
+      released = get('SELECT id FROM users WHERE board_role = ? AND id != ?', [office, userId]);
+      if (released) {
+        run('UPDATE users SET board_role = NULL, updated_at = ? WHERE id = ?', [nowIso(), released.id]);
+      }
+    }
+    run('UPDATE users SET board_role = ?, updated_at = ? WHERE id = ?', [office, nowIso(), userId]);
+    return released ? findById(released.id) : null;
+  });
+}
+
+/** Active officers, in office order. */
+export function listBoard() {
+  return all(
+    `SELECT ${PUBLIC_COLUMNS} FROM users WHERE board_role IS NOT NULL AND status = 'active'`
+  ).sort((a, b) => Object.keys(BOARD_ROLES).indexOf(a.board_role) - Object.keys(BOARD_ROLES).indexOf(b.board_role));
+}
+
+/** Optional mail categories a member can switch off, keyed by column. */
+export const MAIL_PREFS = {
+  mail_newsletter: { label: 'Chapter newsletter', hint: 'The monthly update: events, member builds, Young Eagles and fly-ins.' },
+  mail_meeting_notices: { label: 'Meeting notices', hint: 'The notice with date, location, agenda and speaker, about ten days ahead.' },
+  mail_reminders: { label: 'Reminders', hint: 'The short note the day before a meeting.' },
+};
+
+export function setMailPrefs(userId, prefs) {
+  const sets = Object.keys(MAIL_PREFS).map((k) => `${k} = ?`);
+  const params = Object.keys(MAIL_PREFS).map((k) => (prefs[k] ? 1 : 0));
+  run(`UPDATE users SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, [...params, nowIso(), userId]);
+}
+
+/**
+ * Active members who have not opted out of a category. The scheduler uses
+ * this, so an opt-out is honoured in one place.
+ */
+export function mailRecipients(pref) {
+  if (!MAIL_PREFS[pref]) throw new Error(`Unknown mail preference: ${pref}`);
+  return all(`SELECT id, email, first_name, last_name FROM users WHERE status = 'active' AND ${pref} = 1 ORDER BY id`);
 }
 
 export function setStatus(userId, status) {

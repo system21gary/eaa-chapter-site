@@ -62,6 +62,7 @@ router.get('/directory', (req, res) => {
       display_name: m.display_name,
       avatar_path: m.avatar_path,
       role: m.role,
+      board_role: m.board_role,
       aircraft: m.aircraft,
       home_base: m.home_base,
       eaa_number: m.eaa_number,
@@ -126,6 +127,19 @@ router.post(
     return req.session.save(() => res.redirect('/members/account'));
   })
 );
+
+/** Optional mail a member can switch off. Account and board mail is never optional. */
+router.post('/account/mail', writeLimiter, (req, res) => {
+  const prefs = {};
+  for (const key of Object.keys(Users.MAIL_PREFS)) prefs[key] = req.body[key] === '1';
+  Users.setMailPrefs(req.user.id, prefs);
+  audit(req, 'member.mailprefs.updated', {
+    userId: req.user.id,
+    detail: Object.keys(prefs).map((k) => `${k.replace('mail_', '')}:${prefs[k] ? 'on' : 'off'}`).join(' '),
+  });
+  req.flash('success', 'Email preferences saved.');
+  return req.session.save(() => res.redirect('/members/account'));
+});
 
 router.post(
   '/account/avatar',

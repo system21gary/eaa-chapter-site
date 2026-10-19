@@ -151,9 +151,33 @@
 
       <div class="card">
         <div class="card-body">
+          <h3>Email from the chapter</h3>
+          <p class="small muted">
+            Untick anything you would rather not get. Account and security
+            emails, and anything the board needs from you, always come through.
+          </p>
+          <form method="post" action="{{ '/members/account/mail' | url }}">
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            {% for key, pref in mailPrefs %}
+              <div class="field" style="margin-bottom:1rem">
+                <div class="check" style="margin-bottom:0">
+                  <input type="checkbox" id="{{ key }}" name="{{ key }}" value="1" {{ 'checked' if currentUser[key] }}>
+                  <label for="{{ key }}">{{ pref.label }}</label>
+                </div>
+                <span class="hint" style="margin:.1rem 0 0 1.65rem">{{ pref.hint }}</span>
+              </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-outline btn-block btn-sm">Save email preferences</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
           <h3>Your role</h3>
           <p class="small muted" style="margin:0">
-            <span class="pill pill-amber">{{ currentUser.role }}</span><br>
+            <span class="pill pill-amber">{{ currentUser.role }}</span>
+            {% if currentUser.board_role %}<span class="pill pill-green">{{ boardRoles[currentUser.board_role] }}</span>{% endif %}<br>
             {% if currentUser.role == 'member' %}
               Members can use the Tool Locker, keep build logs, read and comment
               on the blog.

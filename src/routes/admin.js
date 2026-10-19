@@ -445,6 +445,19 @@ router.post('/members/:id/edit', requireAdmin, writeLimiter, (req, res, next) =>
     });
   }
 
+  // Chapter office. Blank means none; it carries no site permissions.
+  const office = String(req.body.office ?? target.board_role ?? '') || null;
+  if (office && !Users.BOARD_ROLES[office]) {
+    return renderMemberEdit(res, target, { errors: { office: 'Choose one of the listed offices.' }, form: req.body, status: 400 });
+  }
+  if (office && office !== target.board_role && target.status !== 'active') {
+    return renderMemberEdit(res, target, {
+      errors: { office: 'Only an active member can hold an office. Reactivate them first.' },
+      form: req.body,
+      status: 400,
+    });
+  }
+
   const { emailChanged, before } = Users.adminUpdateDetails(target.id, {
     firstName: data.first_name,
     lastName: data.last_name,
@@ -458,17 +471,29 @@ router.post('/members/:id/edit', requireAdmin, writeLimiter, (req, res, next) =>
     detail: emailChanged ? `email ${before.email} -> ${data.email}` : 'details',
   });
 
+  let officeNote = '';
+  if (office !== (target.board_role ?? null)) {
+    const released = Users.setBoardRole(target.id, office);
+    audit(req, 'admin.office.changed', {
+      entity: 'user',
+      entityId: target.id,
+      detail: `${office ?? 'none'}${released ? ` (released user ${released.id})` : ''}`,
+    });
+    officeNote = office ? ` Now ${Users.BOARD_ROLES[office]}.` : ' No longer holds an office.';
+    if (released) officeNote += ` ${Users.displayName(released)} is no longer ${Users.BOARD_ROLES[office]}.`;
+  }
+
   const name = `${data.first_name} ${data.last_name}`;
   if (emailChanged && !target.password_set_at) {
     req.flash(
       'success',
       `Saved. ${name}'s email is now ${data.email}. Any link already sent to the old address no longer ` +
-        'works; use Re-invite to send a fresh one.'
+        'works; use Re-invite to send a fresh one.' + officeNote
     );
   } else if (emailChanged) {
-    req.flash('success', `Saved. ${name} now signs in with ${data.email}; their password is unchanged.`);
+    req.flash('success', `Saved. ${name} now signs in with ${data.email}; their password is unchanged.${officeNote}`);
   } else {
-    req.flash('success', `Saved ${name}.`);
+    req.flash('success', `Saved ${name}.${officeNote}`);
   }
   return req.session.save(() => res.redirect('/members/admin/members'));
 });

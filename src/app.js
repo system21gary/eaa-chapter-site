@@ -18,6 +18,7 @@ import { statsMiddleware, pingHandler } from './lib/stats.js';
 import { statsLimiter } from './middleware/rate-limit.js';
 import { waitingCount as waitingMessageCount } from './models/contact.js';
 import { pendingRequestCount as pendingToolRequestCount } from './models/tools.js';
+import { BOARD_ROLES, MAIL_PREFS } from './models/users.js';
 
 import publicRoutes from './routes/public.js';
 import authRoutes from './routes/auth.js';
@@ -139,6 +140,8 @@ export function createApp() {
 
   /* --------------------------------------------- view globals (post-auth) */
   app.use((req, res, next) => {
+    res.locals.boardRoles = BOARD_ROLES;
+    res.locals.mailPrefs = MAIL_PREFS;
     // Badge count for the admin nav. Cheap indexed COUNT, and only computed
     // for admins actually inside the members area.
     if (req.user?.role === 'admin' && req.path.startsWith('/members')) {

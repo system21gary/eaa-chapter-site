@@ -716,6 +716,25 @@ const migrations = [
     ALTER TABLE email_outbox ADD COLUMN cc TEXT;
     `,
   },
+  {
+    version: 15,
+    name: 'board offices and email preferences',
+    sql: `
+    -- The chapter's officers. Separate from role (member/editor/admin), which
+    -- is about what someone can do to the site; this is about who holds which
+    -- office. NULL for everyone who is not an officer. One holder per office.
+    ALTER TABLE users ADD COLUMN board_role TEXT
+      CHECK (board_role IN ('president', 'vice_president', 'secretary', 'treasurer'));
+    CREATE UNIQUE INDEX idx_users_board_role ON users(board_role) WHERE board_role IS NOT NULL;
+
+    -- Optional mail a member can switch off. Everything else (invitations,
+    -- password resets, board and records notices) is not optional. On for
+    -- everyone until they choose otherwise.
+    ALTER TABLE users ADD COLUMN mail_newsletter INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE users ADD COLUMN mail_meeting_notices INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE users ADD COLUMN mail_reminders INTEGER NOT NULL DEFAULT 1;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

@@ -61,6 +61,26 @@
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend>Chapter office</legend>
+        {% set currentOffice = form.office if form.office is defined else (member.board_role or '') %}
+        <div class="field">
+          <label for="office">Office held</label>
+          <select id="office" name="office" aria-invalid="{{ 'true' if errors.office }}">
+            <option value="">None</option>
+            {% for key, label in boardRoles %}
+              <option value="{{ key }}" {{ 'selected' if currentOffice == key }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          {{ err(errors, 'office') }}
+          <span class="hint">
+            The President and Vice President approve documents and notices. An office has one
+            holder, so naming someone new replaces the current one. It does not change what
+            this person can do on the site; that is their role.
+          </span>
+        </div>
+      </fieldset>
+
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Save changes</button>
         <a class="btn btn-outline" href="{{ '/members/admin/members' | url }}">Cancel</a>

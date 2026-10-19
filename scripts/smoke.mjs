@@ -608,6 +608,60 @@ console.log('\nMember administration');
   if (Users.findById(temp.id)) run('DELETE FROM users WHERE id = ?', [temp.id]);
 }
 
+console.log('\nOffices and email preferences');
+{
+  const mk = (tag, status = 'active') =>
+    Users.createUser({ email: `smoke.office.${tag}.${Date.now()}@example.com`, firstName: 'Off', lastName: tag, role: 'member', status });
+  const one = mk('one');
+  const two = mk('two');
+  const idle = mk('idle', 'pending');
+  const heldBefore = Users.listBoard().find((u) => u.board_role === 'president');
+  const page = await req('/members/admin/members');
+  const token = csrfFrom(page.text);
+  // Office is set on the member's edit form, along with their details.
+  const setOffice = async (id, office) => {
+    const m = Users.findById(id);
+    const formPage = await req(`/members/admin/members/${id}/edit`);
+    record(/name="office"/.test(formPage.text), `the edit form for ${m.last_name} has an Office field`);
+    return req(`/members/admin/members/${id}/edit`, {
+      method: 'POST',
+      body: { _csrf: csrfFrom(formPage.text), first_name: m.first_name, last_name: m.last_name, email: m.email, phone: '', eaa_number: '', office },
+    });
+  };
+
+  let res = await setOffice(one.id, 'president');
+  record(res.status === 302 && Users.findById(one.id).board_role === 'president', 'an admin can name the president', `-> ${res.status}`);
+  record(Users.canApprove(Users.findById(one.id)), 'the president can approve');
+  const dir = await req('/members/directory');
+  record(/pill-green">\s*President\s*</.test(dir.text), "the directory shows the president's office");
+
+  res = await setOffice(two.id, 'president');
+  record(Users.findById(two.id).board_role === 'president' && Users.findById(one.id).board_role === null, 'naming a new president releases the old one');
+
+  await setOffice(two.id, 'treasurer');
+  record(Users.findById(two.id).board_role === 'treasurer' && !Users.canApprove(Users.findById(two.id)), 'the treasurer is an officer but cannot approve');
+
+  res = await setOffice(one.id, 'emperor');
+  record(res.status === 400 && Users.findById(one.id).board_role === null, 'an unknown office is refused', `-> ${res.status}`);
+
+  await setOffice(idle.id, 'secretary');
+  record(Users.findById(idle.id).board_role === null, 'a member who is not active cannot hold an office');
+
+  await setOffice(two.id, '');
+  record(Users.findById(two.id).board_role === null, 'an office can be cleared');
+
+  const acct = await req('/members/account');
+  record(/Email from the chapter/.test(acct.text) && /name="mail_newsletter"[^>]*checked/.test(acct.text), 'account page lists email preferences, all on by default');
+  res = await req('/members/account/mail', { method: 'POST', body: { _csrf: csrfFrom(acct.text), mail_newsletter: '1' } });
+  const me = Users.findByEmail(EMAIL);
+  record(res.status === 302 && me.mail_newsletter === 1 && me.mail_meeting_notices === 0 && me.mail_reminders === 0, 'unticked categories are switched off', `-> ${res.status}`);
+  record(!Users.mailRecipients('mail_reminders').some((r) => r.email === EMAIL) && Users.mailRecipients('mail_newsletter').some((r) => r.email === EMAIL), 'opted-out members drop out of that category only');
+  await req('/members/account/mail', { method: 'POST', body: { _csrf: csrfFrom(acct.text), mail_newsletter: '1', mail_meeting_notices: '1', mail_reminders: '1' } });
+
+  for (const u of [one, two, idle]) run('DELETE FROM users WHERE id = ?', [u.id]);
+  if (heldBefore) Users.setBoardRole(heldBefore.id, 'president');
+}
+
 console.log('\nChapter time');
 {
   // Event times are typed in chapter (Eastern) time and must not depend on the

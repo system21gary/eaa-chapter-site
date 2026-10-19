@@ -31,6 +31,7 @@
                   <td>
                     <strong><a href="{{ ('/members/admin/members/' ~ m.id ~ '/edit') | url }}">{{ displayName(m) }}</a></strong><br>
                     <span class="small muted">{{ m.email }}</span>
+                    {% if m.board_role %}<br><span class="pill pill-green">{{ boardRoles[m.board_role] }}</span>{% endif %}
                     {% if not m.password_set_at %}
                       <br><span class="pill pill-amber">No password set</span>
                     {% endif %}

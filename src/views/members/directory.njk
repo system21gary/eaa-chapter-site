@@ -23,6 +23,9 @@
               {% endif %}
               <div style="min-width:0">
                 <h3 style="margin:0 0 .1rem">{{ displayName(member) }}</h3>
+                {% if member.board_role %}
+                  <span class="pill pill-green">{{ boardRoles[member.board_role] }}</span>
+                {% endif %}
                 {% if member.role != 'member' %}
                   <span class="pill pill-amber">{{ member.role }}</span>
                 {% endif %}
