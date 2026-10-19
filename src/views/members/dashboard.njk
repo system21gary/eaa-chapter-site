@@ -13,7 +13,7 @@
     {% if todos.length or showTodos %}
       <section class="card todo" aria-labelledby="todo-heading" style="margin:1.5rem 0">
         <div class="card-body">
-          <h2 id="todo-heading" style="margin:0 0 .4rem; font-size:1.3rem">
+          <h2 id="todo-heading" style="margin:0 0 .4rem; font-size:1.3rem; display:flex; align-items:center; gap:.55rem; line-height:1.2">
             To do {% if todos.length %}<span class="pill pill-amber">{{ todos.length }}</span>{% endif %}
           </h2>
           {% if todos.length %}
