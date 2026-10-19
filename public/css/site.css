@@ -394,7 +394,7 @@ section.band-alt { background: rgba(255, 255, 255, .8); border-block: 1px solid 
 
 /* ---------------------------------------------------------------- forms */
 
-.form-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: clamp(1.5rem, 4vw, 2.5rem); }
+.form-card { --card-pad: clamp(1.5rem, 4vw, 2.5rem); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--card-pad); }
 
 .field { margin-bottom: 1.15rem; }
 .field label, .label-text { display: block; font-size: .84rem; font-weight: 700; color: var(--navy-800); margin-bottom: .35rem; }
@@ -448,9 +448,30 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .todo-late .todo-detail { color: var(--red); }
 @media (max-width: 640px) { .todo-item { grid-template-columns: 1fr auto; } .todo-item .pill { grid-column: 1 / -1; } }
 
+/* Directory: hovering (or focusing) a member's photo shows it larger, in front of the card. A transform does not
+   change layout, so the card keeps its size. The card gives up its clipping so the photo can overhang it. */
+.member-card { overflow: visible; }
+.member-card:hover, .member-card:focus-within { position: relative; z-index: 5; }
+.avatar-zoomable { position: relative; cursor: zoom-in; transform-origin: top left; transition: transform .16s ease, box-shadow .16s ease; }
+.avatar-zoomable:hover, .avatar-zoomable:focus-visible {
+  transform: scale(4); z-index: 6; outline: none;
+  box-shadow: 0 0 0 1px #fff, 0 3px 8px rgba(3, 40, 63, .35);
+}
+@media (prefers-reduced-motion: reduce) { .avatar-zoomable { transition: none; } }
+
 .honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 .form-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+/* A long form's Save and Cancel stay in view at the bottom of the screen while scrolling, and settle into
+   the card's own bottom edge at the end. */
+.form-actions-sticky {
+  position: sticky; bottom: 0; z-index: 20;
+  margin: 1.5rem calc(-1 * var(--card-pad)) calc(-1 * var(--card-pad));
+  padding: .85rem var(--card-pad);
+  background: rgba(255, 255, 255, .96); backdrop-filter: blur(6px);
+  box-shadow: 0 -8px 18px rgba(3, 40, 63, .09);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
 
 fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 1.2rem; margin: 0 0 1.5rem; }
 legend { padding: 0 .5rem; font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }

@@ -1604,6 +1604,24 @@ console.log('\nMeeting minutes follow-up');
   for (const [office, u] of held) if (u && Users.findById(u.id) && !Users.findById(u.id).board_role) Users.setBoardRole(u.id, office);
 }
 
+console.log('\nDirectory photos');
+{
+  const u = Users.createUser({ email: `smoke.photo.${Date.now()}@example.com`, firstName: 'Photo', lastName: 'Person', role: 'member', status: 'active' });
+  const v = Users.createUser({ email: `smoke.nophoto.${Date.now()}@example.com`, firstName: 'Nophoto', lastName: 'Person', role: 'member', status: 'active' });
+  run("UPDATE users SET avatar_path = 'avatars/smoke-test.webp' WHERE id = ?", [u.id]);
+  const page = (await req('/members/directory')).text;
+  const card = (name) => page.slice(page.indexOf(`>${name} Person<`) - 900, page.indexOf(`>${name} Person<`));
+  record(/avatar-zoomable/.test(card('Photo')) && /member-card/.test(page), 'a member with a photo gets the hover-to-enlarge photo');
+  record(!/avatar-zoomable/.test(card('Nophoto')) && /avatar-initials/.test(card('Nophoto')), 'a member with only initials does not');
+  run('DELETE FROM users WHERE id IN (?, ?)', [u.id, v.id]);
+}
+
+console.log('\nEvent form');
+{
+  const page = (await req('/members/admin/events/new')).text;
+  record((page.match(/form-actions-sticky/g) ?? []).length === 1 && /form-actions form-actions-sticky">\s*<button type="submit" class="btn btn-primary">Create event/.test(page), "the event form's Save and Cancel are pinned to the bottom of the screen");
+}
+
 console.log('\nChapter time');
 {
   // Event times are typed in chapter (Eastern) time and must not depend on the

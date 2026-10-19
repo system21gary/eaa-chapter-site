@@ -13,11 +13,11 @@
 
     <div class="grid grid-3" style="margin-top:2rem">
       {% for member in members %}
-        <article class="card">
+        <article class="card member-card">
           <div class="card-body">
             <div style="display:flex; gap:.9rem; align-items:center; margin-bottom:1rem">
               {% if member.avatar_path %}
-                <img src="{{ member.avatar_path | media }}" alt="" class="avatar avatar-lg">
+                <img src="{{ member.avatar_path | media }}" alt="Photo of {{ displayName(member) }}" class="avatar avatar-lg avatar-zoomable" tabindex="0">
               {% else %}
                 <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ member | initials }}</span>
               {% endif %}
