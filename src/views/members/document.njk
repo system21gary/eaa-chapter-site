@@ -1,0 +1,202 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    {% if memberView %}
+      <p class="crumbs"><a href="{{ '/members/documents' | url }}">Chapter documents</a> <span aria-hidden="true">›</span> {{ doc.title }}</p>
+    {% else %}
+      <p class="crumbs"><a href="{{ '/members/documents/board' | url }}">Board documents</a> <span aria-hidden="true">›</span> {{ doc.title }}</p>
+    {% endif %}
+    <h1>{{ doc.title }}</h1>
+    {% set approvedNotPublished = doc.status == 'approved' and doc.published_version_id != doc.latest_version_id %}
+    <div class="pill-row" style="margin:.6rem 0 0">
+      <span class="pill pill-grey">{{ kinds[doc.kind] }}</span>
+      {% if not memberView %}
+        {% if doc.status == 'approved' and not approvedNotPublished %}
+          <span class="pill pill-green">Published</span>
+        {% elif approvedNotPublished %}
+          <span class="pill pill-amber">Approved · not published</span>
+        {% else %}
+          <span class="pill pill-{{ 'amber' if doc.status == 'in_review' else ('red' if doc.status == 'changes_requested' else 'grey') }}">{{ statusLabels[doc.status] }}</span>
+        {% endif %}
+        {% if doc.published_version_id and doc.published_version_id != doc.latest_version_id %}<span class="small muted">An earlier version is live to members</span>{% endif %}
+      {% endif %}
+    </div>
+    <p class="muted small" style="margin-top:.6rem">
+      {% if doc.meeting_date %}Meeting {{ doc.meeting_date | shortdate }} · {% endif %}
+      {% if memberView %}Approved by the board{% else %}Added {{ doc.created_at | shortdate }}{% if doc.creator_first %} by {{ doc.creator_first }} {{ doc.creator_last }}{% endif %}{% endif %}
+    </p>
+
+    {% if memberView %}
+      <div class="card" style="margin-top:1.5rem; max-width:34rem">
+        <div class="card-body">
+          <p style="margin:0 0 .8rem"><strong>{{ published.original_name }}</strong><br>
+             <span class="small muted">{{ published.size | filesize }}</span></p>
+          <a class="btn btn-primary" href="{{ ('/members/documents/' ~ doc.id ~ '/download') | url }}">Download</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="split-under-heading" style="margin-top:2rem">
+          <h2>Versions</h2>
+          <div class="stack">
+            {% for v in versions %}
+              <article class="card">
+                <div class="card-body">
+                  <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:baseline">
+                    <h3 style="margin:0">Version {{ v.number }}
+                      {% if doc.published_version_id == v.id %}<span class="pill pill-green">Published</span>{% endif %}
+                    </h3>
+                    <div class="row-actions" style="max-width:none; flex-wrap:nowrap">
+                      <a class="btn btn-outline btn-sm" href="{{ ('/members/documents/' ~ doc.id ~ '/versions/' ~ v.number ~ '/download') | url }}">Download</a>
+                      {% if not v.deleteBlocker %}
+                        <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/versions/' ~ v.number ~ '/delete') | url }}"
+                              data-confirm="Delete version {{ v.number }}? The file is removed for good. The history keeps a note that it was deleted.">
+                          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                          <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <p class="small" style="margin:.4rem 0 0"><strong>{{ v.original_name }}</strong> · {{ v.size | filesize }}</p>
+                  <p class="small muted" style="margin:.2rem 0 0">
+                    Uploaded {{ v.created_at | shortdate }}{% if v.first_name %} by {{ v.first_name }} {{ v.last_name }}{% endif %}
+                    {% if v.submitted_at %} · sent for review {{ v.submitted_at | shortdate }}{% endif %}
+                  </p>
+                  <p class="tiny muted" style="margin:.2rem 0 0" title="SHA-256 fingerprint of the file. It shows the file has not changed since it was approved.">SHA-256 {{ v.sha256.slice(0, 16) }}…</p>
+                  {% if v.note %}<p class="small" style="margin:.6rem 0 0; white-space:pre-wrap">{{ v.note }}</p>{% endif %}
+                  {% for r in v.reviews %}
+                    <div class="notice" style="margin-top:.8rem">
+                      <strong>{{ 'Approved' if r.decision == 'approved' else 'Changes requested' }}</strong>
+                      by {{ r.first_name }} {{ r.last_name }}{% if r.reviewer_office %} ({{ boardRoles[r.reviewer_office] }}){% endif %}
+                      · {{ r.created_at | shortdate }}
+                      {% if r.comment %}<br><span style="white-space:pre-wrap">{{ r.comment }}</span>{% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+              </article>
+            {% endfor %}
+
+            <article class="card">
+              <div class="card-body">
+                <h3>History</h3>
+                <ol class="history" tabindex="0" aria-label="Document history, newest first">
+                  {% for e in events %}
+                    <li{% if e.action == 'version_deleted' %} class="is-deleted"{% endif %}>
+                      <span class="history-when">{{ e.created_at | datetime }}</span>
+                      <span><strong>{{ e.actor_label or 'Someone' }}</strong>
+                        {% if e.action == 'created' %}added the document with version {{ e.version_number }}
+                        {% elif e.action == 'version_added' %}uploaded version {{ e.version_number }}
+                        {% elif e.action == 'submitted' %}sent version {{ e.version_number }} for review
+                        {% elif e.action == 'approved' %}approved version {{ e.version_number }}
+                        {% elif e.action == 'changes_requested' %}asked for changes to version {{ e.version_number }}
+                        {% elif e.action == 'published' %}published version {{ e.version_number }} to members
+                        {% elif e.action == 'unpublished' %}took version {{ e.version_number }} down from members
+                        {% elif e.action == 'version_deleted' %}deleted version {{ e.version_number }}
+                        {% else %}{{ e.action }}{% endif %}
+                        {% if e.detail %}<br><span class="small muted" style="white-space:pre-wrap">{{ e.detail }}</span>{% endif %}
+                      </span>
+                    </li>
+                  {% else %}
+                    <li class="muted small">Nothing recorded yet.</li>
+                  {% endfor %}
+                </ol>
+              </div>
+            </article>
+          </div>
+
+        <aside class="sidebar">
+          {% if can.review %}
+            <div class="card">
+              <div class="card-body">
+                <h3>Your review</h3>
+                <p class="small muted">You are looking at version {{ doc.latest_number }}. Approving it records your name and office against this exact file.</p>
+                <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/review') | url }}">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <input type="hidden" name="version" value="{{ doc.latest_number }}">
+                  <div class="field">
+                    <label for="comment">Comment <span class="muted">(needed if you ask for changes)</span></label>
+                    <textarea id="comment" name="comment" rows="3" maxlength="1000"></textarea>
+                  </div>
+                  <div class="form-actions" style="display:flex; gap:.6rem; flex-wrap:wrap">
+                    <button type="submit" name="decision" value="approved" class="btn btn-primary btn-sm">Approve</button>
+                    <button type="submit" name="decision" value="changes_requested" class="btn btn-outline btn-sm">Request changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          {% endif %}
+
+          {% if can.submit %}
+            <div class="card">
+              <div class="card-body">
+                <h3>Send for review</h3>
+                <p class="small muted">The President and Vice President are emailed. Either one can approve.</p>
+                <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/submit') | url }}">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <button type="submit" class="btn btn-primary btn-block btn-sm">Send version {{ doc.latest_number }} for review</button>
+                </form>
+              </div>
+            </div>
+          {% endif %}
+
+          {% if can.publish %}
+            <div class="card">
+              <div class="card-body">
+                <h3>Publish</h3>
+                <p class="small muted">
+                  Makes version {{ doc.latest_number }} readable by every member in the chapter documents.
+                  {% if published %}It replaces version {{ published.number }}, which members see now.{% endif %}
+                </p>
+                <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/publish') | url }}">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <button type="submit" class="btn btn-primary btn-block btn-sm">{{ 'Publish version ' ~ doc.latest_number if published else 'Publish to members' }}</button>
+                </form>
+              </div>
+            </div>
+          {% endif %}
+
+          {% if can.unpublish %}
+            <div class="card">
+              <div class="card-body">
+                <h3>Published</h3>
+                <p class="small muted">Members can read the published version. Take it down if it should not be there.</p>
+                <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/unpublish') | url }}" data-confirm="Take this down from members?">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <button type="submit" class="btn btn-outline btn-block btn-sm">Take down</button>
+                </form>
+              </div>
+            </div>
+          {% endif %}
+
+          {% if can.edit %}
+            <div class="card">
+              <div class="card-body">
+                <h3>{{ 'Start a revision' if doc.status == 'approved' else 'Upload a new version' }}</h3>
+                <p class="small muted">
+                  {% if doc.status == 'approved' %}Approved versions are never changed. A revision is a new draft that needs approval again; members keep seeing the published version meanwhile.{% else %}Replaces the draft with a corrected file. Earlier versions are kept.{% endif %}
+                </p>
+                <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/versions') | url }}" enctype="multipart/form-data">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <div class="field">
+                    <label for="file">File</label>
+                    <input type="file" id="file" name="file" required data-dropzone data-max-bytes="{{ maxMb * 1048576 }}">
+                    <span class="hint">{{ allowed }}. Up to {{ maxMb }} MB.</span>
+                  </div>
+                  <div class="field">
+                    <label for="note">What changed <span class="muted">(optional)</span></label>
+                    <textarea id="note" name="note" rows="2" maxlength="500"></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-outline btn-block btn-sm">Upload</button>
+                </form>
+              </div>
+            </div>
+          {% elif doc.status == 'in_review' and not can.review %}
+            <div class="notice">Waiting for the President or Vice President to review version {{ doc.latest_number }}.</div>
+          {% endif %}
+        </aside>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

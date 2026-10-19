@@ -40,6 +40,9 @@
           Tool Locker{% if pendingToolRequests %} <span class="nav-badge" title="{{ pendingToolRequests }} loan request{{ 's' if pendingToolRequests != 1 }} waiting for you">{{ pendingToolRequests }}</span>{% endif %}
         </a>
         <a href="{{ '/members/builds' | url }}" {% if currentPath.startsWith('/members/builds') %}aria-current="page"{% endif %}>Your Builds</a>
+        <a href="{{ '/members/documents' | url }}" {% if currentPath.startsWith('/members/documents') %}aria-current="page"{% endif %}>
+          Documents{% if documentsToReview %} <span class="nav-badge" title="{{ documentsToReview }} document{{ 's' if documentsToReview != 1 }} waiting for your review">{{ documentsToReview }}</span>{% endif %}
+        </a>
         <a href="{{ '/members/directory' | url }}" {% if currentPath == '/members/directory' %}aria-current="page"{% endif %}>Directory</a>
         {% if currentUser.role in ['editor', 'admin'] %}
           <a href="{{ '/members/admin/events' | url }}" {% if currentPath.startsWith('/members/admin/events') %}aria-current="page"{% endif %}>Events</a>

@@ -18,7 +18,8 @@ import { statsMiddleware, pingHandler } from './lib/stats.js';
 import { statsLimiter } from './middleware/rate-limit.js';
 import { waitingCount as waitingMessageCount } from './models/contact.js';
 import { pendingRequestCount as pendingToolRequestCount } from './models/tools.js';
-import { BOARD_ROLES, MAIL_PREFS } from './models/users.js';
+import { BOARD_ROLES, MAIL_PREFS, canApprove } from './models/users.js';
+import { pendingReviewCount as documentsInReview } from './models/documents.js';
 
 import publicRoutes from './routes/public.js';
 import authRoutes from './routes/auth.js';
@@ -28,6 +29,7 @@ import lockerRoutes from './routes/locker.js';
 import buildsRoutes from './routes/builds.js';
 import memberBuildsRoutes from './routes/member-builds.js';
 import adminRoutes from './routes/admin.js';
+import documentsRoutes from './routes/documents.js';
 import mediaRoutes from './routes/media.js';
 
 export function createApp() {
@@ -147,6 +149,10 @@ export function createApp() {
     if (req.user?.role === 'admin' && req.path.startsWith('/members')) {
       res.locals.pendingApplications = pendingApplicationCount();
     }
+    // Badge for the President and Vice President: documents waiting on a decision.
+    if (canApprove(req.user) && req.path.startsWith('/members')) {
+      res.locals.documentsToReview = documentsInReview();
+    }
     // Tool loan requests waiting on this member to answer, for the Tool Locker tab.
     if (req.user && req.path.startsWith('/members')) {
       res.locals.pendingToolRequests = pendingToolRequestCount(req.user.id);
@@ -167,6 +173,7 @@ export function createApp() {
   app.use('/members/builds', memberBuildsRoutes);
   app.use('/members/blog', blogRoutes);
   app.use('/members/locker', lockerRoutes);
+  app.use('/members/documents', documentsRoutes);
   app.use('/members/admin', adminRoutes);
 
   app.use(notFound);

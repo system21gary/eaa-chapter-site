@@ -421,6 +421,21 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 
 .field-row { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
+/* Drag-and-drop file picker (public/js/site.js wraps inputs marked data-dropzone). */
+.dropzone { border: 2px dashed var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; background: #fbfcfd; transition: border-color .15s, background-color .15s; }
+.dropzone.is-over { border-color: var(--blue-500); background: var(--blue-100); }
+.dropzone-prompt { margin: 0 0 .5rem; font-size: .9rem; color: var(--ink-soft); }
+.dropzone-status { margin: .5rem 0 0; font-size: .85rem; color: var(--ink-soft); min-height: 1.2em; }
+.dropzone-status.is-bad { color: var(--red); }
+.dropzone input[type="file"] { width: 100%; }
+
+/* A document's running history: a scrolling list, newest first. */
+.history { list-style: none; margin: 0; padding: 0; max-height: 18rem; overflow-y: auto; font-size: .9rem; }
+.history li { display: grid; grid-template-columns: 9.5rem 1fr; gap: .8rem; padding: .55rem 0; border-top: 1px solid var(--line); }
+.history li:first-child { border-top: 0; }
+.history-when { color: var(--ink-faint); font-size: .8rem; }
+.history li.is-deleted { color: var(--red); }
+
 .honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 .form-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
@@ -701,6 +716,11 @@ table.data input[type="text"] { min-width: 10rem; }
 .strength span { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--red); transition: width .25s, background .25s; }
 
 .split { display: grid; grid-template-columns: 1.4fr .9fr; gap: 2.5rem; align-items: start; }
+/* A split whose left column opens with a heading: the sidebar starts level with what is under the heading. */
+.split-under-heading { display: grid; grid-template-columns: 1.4fr .9fr; column-gap: 2.5rem; align-items: start; }
+.split-under-heading > h2 { grid-column: 1; grid-row: 1; margin-bottom: 1rem; }
+.split-under-heading > .stack { grid-column: 1; grid-row: 2; }
+.split-under-heading > .sidebar { grid-column: 2; grid-row: 2; }
 .sidebar { position: sticky; top: 96px; display: grid; gap: 1.5rem; }
 
 hr.rule { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
@@ -785,6 +805,9 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
   .next-event { grid-template-columns: 1fr; }
   .next-event .art { min-height: 220px; }
   .split { grid-template-columns: 1fr; }
+  .split-under-heading { grid-template-columns: 1fr; }
+  .split-under-heading > .sidebar { margin-top: 2.5rem; }
+  .split-under-heading > h2, .split-under-heading > .stack, .split-under-heading > .sidebar { grid-column: 1; grid-row: auto; }
   .sidebar { position: static; }
 }
 

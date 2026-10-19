@@ -683,6 +683,75 @@
     });
   });
 
+  /* ------------------------------------------------ drag-and-drop file picker
+     Wraps a file input marked data-dropzone. The native "Choose file" button
+     stays, so keyboards, screen readers and browsers without drag-and-drop
+     work as before; dropping a file on the box just fills that same input. */
+  document.querySelectorAll('input[type="file"][data-dropzone]').forEach(function (input) {
+    var maxBytes = Number(input.getAttribute('data-max-bytes')) || 0;
+    var zone = document.createElement('div');
+    zone.className = 'dropzone';
+    var prompt = document.createElement('p');
+    prompt.className = 'dropzone-prompt';
+    prompt.textContent = 'Drag a file here, or choose one:';
+    var status = document.createElement('p');
+    status.className = 'dropzone-status';
+    status.setAttribute('aria-live', 'polite');
+    input.parentNode.insertBefore(zone, input);
+    zone.appendChild(prompt);
+    zone.appendChild(input);
+    zone.appendChild(status);
+
+    function size(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return Math.round(n / 1024) + ' KB';
+      return (n / 1048576).toFixed(1) + ' MB';
+    }
+    function show(message, bad) {
+      status.textContent = message;
+      status.classList.toggle('is-bad', Boolean(bad));
+    }
+    function check() {
+      var file = input.files && input.files[0];
+      if (!file) { show(''); return; }
+      if (maxBytes && file.size > maxBytes) {
+        input.value = '';
+        show(file.name + ' is ' + size(file.size) + ', over the ' + size(maxBytes) + ' limit.', true);
+        return;
+      }
+      show('Ready: ' + file.name + ' (' + size(file.size) + ')');
+    }
+    input.addEventListener('change', check);
+
+    ['dragenter', 'dragover'].forEach(function (name) {
+      zone.addEventListener(name, function (e) {
+        e.preventDefault();
+        zone.classList.add('is-over');
+      });
+    });
+    zone.addEventListener('dragleave', function (e) {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('is-over');
+    });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zone.classList.remove('is-over');
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      try {
+        var transfer = new DataTransfer();
+        transfer.items.add(files[0]);
+        input.files = transfer.files;
+      } catch (err) {
+        show('Your browser could not take that file. Use Choose file instead.', true);
+        return;
+      }
+      check();
+      if (files.length > 1 && input.files.length) {
+        show('One file at a time: using ' + files[0].name + '. Add the others separately.', true);
+      }
+    });
+  });
+
   /* ----------------------------------------------- spam trap timestamp */
   document.querySelectorAll('input[name="rendered_at"]').forEach(function (input) {
     input.value = String(Date.now());

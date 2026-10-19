@@ -1,0 +1,46 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Members Corner</span>
+        <h1>Chapter documents</h1>
+        <p>Approved meeting minutes and other chapter records. Anything here has
+           been reviewed and approved by the board.</p>
+      </div>
+      {% if canReadBoard %}
+        <a class="btn btn-outline" href="{{ '/members/documents/board' | url }}">Board workspace</a>
+      {% endif %}
+    </div>
+
+    {% for group in years %}
+      <h2 style="margin-top:2rem">{{ group.year }}</h2>
+      <div class="table-wrap" style="margin-top:.8rem">
+        <table class="data">
+          <thead><tr><th>Document</th><th>Type</th><th>Meeting</th><th></th></tr></thead>
+          <tbody>
+            {% for d in group.docs %}
+              <tr>
+                <td><strong><a href="{{ ('/members/documents/' ~ d.id) | url }}">{{ d.title }}</a></strong></td>
+                <td><span class="pill pill-grey">{{ kinds[d.kind] }}</span></td>
+                <td class="small muted">{% if d.meeting_date %}{{ d.meeting_date | shortdate }}{% else %}—{% endif %}</td>
+                <td>
+                  <a class="btn btn-outline btn-sm" href="{{ ('/members/documents/' ~ d.id ~ '/download') | url }}">Download</a>
+                  <span class="tiny muted">{{ d.original_name }} · {{ d.size | filesize }}</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty" style="margin-top:2rem">
+        <h3>Nothing published yet</h3>
+        <p>Approved minutes and records will appear here once the board publishes them.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

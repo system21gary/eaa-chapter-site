@@ -1,0 +1,57 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <p class="crumbs"><a href="{{ '/members/documents' | url }}">Chapter documents</a> <span aria-hidden="true">›</span> Board workspace</p>
+        <h1>Board documents</h1>
+        <p>Drafts, reviews and approvals. Only the board sees this page. The
+           President or Vice President approves; nothing reaches members until it is
+           approved and published.</p>
+      </div>
+      {% if isOfficer %}
+        <a class="btn btn-primary" href="{{ '/members/documents/board/new' | url }}">Add a document</a>
+      {% endif %}
+    </div>
+
+    {% if docs.length %}
+      <div class="table-wrap" style="margin-top:2rem">
+        <table class="data">
+          <thead><tr><th>Document</th><th>Type</th><th>Meeting</th><th>Status</th><th>Version</th><th>Updated</th></tr></thead>
+          <tbody>
+            {% for d in docs %}
+              <tr>
+                <td>
+                  <strong><a href="{{ ('/members/documents/' ~ d.id) | url }}">{{ d.title }}</a></strong>
+                </td>
+                <td><span class="pill pill-grey">{{ kinds[d.kind] }}</span></td>
+                <td class="small muted">{% if d.meeting_date %}{{ d.meeting_date | shortdate }}{% else %}—{% endif %}</td>
+                <td>
+                  {% if d.status == 'approved' and d.published_version_id == d.latest_version_id %}
+                    <span class="pill pill-green">Published</span>
+                  {% elif d.status == 'approved' %}
+                    <span class="pill pill-amber">Approved · not published</span>
+                  {% else %}
+                    <span class="pill pill-{{ 'amber' if d.status == 'in_review' else ('red' if d.status == 'changes_requested' else 'grey') }}">{{ statusLabels[d.status] }}</span>
+                  {% endif %}
+                  {% if d.published_version_id and d.published_version_id != d.latest_version_id %}<br><span class="tiny muted">An earlier version is live to members</span>{% endif %}
+                  {% if d.status == 'in_review' and canApprove %}<br><span class="tiny"><strong>Needs your review</strong></span>{% endif %}
+                </td>
+                <td class="small muted">v{{ d.latest_number }}</td>
+                <td class="small muted">{{ d.updated_at | relative }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty" style="margin-top:2rem">
+        <h3>No documents yet</h3>
+        <p>{% if isOfficer %}Add the first one: minutes, an agenda, a financial report.{% else %}Officers add documents here.{% endif %}</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

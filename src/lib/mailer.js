@@ -577,3 +577,47 @@ export function contactReplyEmail({ name, topic, body, signedBy, original }) {
     ].join('\n'),
   };
 }
+
+/** A board member has sent a document for a President or Vice President to review. */
+export function documentSubmittedEmail({ reviewerName, submitterName, title, kind, version, link }) {
+  return {
+    subject: `For your review: ${title}`,
+    text: [
+      `Hi ${reviewerName},`,
+      '',
+      `${submitterName} has sent ${kind.toLowerCase()} "${title}" (version ${version}) for review.`,
+      '',
+      'Open it on the chapter site to read it and approve it, or ask for changes:',
+      '',
+      link,
+      '',
+      'Either the President or the Vice President can approve. Nothing is shared',
+      'with members until it has been approved and published.',
+      '',
+      'EAA Chapter 1699',
+    ].join('\n'),
+  };
+}
+
+/** The decision on a document, for whoever sent it for review. */
+export function documentReviewedEmail({ name, reviewerName, reviewerOffice, title, decision, comment, link }) {
+  const approved = decision === 'approved';
+  return {
+    subject: approved ? `Approved: ${title}` : `Changes requested: ${title}`,
+    text: [
+      `Hi ${name},`,
+      '',
+      approved
+        ? `${reviewerName} (${reviewerOffice}) approved "${title}".`
+        : `${reviewerName} (${reviewerOffice}) asked for changes to "${title}".`,
+      comment ? `\nTheir note:\n${comment}\n` : '',
+      approved
+        ? 'It is not visible to members yet. Publish it from the document page when you are ready.'
+        : 'Upload a corrected version and send it for review again.',
+      '',
+      link,
+      '',
+      'EAA Chapter 1699',
+    ].join('\n'),
+  };
+}

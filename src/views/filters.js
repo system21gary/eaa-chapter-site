@@ -102,6 +102,14 @@ export function registerFilters(env) {
 
   env.addFilter('phone', (v) => formatPhone(v));
 
+  /** 482113 -> "471 KB". */
+  env.addFilter('filesize', (n) => {
+    const b = Number(n) || 0;
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${Math.round(b / 1024)} KB`;
+    return `${(b / 1024 / 1024).toFixed(1)} MB`;
+  });
+
   /**
    * Every internal URL goes through here, so the site works both at a domain
    * root and under a path prefix (see middleware/base-path.js).

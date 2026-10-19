@@ -735,6 +735,106 @@ const migrations = [
     ALTER TABLE users ADD COLUMN mail_reminders INTEGER NOT NULL DEFAULT 1;
     `,
   },
+  {
+    version: 16,
+    name: 'board documents with review and approval',
+    sql: `
+    -- Chapter records. The approved file (a PDF, usually) is the record; the
+    -- site holds the index, the approval trail and the members' archive.
+    CREATE TABLE documents (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind                 TEXT NOT NULL CHECK (kind IN ('minutes', 'agenda', 'financial', 'newsletter', 'bylaws', 'other')),
+      title                TEXT NOT NULL,
+      meeting_date         TEXT,
+      status               TEXT NOT NULL DEFAULT 'draft'
+                             CHECK (status IN ('draft', 'in_review', 'changes_requested', 'approved')),
+      visibility           TEXT NOT NULL DEFAULT 'board' CHECK (visibility IN ('board', 'members')),
+      -- The version members can see. NULL while the document is board-only. A
+      -- revision in progress does not disturb it: the last approved version stays
+      -- up until a newer one is approved and published.
+      published_version_id INTEGER,
+      created_by           INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at           TEXT NOT NULL,
+      updated_at           TEXT NOT NULL
+    );
+    CREATE INDEX idx_documents_status ON documents(status, updated_at);
+
+    CREATE TABLE document_versions (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id   INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+      number        INTEGER NOT NULL,
+      original_name TEXT NOT NULL,
+      stored_name   TEXT NOT NULL UNIQUE,
+      mime          TEXT NOT NULL,
+      size          INTEGER NOT NULL,
+      sha256        TEXT NOT NULL,
+      note          TEXT,
+      created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at    TEXT NOT NULL,
+      submitted_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      submitted_at  TEXT,
+      UNIQUE (document_id, number)
+    );
+
+    -- Approvals are recorded against one specific version, with the reviewer's
+    -- office at the time, so a later change of officers does not rewrite who
+    -- approved what.
+    CREATE TABLE document_reviews (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      version_id      INTEGER NOT NULL REFERENCES document_versions(id) ON DELETE CASCADE,
+      reviewer_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      reviewer_office TEXT,
+      decision        TEXT NOT NULL CHECK (decision IN ('approved', 'changes_requested')),
+      comment         TEXT,
+      created_at      TEXT NOT NULL
+    );
+    `,
+  },
+  {
+    version: 17,
+    name: 'document history',
+    sql: `
+    -- A running history for each document: who added, sent, approved,
+    -- published, took down or deleted what, and when. Names are copied in as
+    -- text, with the person's office at the time, so the history still reads
+    -- correctly after somebody leaves or an office changes hands. Deleted
+    -- versions leave a line here and nothing else.
+    CREATE TABLE document_events (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id    INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+      version_number INTEGER,
+      action         TEXT NOT NULL,
+      actor_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_label    TEXT,
+      detail         TEXT,
+      created_at     TEXT NOT NULL
+    );
+    CREATE INDEX idx_document_events_doc ON document_events(document_id, id);
+
+    -- Version numbers are never reused, even after a deletion.
+    ALTER TABLE documents ADD COLUMN next_version INTEGER NOT NULL DEFAULT 1;
+    UPDATE documents SET next_version =
+      (SELECT COALESCE(MAX(number), 0) + 1 FROM document_versions v WHERE v.document_id = documents.id);
+
+    -- Rebuild what is known from before this table existed. Publishing and
+    -- taking down were not recorded with a time, so they are not reconstructed.
+    INSERT INTO document_events (document_id, version_number, action, actor_id, actor_label, detail, created_at)
+      SELECT v.document_id, v.number, CASE WHEN v.number = 1 THEN 'created' ELSE 'version_added' END,
+             v.created_by, TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), v.original_name, v.created_at
+        FROM document_versions v LEFT JOIN users u ON u.id = v.created_by;
+    INSERT INTO document_events (document_id, version_number, action, actor_id, actor_label, detail, created_at)
+      SELECT v.document_id, v.number, 'submitted', v.submitted_by,
+             TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), NULL, v.submitted_at
+        FROM document_versions v LEFT JOIN users u ON u.id = v.submitted_by
+       WHERE v.submitted_at IS NOT NULL;
+    INSERT INTO document_events (document_id, version_number, action, actor_id, actor_label, detail, created_at)
+      SELECT v.document_id, v.number, r.decision, r.reviewer_id,
+             TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) ||
+               CASE r.reviewer_office WHEN 'president' THEN ' (President)' WHEN 'vice_president' THEN ' (Vice President)' ELSE '' END,
+             r.comment, r.created_at
+        FROM document_reviews r JOIN document_versions v ON v.id = r.version_id LEFT JOIN users u ON u.id = r.reviewer_id;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

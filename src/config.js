@@ -227,6 +227,13 @@ export const config = {
     thumbWidth: 480,
   },
 
+  // Chapter records (PDFs, Word, Excel...). Kept beside the database, outside
+  // the web root, under random names.
+  documents: {
+    dir: process.env.DOCUMENT_DIR || path.join(dataDir, 'documents'),
+    maxBytes: int('DOCUMENT_MAX_BYTES', 15 * 1024 * 1024),
+  },
+
   mail: mailConfig(),
 
   /**

@@ -6,7 +6,10 @@
  * Run against a *development* server:  node scripts/smoke.mjs
  */
 import * as Users from '../src/models/users.js';
-import { get, run } from '../src/db/index.js';
+import { all, get, run } from '../src/db/index.js';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { documentPath } from '../src/lib/document-files.js';
 import config from '../src/config.js';
 import { parseLocal, toLocalInput, toLocalDateInput } from '../src/lib/localtime.js';
 
@@ -119,7 +122,10 @@ async function req(path, { method = 'GET', body = null, expect = null, redirect 
 /** Submits a real multipart/form-data POST, the way a browser does with a file input. */
 async function multipart(path, fields, { origin = null } = {}) {
   const form = new FormData();
-  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  for (const [k, v] of Object.entries(fields)) {
+    if (v && v.blob) form.append(k, v.blob, v.name);
+    else form.append(k, v);
+  }
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
     headers: { cookie, origin: origin ?? BASE },
@@ -660,6 +666,180 @@ console.log('\nOffices and email preferences');
 
   for (const u of [one, two, idle]) run('DELETE FROM users WHERE id = ?', [u.id]);
   if (heldBefore) Users.setBoardRole(heldBefore.id, 'president');
+}
+
+console.log('\nChapter documents');
+{
+  const stamp = Date.now();
+  const pdf = (body) => Buffer.from(`%PDF-1.4\n% ${body}\n%%EOF\n`);
+  const upload = (name, buf, type = 'application/octet-stream') => ({ blob: new Blob([buf], { type }), name });
+  const goodPdf = pdf(`minutes ${stamp}`);
+  const title = `Smoke minutes ${stamp}`;
+  const oldRole = admin.role;
+  const oldOffice = Users.findById(admin.id).board_role;
+  const vp = Users.createUser({ email: `smoke.vp.${stamp}@example.com`, firstName: 'Vee', lastName: 'Pee', role: 'member', status: 'active' });
+  const heldVp = Users.listBoard().find((u) => u.board_role === 'vice_president' && u.id !== vp.id);
+  const heldPres = Users.listBoard().find((u) => u.board_role === 'president');
+  Users.setBoardRole(vp.id, 'vice_president');
+  Users.setBoardRole(admin.id, null);
+
+  const boardPage = () => req('/members/documents/board');
+  const create = async (name, buf, extra = {}) => {
+    const form = await req('/members/documents/board/new');
+    return multipart('/members/documents/board', {
+      _csrf: csrfFrom(form.text), kind: 'minutes', title, meeting_date: '2026-11-12', note: 'n', ...extra, file: upload(name, buf),
+    });
+  };
+
+  // Being an administrator does not open the board's papers.
+  let r = await boardPage();
+  record(r.status === 403, 'an administrator who is not an officer cannot open the board workspace', `-> ${r.status}`);
+  r = await req('/members/documents/board/new');
+  record(r.status === 403, 'a non-officer cannot open the add form', `-> ${r.status}`);
+  const formPage = await req('/members/documents');
+  r = await multipart('/members/documents/board', { _csrf: csrfFrom(formPage.text), kind: 'minutes', title, file: upload('a.pdf', goodPdf) });
+  record(r.status === 403 && !get('SELECT id FROM documents WHERE title = ?', [title]), 'a non-officer cannot add a document', `-> ${r.status}`);
+
+  // An ordinary member cannot see the workspace at all.
+  run("UPDATE users SET role = 'member' WHERE id = ?", [admin.id]);
+  r = await boardPage();
+  record(r.status === 403, 'an ordinary member cannot open the board workspace', `-> ${r.status}`);
+  r = await req('/members/documents');
+  record(r.status === 200, 'but can open the archive', `-> ${r.status}`);
+  run("UPDATE users SET role = ? WHERE id = ?", [oldRole, admin.id]);
+
+  // The secretary adds documents.
+  Users.setBoardRole(admin.id, 'secretary');
+  const bad = [
+    ['a pdf that is not one', 'fake.pdf', Buffer.from('MZ not a pdf at all')],
+    ['an old Word file', 'old.docx', Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.alloc(64)])],
+    ['a macro-enabled file', 'macro.docx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('word/document.xml vbaProject.bin')])],
+    ['a script', 'run.sh', Buffer.from('#!/bin/sh\necho hi\n')],
+    ['an image named as a pdf', 'pic.pdf', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])],
+  ];
+  for (const [what, name, buf] of bad) {
+    r = await create(name, buf);
+    record(r.status === 400 && !get('SELECT id FROM documents WHERE title = ?', [title]), `${what} is refused`, `-> ${r.status}`);
+  }
+  r = await create('minutes.pdf', goodPdf);
+  const doc = get('SELECT * FROM documents WHERE title = ?', [title]);
+  record(r.status === 302 && doc?.status === 'draft', 'a PDF is accepted as a draft', `-> ${r.status}`);
+  const v1 = doc && get('SELECT * FROM document_versions WHERE document_id = ? AND number = 1', [doc.id]);
+  const onDisk = v1 && documentPath(v1.stored_name);
+  record(v1 && fs.existsSync(onDisk) && v1.sha256 === crypto.createHash('sha256').update(goodPdf).digest('hex') && /^[a-f0-9]{32}$/.test(v1.stored_name), 'it is stored under a random name with its SHA-256');
+
+  // Before approval, members see nothing of it.
+  r = await req(`/members/documents/${doc.id}/download`);
+  record(r.status === 404, 'an unpublished document cannot be downloaded through the member route', `-> ${r.status}`);
+  r = await req('/members/documents');
+  record(!r.text.includes(title), 'it is not in the members archive');
+
+  // Review: the secretary cannot approve, and nothing can change mid-review.
+  const page = await req(`/members/documents/${doc.id}`);
+  r = await req(`/members/documents/${doc.id}/submit`, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  record(Docs_status(doc.id) === 'in_review', 'sending for review moves it to in review');
+  record(Boolean(get('SELECT 1 AS x FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [vp.email, `%${title}%`])), 'the Vice President is emailed');
+  r = await req(`/members/documents/${doc.id}/review`, { method: 'POST', body: { _csrf: csrfFrom(page.text), version: '1', decision: 'approved' } });
+  record(r.status === 403 && Docs_status(doc.id) === 'in_review', 'the secretary cannot approve', `-> ${r.status}`);
+  const again = await req(`/members/documents/${doc.id}`);
+  await multipart(`/members/documents/${doc.id}/versions`, { _csrf: csrfFrom(again.text), file: upload('v2.pdf', pdf('v2')) });
+  record(get('SELECT COUNT(*) AS n FROM document_versions WHERE document_id = ?', [doc.id]).n === 1, 'no new version while a review is under way');
+
+  // The President approves (Vice President would do equally well).
+  Users.setBoardRole(admin.id, 'president');
+  const rp = await req(`/members/documents/${doc.id}`);
+  r = await req(`/members/documents/${doc.id}/review`, { method: 'POST', body: { _csrf: csrfFrom(rp.text), version: '1', decision: 'changes_requested' } });
+  record(Docs_status(doc.id) === 'in_review', 'asking for changes needs a comment');
+  r = await req(`/members/documents/${doc.id}/review`, { method: 'POST', body: { _csrf: csrfFrom(rp.text), version: '7', decision: 'approved' } });
+  record(Docs_status(doc.id) === 'in_review', 'a decision on a version that is not the current one is refused');
+  r = await req(`/members/documents/${doc.id}/review`, { method: 'POST', body: { _csrf: csrfFrom(rp.text), version: '1', decision: 'approved', comment: 'ok' } });
+  const rev = get('SELECT * FROM document_reviews WHERE version_id = ?', [v1.id]);
+  record(Docs_status(doc.id) === 'approved' && rev?.reviewer_office === 'president' && rev.decision === 'approved', 'the President approves; the review records the office');
+  r = await req(`/members/documents/${doc.id}/review`, { method: 'POST', body: { _csrf: csrfFrom(rp.text), version: '1', decision: 'changes_requested', comment: 'x' } });
+  record(Docs_status(doc.id) === 'approved', 'an approved document cannot be reviewed again');
+
+  // Approved but not yet published is called out, on the document and in the list.
+  const approvedPage = await req(`/members/documents/${doc.id}`);
+  record(/Approved · not published/.test(approvedPage.text), 'the document page flags approved but not published');
+  r = await boardPage();
+  record(/Approved · not published/.test(r.text), 'so does the board list');
+  record(/History/.test(approvedPage.text) && /approved version 1/.test(approvedPage.text) && /sent version 1 for review/.test(approvedPage.text), 'the history lists who sent and approved it');
+
+  // Publishing.
+  r = await req(`/members/documents/${doc.id}/publish`, { method: 'POST', body: { _csrf: csrfFrom(rp.text) } });
+  record(get('SELECT visibility FROM documents WHERE id = ?', [doc.id]).visibility === 'members', 'approved documents can be published');
+  const after = await req(`/members/documents/${doc.id}`);
+  record(!after.text.includes('/publish') && after.text.includes('/unpublish'), 'once published, the page offers Take down and not Publish');
+  record(!/not published/i.test(after.text) && /pill-green">Published</.test(after.text), 'and its status reads Published');
+  Users.setBoardRole(admin.id, null);
+  r = await req(`/members/documents/${doc.id}`);
+  record(r.status === 200 && !r.text.includes('Versions') && !r.text.includes('SHA-256'), 'an administrator who is not an officer sees only the published page', `-> ${r.status}`);
+  r = await req(`/members/documents/${doc.id}/versions/1/download`);
+  record(r.status === 403, "and cannot use the board's version route", `-> ${r.status}`);
+  run("UPDATE users SET role = 'member' WHERE id = ?", [admin.id]);
+  r = await req('/members/documents');
+  record(r.text.includes(title), 'members see it in the archive');
+  r = await req(`/members/documents/${doc.id}/download`);
+  const body = Buffer.from(await r.res.arrayBuffer());
+  const disp = r.res.headers.get('content-disposition') ?? '';
+  record(r.status === 200 && /^attachment/.test(disp) && r.res.headers.get('x-content-type-options') === 'nosniff' && body.equals(goodPdf), 'members download the exact file, as an attachment', `-> ${r.status} ${disp}`);
+  r = await req(`/members/documents/${doc.id}`);
+  record(r.status === 200 && r.text.includes('Download') && !r.text.includes('Versions'), 'members get a simple page for a published document', `-> ${r.status}`);
+  r = await req(`/members/documents/${doc.id}/versions/1/download`);
+  record(r.status === 403, "members cannot use the board's version route", `-> ${r.status}`);
+  run("UPDATE users SET role = ? WHERE id = ?", [oldRole, admin.id]);
+
+  // Revisions leave the published version alone.
+  Users.setBoardRole(admin.id, 'secretary');
+  const sp = await req(`/members/documents/${doc.id}`);
+  await multipart(`/members/documents/${doc.id}/versions`, { _csrf: csrfFrom(sp.text), file: upload('v2.pdf', pdf(`v2 ${stamp}`)), note: 'typo' });
+  const d2 = get('SELECT * FROM documents WHERE id = ?', [doc.id]);
+  record(Docs_status(doc.id) === 'draft' && d2.published_version_id === v1.id, 'a revision is a new draft; the published version is unchanged');
+  // Deleting versions, and the history that records it.
+  const delPath = (n) => `/members/documents/${doc.id}/versions/${n}/delete`;
+  const versionCount = () => get('SELECT COUNT(*) AS n FROM document_versions WHERE document_id = ?', [doc.id]).n;
+  const v2row = get('SELECT * FROM document_versions WHERE document_id = ? AND number = 2', [doc.id]);
+  const dp = await req(`/members/documents/${doc.id}`);
+  record(!dp.text.includes(delPath(1)) && dp.text.includes(delPath(2)), 'Delete is offered for the draft but not for the published version');
+  r = await req(delPath(1), { method: 'POST', body: { _csrf: csrfFrom(dp.text) } });
+  record(versionCount() === 2, 'the published version cannot be deleted', `-> ${r.status}`);
+  r = await req(delPath(2), { method: 'POST', body: { _csrf: csrfFrom(dp.text) } });
+  record(versionCount() === 1 && !fs.existsSync(documentPath(v2row.stored_name)), 'a draft version can be deleted, file and all');
+  record(Docs_status(doc.id) === 'approved', 'deleting the newest version puts the document back to what the one before was');
+  const hist = await req(`/members/documents/${doc.id}`);
+  record(/deleted version 2/.test(hist.text) && hist.text.includes(v2row.sha256.slice(0, 16)), 'the history shows the deletion, with the file name and fingerprint');
+  await multipart(`/members/documents/${doc.id}/versions`, { _csrf: csrfFrom(hist.text), file: upload('v3.pdf', pdf(`v3 ${stamp}`)) });
+  record(Boolean(get('SELECT 1 AS x FROM document_versions WHERE document_id = ? AND number = 3', [doc.id])) && !get('SELECT 1 AS x FROM document_versions WHERE document_id = ? AND number = 2', [doc.id]), 'version numbers are not reused');
+
+  Users.setBoardRole(admin.id, 'treasurer');
+  const tp = await req(`/members/documents/${doc.id}`);
+  r = await req(`/members/documents/${doc.id}/unpublish`, { method: 'POST', body: { _csrf: csrfFrom(tp.text) } });
+  record(r.status === 403 && get('SELECT visibility FROM documents WHERE id = ?', [doc.id]).visibility === 'members', 'the treasurer cannot take a document down', `-> ${r.status}`);
+  Users.setBoardRole(admin.id, 'secretary');
+  r = await req(`/members/documents/${doc.id}/unpublish`, { method: 'POST', body: { _csrf: csrfFrom(tp.text) } });
+  record(get('SELECT visibility FROM documents WHERE id = ?', [doc.id]).visibility === 'board', 'the secretary can take it down');
+  const ap = await req(`/members/documents/${doc.id}`);
+  r = await req(delPath(1), { method: 'POST', body: { _csrf: csrfFrom(ap.text) } });
+  record(versionCount() === 2 && !ap.text.includes(delPath(1)), 'the secretary cannot delete an approved version');
+  Users.setBoardRole(admin.id, 'president');
+  const pp = await req(`/members/documents/${doc.id}`);
+  r = await req(delPath(1), { method: 'POST', body: { _csrf: csrfFrom(pp.text) } });
+  record(versionCount() === 1, 'the President can');
+  r = await req(delPath(3), { method: 'POST', body: { _csrf: csrfFrom(pp.text) } });
+  record(versionCount() === 1, 'the only remaining version cannot be deleted');
+
+  // Clean up everything this block made.
+  for (const v of all('SELECT stored_name FROM document_versions WHERE document_id = ?', [doc.id])) fs.rmSync(documentPath(v.stored_name), { force: true });
+  run('DELETE FROM documents WHERE id = ?', [doc.id]);
+  run('DELETE FROM email_outbox WHERE to_addr = ?', [vp.email]);
+  run('DELETE FROM users WHERE id = ?', [vp.id]);
+  Users.setBoardRole(admin.id, oldOffice);
+  run('UPDATE users SET role = ? WHERE id = ?', [oldRole, admin.id]);
+  for (const u of [heldPres, heldVp]) if (u && !Users.findById(u.id).board_role) Users.setBoardRole(u.id, u.board_role);
+}
+
+function Docs_status(id) {
+  return get('SELECT status FROM documents WHERE id = ?', [id])?.status;
 }
 
 console.log('\nChapter time');
