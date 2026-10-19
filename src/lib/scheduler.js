@@ -8,6 +8,7 @@ import { sendMail, eventReminderEmail } from './mailer.js';
 import { unsubscribeUrl, unsubscribeHeaders } from './unsubscribe.js';
 import { mapUrl } from '../views/filters.js';
 import { runNotices } from './notices.js';
+import { runMinutes } from './minutes.js';
 
 /**
  * Automatic email.
@@ -149,7 +150,7 @@ async function sendReminder(event, lead) {
  * `now` is a parameter so tests can step through time.
  */
 export async function tick({ now = new Date() } = {}) {
-  const done = { sent: [], skipped: [], notices: null };
+  const done = { sent: [], skipped: [], notices: null, minutes: null };
   if (isPaused()) return { ...done, paused: true };
 
   for (const item of plan({ now })) {
@@ -176,6 +177,7 @@ export async function tick({ now = new Date() } = {}) {
     console.log(`[scheduler] sent "${item.event.title}" (${LEADS[item.lead].label}) reminder to ${count} member${count === 1 ? '' : 's'}`);
   }
   done.notices = await runNotices({ now });
+  done.minutes = await runMinutes({ now });
   return done;
 }
 

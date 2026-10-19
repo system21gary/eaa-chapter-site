@@ -442,6 +442,7 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .todo-item { display: grid; grid-template-columns: 8.5rem 1fr auto; gap: .9rem; align-items: center; padding: .8rem 0; border-top: 1px solid var(--line); }
 .todo-item:first-child { border-top: 0; }
 .todo-item .pill { justify-self: start; }
+.todo-actions { display: inline-flex; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
 .todo-title { font-weight: 700; }
 .todo-detail { color: var(--ink-soft); font-size: .88rem; }
 .todo-late .todo-detail { color: var(--red); }

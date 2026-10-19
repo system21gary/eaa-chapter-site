@@ -942,6 +942,33 @@ const migrations = [
     CREATE INDEX idx_event_updates_event ON event_updates(event_id, id);
     `,
   },
+  {
+    version: 21,
+    name: 'meeting minutes follow-up',
+    sql: `
+    -- A meeting that should have minutes. Off unless an editor ticks it, so
+    -- informal nights never prompt anyone.
+    ALTER TABLE events ADD COLUMN minutes_expected INTEGER NOT NULL DEFAULT 0;
+
+    -- Which meeting a minutes document is for, so the site knows when they are in.
+    ALTER TABLE documents ADD COLUMN event_id INTEGER REFERENCES events(id) ON DELETE SET NULL;
+    CREATE INDEX idx_documents_event ON documents(event_id);
+
+    -- Bookkeeping for the follow-up on one meeting's minutes: reminders sent,
+    -- whether the President and Vice President have been told, and an officer
+    -- saying no minutes are needed. Whether the minutes are in is worked out
+    -- from the documents themselves, not stored here.
+    CREATE TABLE minutes_tasks (
+      event_id        INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
+      last_nudged_at  TEXT,
+      nudges          INTEGER NOT NULL DEFAULT 0,
+      escalated_at    TEXT,
+      dismissed_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      dismissed_label TEXT,
+      dismissed_at    TEXT
+    );
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

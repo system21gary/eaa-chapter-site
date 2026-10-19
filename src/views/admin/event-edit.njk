@@ -102,6 +102,11 @@
           </span>
         </div>
 
+        <div class="check">
+          <input type="checkbox" id="minutes_expected" name="minutes_expected" value="1" {{ 'checked' if event.minutes_expected }}>
+          <label for="minutes_expected">Minutes are expected for this meeting <span class="muted">(only for events of type Meeting. The Secretary is reminded after it if none have been added.)</span></label>
+        </div>
+
         {% set name = 'body_md' %}
         {% set label = 'Details' %}
         {% set value = event.body_md %}

@@ -25,7 +25,15 @@
                     <span class="todo-title">{{ t.title }}</span><br>
                     <span class="todo-detail">{{ t.detail }}{% if t.when %} · {{ t.when | relative }}{% endif %}</span>
                   </span>
-                  <a class="btn btn-outline btn-sm" href="{{ t.href | url }}">Open</a>
+                  <span class="todo-actions">
+                    <a class="btn btn-outline btn-sm" href="{{ t.href | url }}">{{ 'Add minutes' if t.kind == 'Minutes' and t.secondary else 'Open' }}</a>
+                    {% if t.secondary %}
+                      <form method="post" action="{{ t.secondary.action | url }}" data-confirm="{{ t.secondary.confirm }}" style="display:inline; margin:0">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <button type="submit" class="btn btn-outline btn-sm">{{ t.secondary.label }}</button>
+                      </form>
+                    {% endif %}
+                  </span>
                 </li>
               {% endfor %}
             </ul>

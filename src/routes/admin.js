@@ -77,6 +77,7 @@ const eventSchema = {
   recap_md: f.optionalString({ max: 40000, label: 'Recap' }),
   attendance: f.int({ min: 0, max: 100000, optional: true, label: 'Attendance' }),
   reminders: f.enum(['off', 'day', 'week_and_day'], { label: 'Reminders', optional: true }),
+  minutes_expected: f.bool(),
 };
 
 router.get('/events/new', requireEditor, (req, res) => {
@@ -230,6 +231,7 @@ async function saveEventHandler(req, res, next) {
     recapMd: data.recap_md,
     attendance: data.attendance,
     reminders: data.reminders,
+    minutesExpected: data.minutes_expected,
   };
 
   const poster = req.files?.find((file) => file.fieldname === 'poster');

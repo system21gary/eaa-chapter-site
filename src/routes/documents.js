@@ -6,6 +6,8 @@ import { absoluteUrl } from '../middleware/base-path.js';
 import * as Users from '../models/users.js';
 import * as Docs from '../models/documents.js';
 import * as Notices from '../lib/notices.js';
+import * as Minutes from '../lib/minutes.js';
+import { toLocalDateInput } from '../lib/localtime.js';
 import { whenOf } from '../lib/event-format.js';
 import { requireAuth } from '../middleware/auth.js';
 import { writeLimiter, uploadLimiter } from '../middleware/rate-limit.js';
@@ -14,6 +16,7 @@ import { verifyMultipartCsrf } from '../lib/csrf.js';
 import { validate, f, ValidationError } from '../lib/validate.js';
 import { storeDocument, deleteDocumentFile, documentPath, DocumentError, ALLOWED_LABEL } from '../lib/document-files.js';
 import { audit } from '../lib/audit.js';
+import { get } from '../db/index.js';
 import { sendMail, documentSubmittedEmail, documentReviewedEmail } from '../lib/mailer.js';
 
 /**
@@ -75,6 +78,7 @@ const newSchema = {
     return raw;
   },
   note: f.optionalString({ max: 500, label: 'Note' }),
+  event_id: f.int({ optional: true, min: 1, label: 'Meeting' }),
 };
 
 /* ------------------------------------------------------------- archive */
@@ -105,6 +109,8 @@ router.get('/board', requireBoardReader, (req, res) => {
     robots: 'noindex',
     docs: Docs.listAll(),
     notices: Notices.listRecent().map((n) => ({ ...n, when: n.starts_at ? whenOf(n) : null })),
+    minutes: Minutes.tasks().slice(0, 8).map((t) => ({ ...t, when: whenOf(t.event) })),
+    minutesLabels: Minutes.STATE_LABELS,
     noticeLabels: Notices.STATUS_LABELS,
     kinds: Docs.KINDS,
     statusLabels: Docs.STATUS_LABELS,
@@ -121,12 +127,22 @@ function renderNew(res, { errors = {}, form = {}, status = 200 } = {}) {
     errors,
     form,
     kinds: Docs.KINDS,
+    meetings: Minutes.recentMeetings(),
     maxMb: Math.round(config.documents.maxBytes / 1024 / 1024),
     allowed: ALLOWED_LABEL,
   });
 }
 
-router.get('/board/new', requireOfficer, (req, res) => renderNew(res, { form: { kind: 'minutes' } }));
+router.get('/board/new', requireOfficer, (req, res) => {
+  const kind = Object.keys(Docs.KINDS).includes(req.query.kind) ? req.query.kind : 'minutes';
+  const meeting = kind === 'minutes' && req.query.event ? Minutes.recentMeetings().find((m) => String(m.id) === String(req.query.event)) : null;
+  const form = { kind };
+  if (meeting) {
+    const day = toLocalDateInput(meeting.starts_at);
+    Object.assign(form, { event_id: meeting.id, meeting_date: day, title: `Meeting minutes, ${meeting.title}` });
+  }
+  return renderNew(res, { form });
+});
 
 router.post(
   '/board',
@@ -152,10 +168,17 @@ router.post(
       if (err instanceof DocumentError) return renderNew(res, { errors: { file: err.message }, form: req.body, status: 400 });
       throw err;
     }
+    // A minutes document can say which meeting it is for. That also fills in the meeting date.
+    let meeting = null;
+    if (data.event_id) {
+      meeting = get("SELECT id, starts_at FROM events WHERE id = ? AND kind = 'meeting'", [data.event_id]);
+      if (!meeting) return renderNew(res, { errors: { event_id: 'Choose one of the listed meetings.' }, form: req.body, status: 400 });
+    }
     const id = Docs.createDocument({
       kind: data.kind,
       title: data.title,
-      meetingDate: data.meeting_date,
+      meetingDate: data.meeting_date ?? (meeting ? toLocalDateInput(meeting.starts_at) : null),
+      eventId: meeting?.id ?? null,
       note: data.note,
       file: stored,
       user: req.user,
@@ -164,6 +187,25 @@ router.post(
     return back(req, res, id, 'success', 'Saved as a draft. Send it for review when it is ready.');
   })
 );
+
+/* ----------------------------------------------------- minutes follow-up */
+
+/** An officer saying no minutes are needed for a meeting. Stops the reminders and clears the to-do. */
+router.post('/minutes/:eventId/not-needed', writeLimiter, (req, res, next) => {
+  if (!Users.isBoard(req.user)) return deny(next, 'Only a chapter officer can do that.');
+  if (!Minutes.markNotNeeded(req.params.eventId, req.user)) return next();
+  audit(req, 'minutes.not_needed', { entity: 'event', entityId: req.params.eventId });
+  req.flash('success', 'Marked as not needing minutes. No more reminders for that meeting.');
+  return req.session.save(() => res.redirect('/members'));
+});
+
+router.post('/minutes/:eventId/reopen', writeLimiter, (req, res, next) => {
+  if (!Users.isBoard(req.user)) return deny(next, 'Only a chapter officer can do that.');
+  Minutes.reopen(req.params.eventId);
+  audit(req, 'minutes.reopened', { entity: 'event', entityId: req.params.eventId });
+  req.flash('success', 'Minutes are expected for that meeting again.');
+  return req.session.save(() => res.redirect('/members/documents/board'));
+});
 
 /* ------------------------------------------------------------- one document */
 
@@ -376,17 +418,26 @@ router.post(
   })
 );
 
-router.post('/:id/publish', writeLimiter, (req, res, next) => {
+router.post('/:id/publish', writeLimiter, asyncRoute(async (req, res, next) => {
   if (!canPublish(req.user)) return deny(next, 'Only the President, Vice President or Secretary can publish a document.');
   try {
+    const doc = Docs.getDocument(req.params.id);
     const version = Docs.publish(req.params.id, req.user);
     audit(req, 'document.published', { entity: 'document', entityId: version.document_id, detail: `v${version.number} (${version.sha256.slice(0, 12)})` });
-    return back(req, res, version.document_id, 'success', 'Published. Every member can now read it in the chapter documents.');
+    let note = '';
+    // Minutes only: tell members, with a link and never the file. The box is ticked for a first publication.
+    if (doc?.kind === 'minutes' && req.body.notify === '1') {
+      const count = await Minutes.emailPublished(doc);
+      Docs.logDocumentEvent(doc.id, { version: version.number, action: 'members_emailed', user: req.user, detail: `A link was emailed to ${count} member${count === 1 ? '' : 's'}.` });
+      audit(req, 'document.members_emailed', { entity: 'document', entityId: doc.id, detail: `${count} members` });
+      note = ` A link was emailed to ${count} member${count === 1 ? '' : 's'}.`;
+    }
+    return back(req, res, version.document_id, 'success', `Published. Every member can now read it in the chapter documents.${note}`);
   } catch (err) {
     if (err instanceof Docs.DocumentStateError) return back(req, res, req.params.id, 'error', err.message);
     throw err;
   }
-});
+}));
 
 router.post('/:id/unpublish', writeLimiter, (req, res, next) => {
   if (!canPublish(req.user)) return deny(next, 'Only the President, Vice President or Secretary can do that.');

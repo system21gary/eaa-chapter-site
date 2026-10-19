@@ -16,8 +16,40 @@
       {% endif %}
     </div>
 
+    {% if minutes.length %}
+      <h2 style="margin-top:2rem">Meeting minutes</h2>
+      <div class="table-wrap" style="margin-top:.8rem">
+        <table class="data">
+          <thead><tr><th>Meeting</th><th>Minutes</th><th></th></tr></thead>
+          <tbody>
+            {% for t in minutes %}
+              <tr>
+                <td><strong>{{ t.event.title }}</strong><br><span class="small muted">{{ t.when.long }}</span></td>
+                <td>
+                  <span class="pill pill-{{ 'amber' if t.state == 'missing' else ('green' if t.state in ['approved', 'published'] else 'grey') }}">{{ minutesLabels[t.state] }}</span>
+                  {% if t.state == 'not_needed' and t.record.dismissed_label %}<br><span class="tiny muted">{{ t.record.dismissed_label }}</span>{% endif %}
+                </td>
+                <td>
+                  {% if t.state == 'missing' and isOfficer %}
+                    <a class="btn btn-outline btn-sm" href="{{ ('/members/documents/board/new?kind=minutes&event=' ~ t.event.id) | url }}">Add the minutes</a>
+                  {% elif t.doc %}
+                    <a class="btn btn-outline btn-sm" href="{{ ('/members/documents/' ~ t.doc.id) | url }}">Open</a>
+                  {% elif t.state == 'not_needed' and isOfficer %}
+                    <form method="post" action="{{ ('/members/documents/minutes/' ~ t.event.id ~ '/reopen') | url }}" style="margin:0">
+                      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                      <button type="submit" class="btn btn-outline btn-sm">Expect minutes again</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
     {% if notices.length %}
-      <h2 style="margin-top:2rem">Meeting notices</h2>
+      <h2 style="margin-top:2.5rem">Meeting notices</h2>
       <div class="table-wrap" style="margin-top:.8rem">
         <table class="data">
           <thead><tr><th>Meeting</th><th>Goes to members</th><th>Status</th></tr></thead>

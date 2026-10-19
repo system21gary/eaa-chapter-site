@@ -92,6 +92,7 @@
                         {% elif e.action == 'changes_requested' %}asked for changes to version {{ e.version_number }}
                         {% elif e.action == 'published' %}published version {{ e.version_number }} to members
                         {% elif e.action == 'unpublished' %}took version {{ e.version_number }} down from members
+                        {% elif e.action == 'members_emailed' %}emailed members a link
                         {% elif e.action == 'version_deleted' %}deleted version {{ e.version_number }}
                         {% else %}{{ e.action }}{% endif %}
                         {% if e.detail %}<br><span class="small muted" style="white-space:pre-wrap">{{ e.detail }}</span>{% endif %}
@@ -150,6 +151,12 @@
                 </p>
                 <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/publish') | url }}">
                   <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  {% if doc.kind == 'minutes' %}
+                    <div class="check" style="margin-bottom:.8rem">
+                      <input type="checkbox" id="notify" name="notify" value="1" {{ 'checked' if not doc.published_version_id }}>
+                      <label for="notify">Email members a link to read it <span class="muted">(a link only; they sign in to read the minutes)</span></label>
+                    </div>
+                  {% endif %}
                   <button type="submit" class="btn btn-primary btn-block btn-sm">{{ 'Publish version ' ~ doc.latest_number if published else 'Publish to members' }}</button>
                 </form>
               </div>

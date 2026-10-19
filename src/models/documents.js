@@ -122,19 +122,24 @@ function logEvent(documentId, { version = null, action, user = null, detail = nu
   );
 }
 
+/** Records something done to a document that the model did not do itself (e.g. members emailed). */
+export function logDocumentEvent(documentId, { version = null, action, user = null, detail = null }) {
+  logEvent(documentId, { version, action, user, detail });
+}
+
 /** Newest first. */
 export function listEvents(documentId) {
   return all('SELECT * FROM document_events WHERE document_id = ? ORDER BY id DESC', [Number(documentId)]);
 }
 
 /** Creates a document and its first version in one step. */
-export function createDocument({ kind, title, meetingDate, note, file, user }) {
+export function createDocument({ kind, title, meetingDate, eventId = null, note, file, user }) {
   return transaction(() => {
     const ts = nowIso();
     const info = run(
-      `INSERT INTO documents (kind, title, meeting_date, next_version, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, 2, ?, ?, ?)`,
-      [kind, title, meetingDate, user.id, ts, ts]
+      `INSERT INTO documents (kind, title, meeting_date, event_id, next_version, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 2, ?, ?, ?)`,
+      [kind, title, meetingDate, eventId, user.id, ts, ts]
     );
     const id = Number(info.lastInsertRowid);
     insertVersion(id, 1, { note, file, userId: user.id, ts });

@@ -34,6 +34,18 @@
         </div>
 
         <div class="field">
+          <label for="event_id">Which meeting? <span class="muted">(for meeting minutes)</span></label>
+          <select id="event_id" name="event_id">
+            <option value="">Not for a particular meeting</option>
+            {% for m in meetings %}
+              <option value="{{ m.id }}" {{ 'selected' if form.event_id and form.event_id == m.id }}>{{ m.title }}, {{ m.starts_at | shortdate }}</option>
+            {% endfor %}
+          </select>
+          {{ err(errors, 'event_id') }}
+          <span class="hint">Choosing the meeting tells the site the minutes are in, so the Secretary is no longer reminded.</span>
+        </div>
+
+        <div class="field">
           <label for="meeting_date">Meeting date <span class="muted">(optional)</span></label>
           <input type="date" id="meeting_date" name="meeting_date" value="{{ form.meeting_date or '' }}">
           {{ err(errors, 'meeting_date') }}

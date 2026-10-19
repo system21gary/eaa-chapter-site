@@ -6,7 +6,7 @@ const EVENT_COLUMNS = `
   id, slug, title, summary, starts_at, ends_at, all_day, rain_date,
   location_name, address, city, state, zip, latitude, longitude, cost,
   contact_name, contact_email, contact_phone, external_url, poster_path,
-  poster_alt, kind, status, attendance, reminders, created_at, updated_at
+  poster_alt, kind, status, attendance, reminders, minutes_expected, created_at, updated_at
 `;
 
 function uniqueSlug(title, startsAt, excludeId = null) {
@@ -116,7 +116,7 @@ export function saveEvent(fields, id = null) {
          latitude = ?, longitude = ?, cost = ?, contact_name = ?,
          contact_email = ?, contact_phone = ?, external_url = ?,
          poster_path = ?, poster_alt = ?, kind = ?, status = ?,
-         recap_md = ?, recap_html = ?, attendance = ?, reminders = ?, updated_at = ?
+         recap_md = ?, recap_html = ?, attendance = ?, reminders = ?, minutes_expected = ?, updated_at = ?
        WHERE id = ?`,
       [
         fields.title,
@@ -148,6 +148,7 @@ export function saveEvent(fields, id = null) {
         recapHtml,
         fields.attendance,
         fields.reminders ?? null,
+        fields.minutesExpected ? 1 : 0,
         ts,
         Number(id),
       ]
@@ -160,9 +161,9 @@ export function saveEvent(fields, id = null) {
        (slug, title, summary, body_md, body_html, starts_at, ends_at, all_day,
         rain_date, location_name, address, city, state, zip, latitude, longitude,
         cost, contact_name, contact_email, contact_phone, external_url,
-        poster_path, poster_alt, kind, status, recap_md, recap_html, attendance, reminders,
+        poster_path, poster_alt, kind, status, recap_md, recap_html, attendance, reminders, minutes_expected,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       uniqueSlug(fields.title, fields.startsAt),
       fields.title,
@@ -193,6 +194,7 @@ export function saveEvent(fields, id = null) {
       recapHtml,
       fields.attendance ?? null,
       fields.reminders ?? null,
+      fields.minutesExpected ? 1 : 0,
       ts,
       ts,
     ]

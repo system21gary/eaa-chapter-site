@@ -985,3 +985,39 @@ export function boardAlertEmail({ name, subject, eyebrow, heading, lines, button
   });
   return { subject, text, html };
 }
+
+/** Told to members when approved minutes are published: a link to read them on the site, never the file. */
+export function minutesPublishedEmail({ name, title, link: pageLink, unsubscribeLink, accountLink }) {
+  const text = [
+    `Hi ${name},`,
+    '',
+    `The minutes are now available: ${title}.`,
+    '',
+    'They are on the chapter website for members. Sign in to read them:',
+    '',
+    pageLink,
+    '',
+    'EAA Chapter 1699',
+    '',
+    '--',
+    `Stop these messages: ${unsubscribeLink}`,
+    `Or choose what you get on your account page: ${accountLink}`,
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `${title} are now on the chapter website.`,
+    eyebrow: 'Minutes published',
+    title,
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      para('The minutes have been approved and are now on the chapter website for members. Sign in to read them.'),
+      button('Read the minutes', pageLink),
+      para('EAA Chapter 1699', 'margin-bottom:24px;'),
+    ].join(''),
+    footerHtml: [
+      'You are getting this because you are a member of EAA Chapter 1699 and meeting notices are switched on.',
+      `<br>${emailLink(unsubscribeLink, 'Stop these messages')} &nbsp;&middot;&nbsp; ${emailLink(accountLink, 'Email preferences')}`,
+      '<br><br>EAA Chapter 1699 &middot; South Albany Airport (4B0) &middot; Selkirk, New York',
+    ].join(''),
+  });
+  return { subject: `Minutes available: ${title}`, text, html };
+}

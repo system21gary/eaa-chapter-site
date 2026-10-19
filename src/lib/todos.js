@@ -4,6 +4,7 @@ import * as Tools from '../models/tools.js';
 import * as Applications from '../models/applications.js';
 import * as Contact from '../models/contact.js';
 import * as Notices from './notices.js';
+import * as Minutes from './minutes.js';
 import { isPaused } from './scheduler.js';
 import { whenOf } from './event-format.js';
 
@@ -109,6 +110,34 @@ export function todosFor(user, { now = new Date() } = {}) {
         href: `/members/documents/${d.id}`,
         tone: 'normal',
         when: d.updated_at,
+      });
+    }
+  }
+
+  /* ---------------------------------------------------------- minutes */
+  const owner = Minutes.isOwner(user);
+  for (const t of Minutes.tasks({ now })) {
+    if (t.state !== 'missing' || now < t.showFrom) continue;
+    const e = t.event;
+    const late = now >= t.nudgeFrom;
+    if (owner) {
+      items.push({
+        kind: 'Minutes',
+        title: `Write the minutes for ${e.title}`,
+        detail: `The meeting was ${whenOf(e).long}. Add them as a file, or say none are needed.`,
+        href: `/members/documents/board/new?kind=minutes&event=${e.id}`,
+        tone: late ? 'late' : 'normal',
+        when: e.starts_at,
+        secondary: { label: 'Not needed', action: `/members/documents/minutes/${e.id}/not-needed`, confirm: `No minutes are needed for ${e.title}? The reminders will stop.` },
+      });
+    } else if (Users.canApprove(user) && now >= t.escalateFrom) {
+      items.push({
+        kind: 'Minutes',
+        title: `Minutes overdue: ${e.title}`,
+        detail: `${whenOf(e).long}. No minutes have been added yet; the Secretary has been reminded.`,
+        href: '/members/documents/board',
+        tone: 'late',
+        when: e.starts_at,
       });
     }
   }

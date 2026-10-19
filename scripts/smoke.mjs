@@ -12,6 +12,8 @@ import crypto from 'node:crypto';
 import { documentPath } from '../src/lib/document-files.js';
 import * as Scheduler from '../src/lib/scheduler.js';
 import * as Notices from '../src/lib/notices.js';
+import * as Minutes from '../src/lib/minutes.js';
+import { todosFor } from '../src/lib/todos.js';
 import * as Mail from '../src/lib/mailer.js';
 import { eventReminderEmail, meetingNoticeEmail, eventUpdateEmail, inlineAttachments } from '../src/lib/mailer.js';
 import nodemailer from 'nodemailer';
@@ -1418,6 +1420,188 @@ console.log('\nEvery member-facing email has an HTML version');
   record(reset.text.includes(link) && reset.html.includes('href="https://example.test/path?a=1&amp;b=2"') && reset.html.split('https://example.test/path?a=1&amp;b=2').length - 1 >= 2, 'the reset link is a button and also pasted in full, in both copies');
   const sent = get("SELECT body_text, body_html FROM email_outbox WHERE subject = 'Reset your EAA Chapter 1699 password' ORDER BY id DESC LIMIT 1");
   record(!sent || (/<table/.test(sent.body_html ?? '') && /\/reset\//.test(sent.body_html) && /\/reset\//.test(sent.body_text)), 'a real reset request queues both versions');
+}
+
+console.log('\nMeeting minutes follow-up');
+{
+  const realLog = console.log;
+  console.log = (...args) => {
+    const first = String(args[0] ?? '');
+    if (first.includes('outbox #') || first.startsWith('[scheduler]') || first.startsWith('[notices]')) return;
+    realLog(...args);
+  };
+  const stamp = Date.now();
+  const title = `Smoke Minutes ${stamp}`;
+  const oldRole = admin.role;
+  const oldOffice = Users.findById(admin.id).board_role;
+  const held = ['president', 'vice_president', 'secretary'].map((o) => [o, Users.listBoard().find((u) => u.board_role === o)]);
+  const wasPaused = Scheduler.isPaused();
+  const mk = (tag, extra = '') => {
+    const u = Users.createUser({ email: `smoke.min.${tag}.${stamp}@example.com`, firstName: tag, lastName: 'Min', role: 'member', status: 'active' });
+    if (extra) run(extra, [u.id]);
+    return u;
+  };
+  const sec = mk('Sec'); const pres = mk('Pres'); const vp = mk('Vp'); const ma = mk('A'); const mb = mk('B', 'UPDATE users SET mail_meeting_notices = 0 WHERE id = ?');
+  Users.setBoardRole(sec.id, 'secretary'); Users.setBoardRole(pres.id, 'president'); Users.setBoardRole(vp.id, 'vice_president');
+  Users.setBoardRole(admin.id, null);
+  const ids = []; const docs = [];
+  const addEvent = (label, startsAt, expected = 1) => {
+    const id = Number(run(
+      `INSERT INTO events (slug, title, starts_at, kind, status, minutes_expected, created_at, updated_at)
+       VALUES (?, ?, ?, 'meeting', 'published', ?, ?, ?)`,
+      [`smoke-min-${label}-${stamp}`, `${title} ${label}`, startsAt.toISOString(), expected, new Date().toISOString(), new Date().toISOString()]
+    ).lastInsertRowid);
+    ids.push(id); return id;
+  };
+  const mailTo = (u, like) => get('SELECT COUNT(*) AS n FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [u.email, `%${like}%`]).n;
+  const at = (start, days, hours = 0) => new Date(start.getTime() + days * 86_400_000 + hours * 3_600_000);
+  const stateOf = (id, now) => Minutes.tasks({ now }).find((t) => t.event.id === id)?.state;
+  const addDoc = (kind, status, { eventId = null, date = null } = {}) => {
+    const ts = new Date().toISOString();
+    const id = Number(run(`INSERT INTO documents (kind, title, status, visibility, meeting_date, event_id, created_by, created_at, updated_at, next_version)
+      VALUES (?, ?, ?, 'board', ?, ?, ?, ?, ?, 2)`, [kind, `${title} doc`, status, date, eventId, sec.id, ts, ts]).lastInsertRowid);
+    run(`INSERT INTO document_versions (document_id, number, original_name, stored_name, mime, size, sha256, created_by, created_at)
+      VALUES (?, 1, 'm.pdf', ?, 'application/pdf', 1, 'ab', ?, ?)`, [id, `${stamp}${id}`.padEnd(32, '0').slice(0, 32), sec.id, ts]);
+    docs.push(id); return id;
+  };
+
+  // The event form carries the setting.
+  Users.setBoardRole(admin.id, 'treasurer');
+  const form = await req('/members/admin/events/new');
+  record(/name="minutes_expected"/.test(form.text), 'the event form has "Minutes are expected"');
+  let r = await multipart('/members/admin/events/new', { _csrf: csrfFrom(form.text), title: `${title} Form`, starts_at: '2031-06-12T19:00', kind: 'meeting', status: 'published', minutes_expected: '1' });
+  const made = get('SELECT * FROM events WHERE title = ?', [`${title} Form`]);
+  if (made) ids.push(made.id);
+  record(made?.minutes_expected === 1, 'it is saved with the event', `-> ${r.status}`);
+  record(/id="minutes_expected"[^>]*checked/.test((await req(`/members/admin/events/${made.id}/edit`)).text), 'and shown ticked when editing');
+
+  // The timeline for one meeting.
+  const start = zonedToUtc(2031, 5, 8, 19, 0);
+  const e1 = addEvent('one', start);
+  const e0 = addEvent('none', start, 0);
+  record(stateOf(e1, at(start, -1)) === undefined, 'nothing is followed before the meeting has happened');
+  record(stateOf(e0, at(start, 5)) === undefined, 'a meeting without "minutes expected" is never followed');
+  const dayAfter = at(start, 0, 6); // 1 AM next day, local
+  record(stateOf(e1, dayAfter) === 'missing', 'afterwards the minutes are marked as needed');
+  let t = todosFor(Users.findById(sec.id), { now: dayAfter });
+  record(t.some((x) => x.title === `Write the minutes for ${title} one`) && !t.find((x) => x.title.includes(`${title} one`)).secondary === false, 'the Secretary has a to-do the next morning, with a Not needed button');
+  record(!todosFor(Users.findById(vp.id), { now: dayAfter }).some((x) => x.title.includes(`${title} one`)), 'and nobody else does yet');
+  await Minutes.runMinutes({ now: dayAfter });
+  record(mailTo(sec, 'Minutes needed') === 0, 'no email yet');
+  const d3 = Minutes.tasks({ now: at(start, 5) }).find((x) => x.event.id === e1).nudgeFrom;
+  await Minutes.runMinutes({ now: new Date(d3.getTime() + 3600_000) });
+  record(mailTo(sec, 'Minutes needed') === 1 && mailTo(pres, 'Minutes needed') === 0, 'three days on, the Secretary is emailed (and only the Secretary)');
+  const nudge = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [sec.email, `%Minutes needed: ${title} one%`]);
+  record(/<table/.test(nudge.body_html ?? '') && /board\/new\?kind=minutes&event=/.test(nudge.body_text), 'it is a styled email that opens the add-minutes form for that meeting');
+  await Minutes.runMinutes({ now: new Date(d3.getTime() + 2 * 3600_000) });
+  await Minutes.runMinutes({ now: new Date(d3.getTime() + 25 * 3600_000) });
+  record(mailTo(sec, 'Minutes needed') === 1, 'not again the same day or the next');
+  await Minutes.runMinutes({ now: new Date(d3.getTime() + 2 * 86_400_000 + 3600_000) });
+  record(mailTo(sec, 'Minutes needed') === 2, 'but every two days');
+  const d10 = Minutes.tasks({ now: at(start, 20) }).find((x) => x.event.id === e1).escalateFrom;
+  await Minutes.runMinutes({ now: new Date(d10.getTime() - 3600_000) });
+  record(mailTo(pres, 'Minutes overdue') === 0, 'the President is not told early');
+  await Minutes.runMinutes({ now: new Date(d10.getTime() + 3600_000) });
+  record(mailTo(pres, 'Minutes overdue') === 1 && mailTo(vp, 'Minutes overdue') === 1, 'at ten days the President and Vice President are told');
+  await Minutes.runMinutes({ now: new Date(d10.getTime() + 2 * 86_400_000) });
+  record(mailTo(pres, 'Minutes overdue') === 1, 'only once');
+  record(todosFor(Users.findById(pres.id), { now: new Date(d10.getTime() + 3600_000) }).some((x) => x.title === `Minutes overdue: ${title} one`), 'and it shows on their dashboard');
+
+  // With no Secretary, the President is the one reminded.
+  Users.setBoardRole(sec.id, null);
+  const e2 = addEvent('two', start);
+  const d3b = Minutes.tasks({ now: at(start, 5) }).find((x) => x.event.id === e2).nudgeFrom;
+  await Minutes.runMinutes({ now: new Date(d3b.getTime() + 3600_000) });
+  record(mailTo(pres, `Minutes needed: ${title} two`) === 1 && Minutes.isOwner(Users.findById(pres.id)), 'with no Secretary the President is reminded instead');
+  Users.setBoardRole(sec.id, 'secretary');
+
+  // Minutes arriving stops it. Linked to the meeting, or dated the day of it.
+  const e3 = addEvent('three', start);
+  const doc3 = addDoc('minutes', 'draft', { eventId: e3 });
+  record(stateOf(e3, at(start, 4)) === 'draft', 'minutes linked to a meeting count as in');
+  const start4 = zonedToUtc(2031, 5, 15, 19, 0);
+  const e4 = addEvent('four', start4);
+  addDoc('minutes', 'in_review', { date: '2031-05-15' });
+  record(stateOf(e4, at(start4, 4)) === 'in_review', 'so do minutes dated the day of the meeting');
+  const before = mailTo(sec, 'Minutes needed');
+  await Minutes.runMinutes({ now: at(start, 4, 12) });
+  record(mailTo(sec, `Minutes needed: ${title} three`) === 0 && mailTo(sec, `Minutes needed: ${title} four`) === 0 && !todosFor(Users.findById(sec.id), { now: at(start, 4) }).some((x) => /three|four/.test(x.title)), 'and then nobody is nudged and the to-do is gone');
+
+  // The add form.
+  Users.setBoardRole(admin.id, 'secretary');
+  const e5 = addEvent('five', new Date(Date.now() - 2 * 86_400_000));
+  const pre = await req(`/members/documents/board/new?kind=minutes&event=${e5}`);
+  record(new RegExp(`<option value="${e5}" selected>`).test(pre.text) && pre.text.includes(`Meeting minutes, ${title} five`), 'the add form opens ready for that meeting');
+  const pdf = Buffer.from(`%PDF-1.4\n% ${stamp}\n%%EOF\n`);
+  r = await multipart('/members/documents/board', { _csrf: csrfFrom((await req(`/members/documents/board/new?kind=minutes&event=${e5}`)).text), kind: 'minutes', title: `${title} Linked`, event_id: String(e5), file: { blob: new Blob([pdf]), name: 'minutes.pdf' } });
+  const linked = get('SELECT * FROM documents WHERE title = ?', [`${title} Linked`]);
+  if (linked) { docs.push(linked.id); }
+  record(linked?.event_id === e5 && Boolean(linked.meeting_date), 'saving it links the minutes to the meeting and fills in the date', `-> ${r.status}`);
+
+  // Not needed.
+  const e6 = addEvent('six', start);
+  run("UPDATE users SET role = 'member' WHERE id = ?", [admin.id]);
+  Users.setBoardRole(admin.id, null);
+  const tok = csrfFrom((await req('/members')).text);
+  r = await req(`/members/documents/minutes/${e6}/not-needed`, { method: 'POST', body: { _csrf: tok } });
+  record(r.status === 403 && stateOf(e6, at(start, 4)) === 'missing', 'an ordinary member cannot say minutes are not needed', `-> ${r.status}`);
+  Users.setBoardRole(admin.id, 'secretary');
+  r = await req(`/members/documents/minutes/${e6}/not-needed`, { method: 'POST', body: { _csrf: tok } });
+  record(stateOf(e6, at(start, 4)) === 'not_needed' && !todosFor(Users.findById(sec.id), { now: at(start, 4) }).some((x) => x.title.endsWith('six')), 'an officer can; the to-do goes');
+  const nb = mailTo(sec, `Minutes needed: ${title} six`);
+  await Minutes.runMinutes({ now: at(start, 6) });
+  record(mailTo(sec, `Minutes needed: ${title} six`) === nb, 'and the reminders stop');
+  const bp = await req('/members/documents/board');
+  record(/Meeting minutes/.test(bp.text) && bp.text.includes(`${title} five`), 'the board page lists meetings and where their minutes stand');
+  r = await req(`/members/documents/minutes/${e6}/reopen`, { method: 'POST', body: { _csrf: csrfFrom(bp.text) } });
+  record(stateOf(e6, at(start, 4)) === 'missing', 'and it can be reopened');
+
+  // Publishing minutes tells members, with a link only.
+  const pub = addDoc('minutes', 'approved', { eventId: e1 });
+  const pubPage = await req(`/members/documents/${pub}`);
+  record(/name="notify"[^>]*checked/.test(pubPage.text), 'publishing minutes offers to email members, ticked the first time');
+  r = await req(`/members/documents/${pub}/publish`, { method: 'POST', body: { _csrf: csrfFrom(pubPage.text), notify: '1' } });
+  const sentMail = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [ma.email, `Minutes available: ${title} doc%`]);
+  record(Boolean(sentMail) && /<table/.test(sentMail.body_html) && /\/members\/documents\/\d+/.test(sentMail.body_text) && !/pdf/i.test(sentMail.body_html.replace(/documents/g, '')) && /\/unsubscribe\//.test(sentMail.body_html), 'members get a styled email with a link, not the file, and an unsubscribe link');
+  record(mailTo(mb, 'Minutes available') === 0, 'a member who turned meeting notices off does not');
+  record(/emailed members a link/.test((await req(`/members/documents/${pub}`)).text), 'the document history records it');
+  const other = addDoc('agenda', 'approved');
+  const op = await req(`/members/documents/${other}`);
+  r = await req(`/members/documents/${other}/publish`, { method: 'POST', body: { _csrf: csrfFrom(op.text), notify: '1' } });
+  record(mailTo(ma, 'Minutes available') === 1, 'publishing something that is not minutes emails no one');
+  const pub2 = addDoc('minutes', 'approved');
+  const p2 = await req(`/members/documents/${pub2}`);
+  await req(`/members/documents/${pub2}/publish`, { method: 'POST', body: { _csrf: csrfFrom(p2.text) } });
+  record(mailTo(ma, 'Minutes available') === 1, 'with the box unticked, nothing is sent');
+
+  // Paused: nothing.
+  Users.setBoardRole(sec.id, 'secretary');
+  const e7 = addEvent('seven', start);
+  Scheduler.setPaused(true);
+  const dd = Minutes.tasks({ now: at(start, 5) }).find((x) => x.event.id === e7).nudgeFrom;
+  await Scheduler.tick({ now: new Date(dd.getTime() + 3600_000) });
+  record(mailTo(sec, `Minutes needed: ${title} seven`) === 0, 'while paused no reminder goes out');
+  Scheduler.setPaused(false);
+  await Scheduler.tick({ now: new Date(dd.getTime() + 3600_000) });
+  record(mailTo(sec, `Minutes needed: ${title} seven`) === 1, 'the scheduler tick also runs the minutes follow-up');
+
+  for (const id of docs) run('DELETE FROM documents WHERE id = ?', [id]);
+  for (const id of ids) {
+    run('DELETE FROM minutes_tasks WHERE event_id = ?', [id]);
+    run('DELETE FROM scheduled_sends WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
+    run('DELETE FROM notices WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
+    run('DELETE FROM events WHERE id = ?', [id]);
+  }
+  run('DELETE FROM email_outbox WHERE subject LIKE ?', [`%${title}%`]);
+  for (const u of [sec, pres, vp, ma, mb]) {
+    run('DELETE FROM email_outbox WHERE to_addr = ?', [u.email]);
+    run('DELETE FROM users WHERE id = ?', [u.id]);
+  }
+  Scheduler.setPaused(wasPaused);
+  console.log = realLog;
+  run('UPDATE users SET role = ? WHERE id = ?', [oldRole, admin.id]);
+  Users.setBoardRole(admin.id, oldOffice);
+  for (const [office, u] of held) if (u && Users.findById(u.id) && !Users.findById(u.id).board_role) Users.setBoardRole(u.id, office);
 }
 
 console.log('\nChapter time');
