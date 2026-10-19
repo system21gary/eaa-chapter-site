@@ -234,6 +234,14 @@ export const config = {
     maxBytes: int('DOCUMENT_MAX_BYTES', 15 * 1024 * 1024),
   },
 
+  // Automatic emails (meeting reminders, and later notices). Off in development so
+  // a laptop does not email anybody; SCHEDULER=1 or 0 overrides. Officers can also
+  // pause it from the Scheduled emails page without a deploy.
+  scheduler: {
+    enabled: process.env.SCHEDULER ? process.env.SCHEDULER !== '0' : isProd,
+    reminderHour: int('REMINDER_HOUR', 9), // chapter time, on the day before
+  },
+
   mail: mailConfig(),
 
   /**

@@ -835,6 +835,34 @@ const migrations = [
         FROM document_reviews r JOIN document_versions v ON v.id = r.version_id LEFT JOIN users u ON u.id = r.reviewer_id;
     `,
   },
+  {
+    version: 18,
+    name: 'scheduled sends and mail headers',
+    sql: `
+    -- One row per automatic email the site has dealt with, so a restart or a
+    -- deploy cannot send the same reminder twice: (rule, occurrence_key) is
+    -- unique. The row is written BEFORE anything is queued ('sending'), which
+    -- makes sending at-most-once: a crash part-way leaves a partial send
+    -- rather than a repeat. An officer skipping a send ahead of time is the
+    -- same row with status 'skipped'.
+    CREATE TABLE scheduled_sends (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      rule           TEXT NOT NULL,
+      occurrence_key TEXT NOT NULL,
+      event_id       INTEGER REFERENCES events(id) ON DELETE SET NULL,
+      due_at         TEXT NOT NULL,
+      status         TEXT NOT NULL CHECK (status IN ('sending', 'sent', 'skipped')),
+      note           TEXT,
+      recipients     INTEGER,
+      created_at     TEXT NOT NULL,
+      sent_at        TEXT,
+      UNIQUE (rule, occurrence_key)
+    );
+
+    -- Extra headers (JSON) for a message: List-Unsubscribe on optional mail.
+    ALTER TABLE email_outbox ADD COLUMN headers TEXT;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

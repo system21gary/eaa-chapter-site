@@ -31,6 +31,8 @@ Rules that have each cost real time to learn:
   path prefix (the CoderFlow preview proxy).
 - **Test against a throwaway `DATA_DIR`** with `MAIL_TRANSPORT=outbox`, and run
   `scripts/smoke.mjs` (also with the server under `TZ=UTC`). The suite uses its
-  own admin and refuses to run with live SMTP.
+  own admin and refuses to run with live SMTP. Set the same `SESSION_SECRET` for the
+  server and the suite to exercise the unsubscribe links (they are signed with it, and a
+  development server invents a new one at each start); without it those checks are skipped.
 - **Leave changes uncommitted**; Gary reviews, commits and pushes. Check
   `git status`/`git log` first: he sometimes commits mid-change.

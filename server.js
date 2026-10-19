@@ -2,6 +2,7 @@ import config from './src/config.js';
 import { createApp } from './src/app.js';
 import { startMailWorker, stopMailWorker, closeMailTransport, outboxHealth } from './src/lib/mailer.js';
 import { startStats, stopStats } from './src/lib/stats.js';
+import { startScheduler, stopScheduler } from './src/lib/scheduler.js';
 import { startBackupReporter, stopBackupReporter, describeReplica, storageProblem } from './src/lib/backup-report.js';
 
 const app = createApp();
@@ -36,6 +37,11 @@ const server = app.listen(config.port, config.host, () => {
   if (startStats()) {
     console.log('  Visit stats: counting page views (no cookies, nothing personal stored)');
   }
+  if (startScheduler()) {
+    console.log('  Scheduler: sending meeting reminders (administrators can pause it from the Automation tab)');
+  } else {
+    console.log('  Scheduler: off (development; SCHEDULER=1 turns it on)');
+  }
   if (startBackupReporter()) {
     console.log(`  Backup report: emailed daily after ${config.backup.reportHour}:00 Eastern\n`);
   } else {
@@ -54,6 +60,7 @@ function shutdown(signal) {
   console.log(`\n[${signal}] shutting down…`);
   stopMailWorker();
   stopBackupReporter();
+  stopScheduler();
   stopStats();
   server.close(async () => {
     // Closing the pool sends QUIT instead of dropping the connection, which

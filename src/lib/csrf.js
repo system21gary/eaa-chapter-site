@@ -70,6 +70,11 @@ export function csrfProtection(req, res, next) {
 
   if (SAFE_METHODS.has(req.method)) return next();
 
+  // One-click unsubscribe. The signed token in the address is the authority, and a
+  // mail client's own Unsubscribe button POSTs here with no session to hold a CSRF
+  // token. All a valid token can do is switch email off (or on) for its own member.
+  if (/^\/unsubscribe\/[\w-]+\.[\w-]+(\/resubscribe)?$/.test(req.path)) return next();
+
   /**
    * File uploads arrive as multipart/form-data, which `express.urlencoded`
    * does not touch -- only the route's own multer does, and that runs later.

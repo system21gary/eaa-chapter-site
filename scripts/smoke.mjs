@@ -10,6 +10,11 @@ import { all, get, run } from '../src/db/index.js';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { documentPath } from '../src/lib/document-files.js';
+import * as Scheduler from '../src/lib/scheduler.js';
+import { meetingReminderEmail, inlineAttachments } from '../src/lib/mailer.js';
+import nodemailer from 'nodemailer';
+import { makeToken } from '../src/lib/unsubscribe.js';
+import { zonedToUtc } from '../src/lib/localtime.js';
 import config from '../src/config.js';
 import { parseLocal, toLocalInput, toLocalDateInput } from '../src/lib/localtime.js';
 
@@ -840,6 +845,165 @@ console.log('\nChapter documents');
 
 function Docs_status(id) {
   return get('SELECT status FROM documents WHERE id = ?', [id])?.status;
+}
+
+console.log('\nScheduled emails and unsubscribe');
+{
+  // The mailer echoes every queued message to the console in development; with a
+  // whole membership per reminder that would bury the results, so hide just those.
+  const realLog = console.log;
+  console.log = (...args) => {
+    const first = String(args[0] ?? '');
+    if (first.includes('outbox #') || first.startsWith('[scheduler]')) return;
+    realLog(...args);
+  };
+  const stamp = Date.now();
+  const title = `Smoke Meeting ${stamp}`;
+  const oldOffice = Users.findById(admin.id).board_role;
+  const heldTreasurer = Users.listBoard().find((u) => u.board_role === 'treasurer');
+  const wasPaused = Scheduler.isPaused();
+  const mk = (tag, extra = '') => {
+    const u = Users.createUser({ email: `smoke.sched.${tag}.${stamp}@example.com`, firstName: tag, lastName: 'Sched', role: 'member', status: 'active' });
+    if (extra) run(extra, [u.id]);
+    return u;
+  };
+  const a = mk('A');
+  const b = mk('B', 'UPDATE users SET mail_reminders = 0 WHERE id = ?');
+  const c = mk('C', "UPDATE users SET status = 'suspended' WHERE id = ?");
+  const addEvent = (label, startsAt) =>
+    Number(run(
+      `INSERT INTO events (slug, title, starts_at, kind, status, created_at, updated_at)
+       VALUES (?, ?, ?, 'meeting', 'published', ?, ?)`,
+      [`smoke-meeting-${label}-${stamp}`, `${title} ${label}`, startsAt.toISOString(), new Date().toISOString(), new Date().toISOString()]
+    ).lastInsertRowid);
+  const mailTo = (u, like) => get('SELECT COUNT(*) AS n FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [u.email, `%${like}%`]).n;
+  const evt = (id) => get('SELECT * FROM events WHERE id = ?', [id]);
+
+  // Administrators only: an officer who is not an admin cannot see it.
+  run("UPDATE users SET role = 'member' WHERE id = ?", [admin.id]);
+  Users.setBoardRole(admin.id, 'treasurer');
+  let r = await req('/members/admin/schedule');
+  record(r.status === 403, 'an officer who is not an administrator cannot open Scheduled emails', `-> ${r.status}`);
+  run("UPDATE users SET role = 'admin' WHERE id = ?", [admin.id]);
+  Users.setBoardRole(admin.id, null);
+  r = await req('/members/admin/schedule');
+  record(r.status === 200 && /Scheduled emails/.test(r.text), 'an administrator can, without holding an office');
+  r = await req('/members');
+  record(/href="[^"]*\/members\/admin\/schedule"/.test(r.text), 'the admin menu has an Automation tab');
+
+  // The day-before reminder.
+  const e1 = addEvent('one', zonedToUtc(2031, 3, 13, 19, 0));
+  const due1 = Scheduler.reminderDueAt(evt(e1));
+  record(toLocalInput(due1) === '2031-03-12T09:00', 'the reminder is due at 9:00 the morning before, chapter time', toLocalInput(due1));
+  const early = new Date(due1.getTime() - 3600_000);
+  let t = await Scheduler.tick({ now: early });
+  record(!t.sent.length && mailTo(a, `${title} one`) === 0, 'nothing goes out before it is due');
+  const at1 = new Date(due1.getTime() + 3600_000);
+  t = await Scheduler.tick({ now: at1 });
+  record(t.sent.some((x) => x.key.startsWith(`event:${e1}:`)), 'it goes out once it is due');
+  record(mailTo(a, `${title} one`) === 1, 'an opted-in member gets it');
+  record(mailTo(b, `${title} one`) === 0, 'a member who turned reminders off does not');
+  record(mailTo(c, `${title} one`) === 0, 'a suspended member does not');
+  const row = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [a.email, `%${title} one%`]);
+  record(/\/unsubscribe\/[\w-]+\.[\w-]+/.test(row.body_text) && /List-Unsubscribe-Post/.test(row.headers ?? '') && /One-Click/.test(row.headers), 'it carries an unsubscribe link and the one-click header');
+  record(/Thursday, March 13 at 7:00 PM/.test(row.body_text), 'the time reads in chapter time');
+  record(/<table/.test(row.body_html ?? '') && row.body_html.includes(`${title} one`) && /\/unsubscribe\/[\w-]+\.[\w-]+/.test(row.body_html) && /Thursday, March 13 at 7:00 PM/.test(row.body_html), 'it also has a styled HTML version, with the details and unsubscribe link');
+  const hostile = meetingReminderEmail({
+    name: '<b>N</b>', title: '<img src=x onerror=alert(1)> & Co', when: { long: 'Thursday', short: 'Thu' }, where: '<script>x</script>',
+    summary: '"><svg onload=1>', rainDate: '<i>', link: 'https://x.test/?a=1&b="2"', unsubscribeLink: 'https://x.test/u', accountLink: 'https://x.test/a',
+  });
+  // The badge travels inside the message: no remote image, and it survives real MIME building.
+  const parts = inlineAttachments(row.body_html);
+  const built = await nodemailer.createTransport({ streamTransport: true, buffer: true }).sendMail({
+    from: 'a@example.com', to: 'b@example.com', subject: 's', text: row.body_text, html: row.body_html, attachments: parts,
+  });
+  const mime = built.message.toString();
+  record(!/<img[^>]+src="https?:/.test(row.body_html) && parts.length === 1 && fs.statSync(parts[0].path).size < 20_000 && /Content-ID: <eaa-logo>/i.test(mime) && /multipart\/related/.test(mime) && /<img[^>]+src="cid:eaa-logo"/.test(mime.replace(/=\r?\n/g, '').replace(/=3D/g, '=')), 'the badge is attached to the message itself (cid), not fetched from a website');
+  record(!/<img src=x|<script|<svg|<b>N|<i>/.test(hostile.html) && hostile.html.includes('&lt;img src=x') && !hostile.html.includes('href="https://x.test/?a=1&b="'), 'markup in an event title or location cannot get into the HTML email');
+  t = await Scheduler.tick({ now: at1 });
+  record(!t.sent.length && mailTo(a, `${title} one`) === 1, 'a second run sends nothing more (no repeats)');
+
+  // A meeting that moves gets a fresh reminder for its new date.
+  run('UPDATE events SET starts_at = ? WHERE id = ?', [zonedToUtc(2031, 3, 20, 19, 0).toISOString(), e1]);
+  t = await Scheduler.tick({ now: new Date(Scheduler.reminderDueAt(evt(e1)).getTime() + 3600_000) });
+  record(t.sent.length === 1 && mailTo(a, `${title} one`) === 2, 'a moved meeting gets a new reminder for its new date');
+
+  // Too late to be useful.
+  const e2 = addEvent('two', zonedToUtc(2031, 4, 10, 19, 0));
+  t = await Scheduler.tick({ now: new Date(Scheduler.reminderDueAt(evt(e2)).getTime() + 20 * 3600_000) });
+  record(t.skipped.length === 1 && mailTo(a, `${title} two`) === 0, 'a reminder more than 18 hours late is skipped, not sent');
+
+  // Unsubscribe. The links are signed with SESSION_SECRET, which a development server
+  // makes up afresh at every start, so these checks only work when this script and the
+  // server share one (SESSION_SECRET=... for both). Otherwise say so rather than fail.
+  const tok = makeToken(a.id, 'reminders');
+  const shared = (await fetch(`${BASE}/unsubscribe/${tok}`)).status === 200;
+  if (!shared) {
+    realLog('  skip unsubscribe link checks: the server signs with a different SESSION_SECRET than this script (set the same one for both to run them)');
+  } else {
+    r = await req(`/unsubscribe/${tok}`);
+    record(r.status === 200 && /Unsubscribe/.test(r.text) && Users.findById(a.id).mail_reminders === 1, 'the link asks first; opening it changes nothing');
+    r = await req(`/unsubscribe/${tok}`, { method: 'POST', body: {} });
+    record(r.status === 200 && Users.findById(a.id).mail_reminders === 0 && Users.findById(a.id).mail_newsletter === 1, 'confirming turns off that one category only');
+    r = await req(`/unsubscribe/${tok}/resubscribe`, { method: 'POST', body: {} });
+    record(Users.findById(a.id).mail_reminders === 1, 'and it can be turned back on');
+    const oneClick = await fetch(`${BASE}/unsubscribe/${tok}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'List-Unsubscribe=One-Click',
+    });
+    record(oneClick.status === 200 && Users.findById(a.id).mail_reminders === 0, "a mail client's one-click button works with no login or form token", `-> ${oneClick.status}`);
+    const bad = await fetch(`${BASE}/unsubscribe/${tok.slice(0, -2)}xx`, { method: 'POST' });
+    await fetch(`${BASE}/unsubscribe/${makeToken(b.id, 'newsletter')}`, { method: 'POST' });
+    record(bad.status === 404 && Users.findById(b.id).mail_newsletter === 0 && Users.findById(b.id).mail_meeting_notices === 1, 'a forged link does nothing; a real one affects only its own category');
+    const ghost = await fetch(`${BASE}/unsubscribe/${makeToken(999999, 'reminders')}`, { method: 'POST' });
+    record(ghost.status === 404, 'a link for nobody is refused');
+  }
+  run('UPDATE users SET mail_reminders = 0 WHERE id = ?', [a.id]); // opted out, whichever way
+
+  // Pause, and the officers' page.
+  const e3 = addEvent('three', zonedToUtc(2031, 5, 8, 19, 0));
+  const at3 = new Date(Scheduler.reminderDueAt(evt(e3)).getTime() + 3600_000);
+  Scheduler.setPaused(true);
+  t = await Scheduler.tick({ now: at3 });
+  record(t.paused && !t.sent.length && !get('SELECT 1 AS x FROM scheduled_sends WHERE occurrence_key LIKE ?', [`event:${e3}:%`]), 'while paused nothing is sent or recorded');
+  Scheduler.setPaused(false);
+  t = await Scheduler.tick({ now: at3 });
+  const someoneElse = Users.listMembers({ status: 'active' }).find((m) => m.id !== a.id && m.id !== b.id && !m.email.startsWith('smoke.'));
+  record(t.sent.length === 1 && mailTo(a, `${title} three`) === 0 && mailTo(someoneElse, `${title} three`) === 1, 'resumed, it sends, and still leaves out the member who opted out');
+
+  const near = addEvent('near', new Date(Date.now() + 10 * 86_400_000));
+  const nearKey = Scheduler.plan().find((p) => p.event.id === near)?.key;
+  let page = await req('/members/admin/schedule');
+  record(Boolean(nearKey) && page.text.includes(`${title} near`) && /Scheduled/.test(page.text), 'the page lists an upcoming reminder');
+  r = await req('/members/admin/schedule/skip', { method: 'POST', body: { _csrf: csrfFrom(page.text), key: nearKey } });
+  record(Scheduler.plan().find((p) => p.key === nearKey)?.state === 'skipped', 'an officer can skip it');
+  r = await Scheduler.tick({ now: new Date(Scheduler.reminderDueAt(evt(near)).getTime() + 3600_000) });
+  record(mailTo(a, `${title} near`) === 0, 'a skipped reminder is not sent');
+  page = await req('/members/admin/schedule');
+  r = await req('/members/admin/schedule/skip', { method: 'POST', body: { _csrf: csrfFrom(page.text), key: nearKey, undo: '1' } });
+  record(Scheduler.plan().find((p) => p.key === nearKey)?.state === 'scheduled', 'and restored');
+  r = await req('/members/admin/schedule/test', { method: 'POST', body: { _csrf: csrfFrom(page.text), key: nearKey } });
+  record(mailTo(admin, '[TEST]') >= 1, 'an officer can email themselves a test copy');
+  r = await req('/members/admin/schedule/pause', { method: 'POST', body: { _csrf: csrfFrom(page.text), paused: '1' } });
+  record(Scheduler.isPaused(), 'the page can pause sending');
+  Scheduler.setPaused(false);
+
+  // Clean up.
+  for (const id of [e1, e2, e3, near]) {
+    run('DELETE FROM scheduled_sends WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
+    run('DELETE FROM events WHERE id = ?', [id]);
+  }
+  run('DELETE FROM email_outbox WHERE subject LIKE ?', [`%${title}%`]);
+  run("DELETE FROM email_outbox WHERE to_addr = ? AND subject LIKE '[TEST]%'", [admin.email]);
+  for (const u of [a, b, c]) {
+    run('DELETE FROM email_outbox WHERE to_addr = ?', [u.email]);
+    run('DELETE FROM users WHERE id = ?', [u.id]);
+  }
+  Scheduler.setPaused(wasPaused);
+  console.log = realLog;
+  Users.setBoardRole(admin.id, oldOffice);
+  if (heldTreasurer && !Users.findById(heldTreasurer.id).board_role) Users.setBoardRole(heldTreasurer.id, 'treasurer');
 }
 
 console.log('\nChapter time');

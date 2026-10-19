@@ -1,0 +1,102 @@
+{% extends "layouts/base.njk" %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Administrators</span>
+        <h1>Scheduled emails</h1>
+        <p>What the site will send on its own. Each meeting gets a short reminder the day
+           before, at {{ reminderHour }}:00 AM, to members who have not turned reminders off.</p>
+      </div>
+      <form method="post" action="{{ '/members/admin/schedule/pause' | url }}">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <input type="hidden" name="paused" value="{{ '0' if paused else '1' }}">
+        <button type="submit" class="btn btn-{{ 'primary' if paused else 'outline' }}">{{ 'Resume sending' if paused else 'Pause all sending' }}</button>
+      </form>
+    </div>
+
+    {% if not enabled %}
+      <div class="notice" style="margin-top:1.5rem">The scheduler is switched off on this server (SCHEDULER=0, or a development copy), so nothing goes out automatically.</div>
+    {% elif paused %}
+      <div class="notice" style="margin-top:1.5rem"><strong>Paused.</strong> Nothing will be sent until someone resumes.</div>
+    {% endif %}
+
+    <h2 style="margin-top:2rem">Coming up</h2>
+    {% if items.length %}
+      <div class="table-wrap" style="margin-top:.8rem">
+        <table class="data">
+          <thead><tr><th>Email</th><th>Goes out</th><th>To</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {% for i in items %}
+              <tr>
+                <td><strong>{{ rules[i.rule].label }}</strong><br><span class="small muted">{{ i.event.title }} · {{ i.event.starts_at | datetime }}</span></td>
+                <td class="small">{{ i.dueAt | datetime }}</td>
+                <td class="small">{{ audience }} of {{ totalMembers }} members</td>
+                <td>
+                  {% if i.state == 'sent' %}<span class="pill pill-green">Sent</span>
+                  {% elif i.state == 'sending' %}<span class="pill pill-amber">Sending</span>
+                  {% elif i.state == 'skipped' %}<span class="pill pill-grey">Skipped</span>{% if i.record.note %}<br><span class="tiny muted">{{ i.record.note }}</span>{% endif %}
+                  {% elif i.state == 'due' %}<span class="pill pill-amber">Due now</span>
+                  {% else %}<span class="pill pill-grey">Scheduled</span>{% endif %}
+                </td>
+                <td>
+                  <div class="row-actions" style="max-width:none">
+                    {% if i.state in ['scheduled', 'due'] %}
+                      <form method="post" action="{{ '/members/admin/schedule/skip' | url }}" data-confirm="Skip this one? It will not be sent.">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <input type="hidden" name="key" value="{{ i.key }}">
+                        <button type="submit" class="btn btn-outline btn-sm">Skip</button>
+                      </form>
+                    {% elif i.state == 'skipped' and i.record.note and i.record.note.startsWith('skipped by') %}
+                      <form method="post" action="{{ '/members/admin/schedule/skip' | url }}">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <input type="hidden" name="key" value="{{ i.key }}">
+                        <input type="hidden" name="undo" value="1">
+                        <button type="submit" class="btn btn-outline btn-sm">Restore</button>
+                      </form>
+                    {% endif %}
+                    <form method="post" action="{{ '/members/admin/schedule/test' | url }}">
+                      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                      <input type="hidden" name="key" value="{{ i.key }}">
+                      <button type="submit" class="btn btn-outline btn-sm">Email me a copy</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty" style="margin-top:.8rem">
+        <h3>Nothing scheduled</h3>
+        <p>Reminders are made for events of type Meeting on the calendar, in the next 45 days.</p>
+      </div>
+    {% endif %}
+
+    {% if recent.length %}
+      <h2 style="margin-top:2.5rem">Recently handled</h2>
+      <div class="table-wrap" style="margin-top:.8rem">
+        <table class="data">
+          <thead><tr><th>Email</th><th>When</th><th>Result</th></tr></thead>
+          <tbody>
+            {% for r in recent %}
+              <tr>
+                <td>{{ rules[r.rule].label }}{% if r.event_title %}: {{ r.event_title }}{% endif %}</td>
+                <td class="small muted">{{ (r.sent_at or r.created_at) | datetime }}</td>
+                <td class="small">
+                  {% if r.status == 'sent' %}Sent to {{ r.recipients }} member{{ 's' if r.recipients != 1 }}
+                  {% elif r.status == 'skipped' %}Skipped{% if r.note %} ({{ r.note }}){% endif %}
+                  {% else %}{{ r.status }}{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

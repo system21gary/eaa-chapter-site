@@ -296,6 +296,12 @@ export function setMailPrefs(userId, prefs) {
   run(`UPDATE users SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`, [...params, nowIso(), userId]);
 }
 
+/** Switches one optional mail category on or off for a member. `column` is a MAIL_PREFS key. */
+export function setMailPref(userId, column, on) {
+  if (!MAIL_PREFS[column]) throw new Error(`Unknown mail preference: ${column}`);
+  run(`UPDATE users SET ${column} = ?, updated_at = ? WHERE id = ?`, [on ? 1 : 0, nowIso(), userId]);
+}
+
 /**
  * Active members who have not opted out of a category. The scheduler uses
  * this, so an opt-out is honoured in one place.

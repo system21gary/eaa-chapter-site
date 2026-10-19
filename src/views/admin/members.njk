@@ -23,7 +23,7 @@
         <div class="table-wrap" style="margin-top:1rem">
           <table class="data">
             <thead>
-              <tr><th>Member</th><th>Role</th><th title="Members who are switched on are copied (Cc) on these emails, in addition to the chapter inbox">Copied on</th><th>Status</th><th>Last seen</th><th>Actions</th></tr>
+              <tr><th>Member</th><th>Role</th><th title="Members who are switched on are copied (Cc) on these emails, in addition to the chapter inbox">Copied on</th><th>Status</th><th>Last seen</th><th></th></tr>
             </thead>
             <tbody>
               {% for m in members %}
@@ -31,9 +31,9 @@
                   <td>
                     <strong><a href="{{ ('/members/admin/members/' ~ m.id ~ '/edit') | url }}">{{ displayName(m) }}</a></strong><br>
                     <span class="small muted">{{ m.email }}</span>
-                    {% if m.board_role %}<br><span class="pill pill-green">{{ boardRoles[m.board_role] }}</span>{% endif %}
+                    {% if m.board_role %}<br><span class="pill pill-green pill-flush">{{ boardRoles[m.board_role] }}</span>{% endif %}
                     {% if not m.password_set_at %}
-                      <br><span class="pill pill-amber">No password set</span>
+                      <br><span class="pill pill-amber pill-flush">No password set</span>
                     {% endif %}
                   </td>
                   <td>
@@ -68,14 +68,10 @@
                     {% endif %}
                     {% endif %}
                   </td>
-                  <td>
+                  {# Edit, Re-invite and Suspend share the bottom line, starting under the status pill and running across Last seen. #}
+                  <td style="vertical-align:top; position:relative">
                     <span class="pill pill-{{ 'green' if m.status == 'active' else ('red' if m.status == 'suspended' else 'grey') }}">{{ m.status }}</span>
-                  </td>
-                  <td class="small muted">
-                    {% if m.last_login_at %}{{ m.last_login_at | relative }}{% else %}never{% endif %}
-                  </td>
-                  <td>
-                    <div class="row-actions">
+                    <div class="row-actions" style="position:absolute; left:.9rem; bottom:.7rem; max-width:none; flex-wrap:nowrap">
                       <a class="btn btn-outline btn-sm" href="{{ ('/members/admin/members/' ~ m.id ~ '/edit') | url }}"
                          aria-label="Edit or remove {{ displayName(m) }}">Edit</a>
                       <form method="post" action="{{ '' | url }}/members/admin/members/{{ m.id }}/resend" data-keep-scroll>
@@ -92,6 +88,10 @@
                       </form>
                     </div>
                   </td>
+                  <td class="small muted" style="vertical-align:top; white-space:nowrap">
+                    {% if m.last_login_at %}{{ m.last_login_at | relative }}{% else %}never{% endif %}
+                  </td>
+                  <td style="min-width:5rem"></td>
                 </tr>
               {% endfor %}
             </tbody>

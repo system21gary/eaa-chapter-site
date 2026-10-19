@@ -30,6 +30,8 @@ import buildsRoutes from './routes/builds.js';
 import memberBuildsRoutes from './routes/member-builds.js';
 import adminRoutes from './routes/admin.js';
 import documentsRoutes from './routes/documents.js';
+import unsubscribeRoutes from './routes/unsubscribe.js';
+import scheduleRoutes from './routes/schedule.js';
 import mediaRoutes from './routes/media.js';
 
 export function createApp() {
@@ -173,7 +175,9 @@ export function createApp() {
   app.use('/members/builds', memberBuildsRoutes);
   app.use('/members/blog', blogRoutes);
   app.use('/members/locker', lockerRoutes);
+  app.use('/unsubscribe', unsubscribeRoutes);
   app.use('/members/documents', documentsRoutes);
+  app.use('/members/admin/schedule', scheduleRoutes);
   app.use('/members/admin', adminRoutes);
 
   app.use(notFound);

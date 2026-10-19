@@ -55,6 +55,7 @@
             Requests{% if pendingApplications %} <span class="nav-badge">{{ pendingApplications }}</span>{% endif %}
           </a>
           <a href="{{ '/members/admin/members' | url }}" {% if currentPath.startsWith('/members/admin/members') %}aria-current="page"{% endif %}>People</a>
+          <a href="{{ '/members/admin/schedule' | url }}" {% if currentPath.startsWith('/members/admin/schedule') %}aria-current="page"{% endif %}>Automation</a>
           <a href="{{ '/members/admin/stats' | url }}" {% if currentPath.startsWith('/members/admin/stats') %}aria-current="page"{% endif %}>Stats</a>
           <a href="{{ '/members/admin/log' | url }}" {% if currentPath.startsWith('/members/admin/log') %}aria-current="page"{% endif %}>Log</a>
         {% endif %}

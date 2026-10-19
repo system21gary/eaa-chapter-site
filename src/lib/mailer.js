@@ -1,5 +1,7 @@
 import config from '../config.js';
 import { TZ } from './localtime.js';
+import path from 'node:path';
+import { renderEmail, para, button, detailRow, esc, link as emailLink, LOGO_CID } from './email-layout.js';
 import { run, all, get, nowIso } from '../db/index.js';
 
 /**
@@ -44,7 +46,7 @@ function isSuppressed(address) {
   return config.mail.suppressDomains.has(domain);
 }
 
-export async function sendMail({ to, subject, text, html = null, replyTo = null, cc = [] }) {
+export async function sendMail({ to, subject, text, html = null, replyTo = null, cc = [], headers = null }) {
   const now = nowIso();
   // Copies go in the Cc header (so a reply-all reaches them too). Never the To address twice.
   const ccList = [...new Set([].concat(cc ?? []).map((a) => String(a).trim()).filter(Boolean))].filter(
@@ -52,11 +54,11 @@ export async function sendMail({ to, subject, text, html = null, replyTo = null,
   );
   const info = run(
     `INSERT INTO email_outbox
-       (to_addr, subject, body_text, body_html, reply_to, cc, created_at, next_attempt_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (to_addr, subject, body_text, body_html, reply_to, cc, headers, created_at, next_attempt_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     // next_attempt_at NULL when there is no transport: the row is a record,
     // not a pending delivery, so turning SMTP on later does not flush it.
-    [to, subject, text, html, replyTo, ccList.join(', ') || null, now, isLive() ? now : null]
+    [to, subject, text, html, replyTo, ccList.join(', ') || null, headers ? JSON.stringify(headers) : null, now, isLive() ? now : null]
   );
   const id = Number(info.lastInsertRowid);
 
@@ -96,7 +98,7 @@ export async function deliverOutbox({ limit = 25 } = {}) {
 
   try {
     const due = all(
-      `SELECT id, to_addr, subject, body_text, body_html, reply_to, cc, attempts, next_attempt_at
+      `SELECT id, to_addr, subject, body_text, body_html, reply_to, cc, headers, attempts, next_attempt_at
          FROM email_outbox
         WHERE sent_at IS NULL
           AND next_attempt_at IS NOT NULL
@@ -303,7 +305,23 @@ export async function verifyTransport() {
   return true;
 }
 
-async function sendViaSmtp({ to_addr: to, subject, body_text: text, body_html: html, reply_to: replyTo, cc }) {
+/**
+ * Images an HTML message refers to by `cid:` are attached to the message itself,
+ * so they show immediately in Gmail, Outlook and Apple Mail with no remote
+ * image to block and no dependence on the website being reachable. Today that
+ * is one small badge (4.8 KB), sent only with messages that use it.
+ */
+export function inlineAttachments(html) {
+  if (!html || !html.includes(`cid:${LOGO_CID}`)) return [];
+  return [{
+    filename: 'eaa-chapter-1699.png',
+    path: path.join(config.publicDir, 'img', 'eaa-email-badge.png'),
+    cid: LOGO_CID,
+    contentDisposition: 'inline',
+  }];
+}
+
+async function sendViaSmtp({ to_addr: to, subject, body_text: text, body_html: html, reply_to: replyTo, cc, headers }) {
   const t = await smtpTransport();
   // Documentation-only domains (example.com and friends) cannot receive mail; leave them out of the Cc.
   const copies = String(cc ?? '')
@@ -317,6 +335,8 @@ async function sendViaSmtp({ to_addr: to, subject, body_text: text, body_html: h
     subject,
     text,
     ...(html ? { html } : {}),
+    ...(inlineAttachments(html).length ? { attachments: inlineAttachments(html) } : {}),
+    ...(headers ? { headers: JSON.parse(headers) } : {}),
     ...(replyTo || config.mail.replyTo ? { replyTo: replyTo || config.mail.replyTo } : {}),
   });
 }
@@ -620,4 +640,60 @@ export function documentReviewedEmail({ name, reviewerName, reviewerOffice, titl
       'EAA Chapter 1699',
     ].join('\n'),
   };
+}
+
+/** The day-before reminder for a meeting. `when`, `where` and the links are already formatted. */
+export function meetingReminderEmail({
+  name, title, when, where, summary, rainDate, link: eventLink, directionsLink = null,
+  unsubscribeLink, accountLink,
+}) {
+  const text = [
+    `Hi ${name},`,
+    '',
+    `A quick reminder: ${title} is tomorrow, ${when.long}.`,
+    ...(where ? ['', `Where: ${where}`] : []),
+    ...(summary ? ['', summary] : []),
+    ...(rainDate ? ['', `Rain date: ${rainDate}`] : []),
+    '',
+    `Details: ${eventLink}`,
+    '',
+    'See you there.',
+    'EAA Chapter 1699',
+    '',
+    '--',
+    `Stop these reminders: ${unsubscribeLink}`,
+    `Or choose what you get on your account page: ${accountLink}`,
+  ].join('\n');
+
+  const details = [
+    detailRow('When', esc(when.long)),
+    ...(where
+      ? [detailRow('Where', `${esc(where)}${directionsLink ? `<br>${emailLink(directionsLink, 'Get directions')}` : ''}`)]
+      : []),
+  ].join('');
+
+  const html = renderEmail({
+    preheader: `${title} is tomorrow, ${when.long}.`,
+    eyebrow: 'Meeting reminder',
+    title,
+    subtitle: `Tomorrow \u00b7 ${when.long}`,
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      para('A quick reminder that we are meeting tomorrow.'),
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px; border-bottom:1px solid #e3e8ee;">${details}</table>`,
+      ...(summary ? [para(esc(summary))] : []),
+      ...(rainDate
+        ? [`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;"><tr><td bgcolor="#fdeed6" style="background:#fdeed6; border-radius:10px; padding:12px 16px; font-size:15px; line-height:1.5; color:#7c4a08;"><strong>Rain date:</strong> ${esc(rainDate)}</td></tr></table>`]
+        : []),
+      button('See the meeting details', eventLink),
+      para('See you there.<br>EAA Chapter 1699', 'margin-bottom:24px;'),
+    ].join(''),
+    footerHtml: [
+      'You are getting this because you are a member of EAA Chapter 1699 and meeting reminders are switched on.',
+      `<br>${emailLink(unsubscribeLink, 'Stop these reminders')} &nbsp;&middot;&nbsp; ${emailLink(accountLink, 'Email preferences')}`,
+      '<br><br>EAA Chapter 1699 &middot; South Albany Airport (4B0) &middot; Selkirk, New York',
+    ].join(''),
+  });
+
+  return { subject: `Reminder: ${title}, ${when.short}`, text, html };
 }
