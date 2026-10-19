@@ -88,6 +88,20 @@
           </div>
         </div>
 
+        <div class="field">
+          <label for="reminders">Email members a reminder</label>
+          <select id="reminders" name="reminders">
+            <option value="" {{ 'selected' if not event.reminders }}>The usual for this type of event</option>
+            <option value="off" {{ 'selected' if event.reminders == 'off' }}>No reminder</option>
+            <option value="day" {{ 'selected' if event.reminders == 'day' }}>The day before</option>
+            <option value="week_and_day" {{ 'selected' if event.reminders == 'week_and_day' }}>A week before and the day before</option>
+          </select>
+          <span class="hint">
+            The usual: meetings and workshops the day before; fly-ins and Young Eagles days a week before and
+            the day before; socials and general chapter events none. Members who have turned reminders off are left out.
+          </span>
+        </div>
+
         {% set name = 'body_md' %}
         {% set label = 'Details' %}
         {% set value = event.body_md %}
@@ -231,6 +245,50 @@
         <a class="btn btn-outline" href="{{ '/members/admin/events' | url }}">Cancel</a>
       </div>
     </form>
+
+    {% if not isNew and event.status != 'draft' %}
+      <form method="post" action="{{ '' | url }}/members/admin/events/{{ event.id }}/update" class="form-card" id="tell-members" style="margin-top:1.5rem">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <fieldset>
+          <legend>Tell members about a change</legend>
+          <p class="small muted" style="margin-top:0">
+            For a new time or place, or a weather cancellation. Your words go to {{ updateAudience }} member{{ 's' if updateAudience != 1 }}
+            (everyone who has not turned reminders off), wrapped in the event's details. Send yourself a preview first.
+          </p>
+          <div class="check">
+            <input type="radio" id="kind_update" name="kind" value="update" checked>
+            <label for="kind_update">A change</label>
+          </div>
+          <div class="check">
+            <input type="radio" id="kind_cancelled" name="kind" value="cancelled" {{ 'checked' if event.status == 'cancelled' }}>
+            <label for="kind_cancelled">It is cancelled</label>
+          </div>
+          <div class="field">
+            <label for="message">What do members need to know</label>
+            <textarea id="message" name="message" rows="4" maxlength="1500" required placeholder="Because of the forecast, Saturday's Young Eagles rally is moved to Sunday at 9 AM."></textarea>
+            <span class="hint">Update the event's date or place above first if it changed, so the details in the email are right.</span>
+          </div>
+          {% if event.status != 'cancelled' %}
+            <div class="check">
+              <input type="checkbox" id="mark_cancelled" name="mark_cancelled" value="1" checked>
+              <label for="mark_cancelled">If it is cancelled, also mark the event cancelled <span class="muted">(stops further reminders and shows it as cancelled on the website)</span></label>
+            </div>
+          {% endif %}
+        </fieldset>
+        <div class="form-actions">
+          <button type="submit" name="action" value="preview" class="btn btn-outline">Email me a preview</button>
+          <button type="submit" name="action" value="send" class="btn btn-primary" data-confirm-button="Send this to {{ updateAudience }} members?">Send to members</button>
+        </div>
+        {% if updates and updates.length %}
+          <h4 style="margin:1.5rem 0 .4rem">Sent so far</h4>
+          <ul class="plain small">
+            {% for u in updates %}
+              <li style="margin-bottom:.5rem"><strong>{{ 'Cancelled' if u.kind == 'cancelled' else 'Update' }}</strong> · {{ u.created_at | datetime }} · {{ u.sent_label }} · {{ u.recipients }} member{{ 's' if u.recipients != 1 }}<br><span class="muted">{{ u.message }}</span></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </form>
+    {% endif %}
 
     {% if not isNew %}
       <form method="post" action="{{ '' | url }}/members/admin/events/{{ event.id }}/delete" class="danger-zone"

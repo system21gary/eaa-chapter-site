@@ -1,7 +1,7 @@
 import config from '../config.js';
 import { TZ } from './localtime.js';
 import path from 'node:path';
-import { renderEmail, para, button, detailRow, esc, link as emailLink, LOGO_CID } from './email-layout.js';
+import { renderEmail, para, button, detailRow, esc, link as emailLink, quote, linkFallback, plainFooter, LOGO_CID } from './email-layout.js';
 import { run, all, get, nowIso } from '../db/index.js';
 
 /**
@@ -371,45 +371,73 @@ export function recentOutbox(limit = 50) {
 
 /* --------------------------------------------------------------- templates */
 
+const table = (rows) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px; border-bottom:1px solid #e3e8ee;">${rows}</table>`;
+const sign = (line = 'Blue skies,<br>EAA Chapter 1699') => para(line, 'margin-bottom:24px;');
+
+
 export function passwordResetEmail({ name, link, ttlMinutes }) {
-  return {
-    subject: 'Reset your EAA Chapter 1699 password',
-    text: [
-      `Hi ${name},`,
-      '',
-      'Someone asked to set a new password for your EAA Chapter 1699 members account.',
-      'If that was you, open the link below within the next ' + ttlMinutes + ' minutes:',
-      '',
-      link,
-      '',
-      'The link works once and then expires. If you did not ask for this, you can',
-      'ignore this email -- your current password still works and nothing has changed.',
-      '',
-      'Blue skies,',
-      'EAA Chapter 1699 - South Albany Airport (4B0)',
-    ].join('\n'),
-  };
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Someone asked to set a new password for your EAA Chapter 1699 members account.',
+    'If that was you, open the link below within the next ' + ttlMinutes + ' minutes:',
+    '',
+    link,
+    '',
+    'The link works once and then expires. If you did not ask for this, you can',
+    'ignore this email -- your current password still works and nothing has changed.',
+    '',
+    'Blue skies,',
+    'EAA Chapter 1699 - South Albany Airport (4B0)',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `Your link to set a new password works for ${ttlMinutes} minutes.`,
+    eyebrow: 'Password reset',
+    title: 'Set a new password',
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      para('Someone asked to set a new password for your EAA Chapter 1699 members account. If that was you, use the button below within the next ' + esc(ttlMinutes) + ' minutes.'),
+      button('Choose a new password', link),
+      linkFallback(link),
+      para('The link works once and then expires. If you did not ask for this, you can ignore this email: your current password still works and nothing has changed.'),
+      sign(),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because a password reset was asked for on your members account.'),
+  });
+  return { subject: 'Reset your EAA Chapter 1699 password', text, html };
 }
 
 export function inviteEmail({ name, link, invitedBy, ttlDays }) {
-  return {
-    subject: 'Your EAA Chapter 1699 members account',
-    text: [
-      `Hi ${name},`,
-      '',
-      `${invitedBy} has set up a Members Corner account for you at EAA Chapter 1699.`,
-      '',
-      'Choose your password here (link valid for ' + ttlDays + ' days):',
-      '',
-      link,
-      '',
-      'Inside you will find the chapter blog and the Tool Locker -- the shared',
-      'list of tools members are willing to lend to each other.',
-      '',
-      'Blue skies,',
-      'EAA Chapter 1699 - South Albany Airport (4B0)',
-    ].join('\n'),
-  };
+  const text = [
+    `Hi ${name},`,
+    '',
+    `${invitedBy} has set up a Members Corner account for you at EAA Chapter 1699.`,
+    '',
+    'Choose your password here (link valid for ' + ttlDays + ' days):',
+    '',
+    link,
+    '',
+    'Inside you will find the chapter blog and the Tool Locker -- the shared',
+    'list of tools members are willing to lend to each other.',
+    '',
+    'Blue skies,',
+    'EAA Chapter 1699 - South Albany Airport (4B0)',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `${invitedBy} has set up a members account for you.`,
+    eyebrow: 'Welcome',
+    title: 'Your members account is ready',
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      para(`${esc(invitedBy)} has set up a Members Corner account for you at EAA Chapter 1699. Choose your password to sign in. The link is valid for ${esc(ttlDays)} days.`),
+      button('Choose your password', link),
+      linkFallback(link),
+      para('Inside you will find the chapter blog and the Tool Locker, the shared list of tools members are willing to lend to each other.'),
+      sign(),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because the chapter set up a members account for you.'),
+  });
+  return { subject: 'Your EAA Chapter 1699 members account', text, html };
 }
 
 export function borrowRequestEmail({
@@ -422,31 +450,46 @@ export function borrowRequestEmail({
   neededTo = null,
 }) {
   const when = dateRange(neededFrom, neededTo);
-  return {
-    subject: `Borrow request: ${toolName}`,
-    text: [
-      `Hi ${ownerName},`,
-      '',
-      `${requesterName} would like to borrow your ${toolName}.`,
-      // When they want it is the first thing an owner needs in order to answer,
-      // so it goes above the note rather than being left in the dashboard.
-      ...(when ? ['', `When: ${when}`] : []),
-      '',
-      'Their note:',
-      message,
-      '',
-      'Nothing happens until you say so. Open the Tool Locker requests page to',
-      'approve or decline, and to add a note back to them:',
-      '',
-      link,
-      '',
-      'Approving marks the tool as on loan; marking it returned later puts it',
-      'back on the available list. Either way they get an email, so you do not',
-      'have to chase anybody down.',
-      '',
-      'EAA Chapter 1699 Tool Locker',
-    ].join('\n'),
-  };
+  const text = [
+    `Hi ${ownerName},`,
+    '',
+    `${requesterName} would like to borrow your ${toolName}.`,
+    // When they want it is the first thing an owner needs in order to answer,
+    // so it goes above the note rather than being left in the dashboard.
+    ...(when ? ['', `When: ${when}`] : []),
+    '',
+    'Their note:',
+    message,
+    '',
+    'Nothing happens until you say so. Open the Tool Locker requests page to',
+    'approve or decline, and to add a note back to them:',
+    '',
+    link,
+    '',
+    'Approving marks the tool as on loan; marking it returned later puts it',
+    'back on the available list. Either way they get an email, so you do not',
+    'have to chase anybody down.',
+    '',
+    'EAA Chapter 1699 Tool Locker',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `${requesterName} would like to borrow your ${toolName}.`,
+    eyebrow: 'Tool Locker',
+    title: `Borrow request: ${toolName}`,
+    bodyHtml: [
+      para(`Hi ${esc(ownerName)},`),
+      para(`${esc(requesterName)} would like to borrow your ${esc(toolName)}.`),
+      table(detailRow('Tool', esc(toolName)) + detailRow('From', esc(requesterName)) + (when ? detailRow('When', esc(when)) : '')),
+      para('Their note:', 'margin-bottom:6px;'),
+      quote(message),
+      para('Nothing happens until you say so. Approve or decline on the Tool Locker requests page, and add a note back to them if you like.'),
+      button('Open the requests', link),
+      para('Approving marks the tool as on loan; marking it returned later puts it back on the available list. Either way they get an email, so you do not have to chase anybody down.', 'font-size:14px; color:#4a5b6b;'),
+      sign('EAA Chapter 1699 Tool Locker'),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because someone asked to borrow one of your tools.'),
+  });
+  return { subject: `Borrow request: ${toolName}`, text, html };
 }
 
 /** "Aug 20, 9:00 AM – Aug 23, 5:00 PM", in the chapter's local time. */
@@ -470,93 +513,143 @@ export function borrowDecisionEmail({ requesterName, toolName, ownerName, status
   const outcomes = {
     approved: {
       subject: `Your borrow request for ${toolName} was approved`,
+      heading: 'Your request was approved',
       line: `${ownerName} approved your request to borrow the ${toolName}.`,
     },
     declined: {
       subject: `Your borrow request for ${toolName} was declined`,
+      heading: 'Your request was declined',
       line: `${ownerName} declined your request to borrow the ${toolName}.`,
     },
     returned: {
       subject: `The ${toolName} has been marked as returned`,
+      heading: 'Marked as returned',
       line: `${ownerName} has marked the ${toolName} as returned. Thank you for bringing it back.`,
     },
   };
   const outcome = outcomes[status] ?? {
     subject: `Update on your borrow request for ${toolName}`,
+    heading: 'An update on your request',
     line: `${ownerName} updated your request to borrow the ${toolName}.`,
   };
-  return {
-    subject: outcome.subject,
-    text: [
-      `Hi ${requesterName},`,
-      '',
-      outcome.line,
-      reply ? `\nTheir note:\n${reply}\n` : '',
-      `Details: ${link}`,
-      '',
-      'EAA Chapter 1699 Tool Locker',
-    ].join('\n'),
-  };
+  const text = [
+    `Hi ${requesterName},`,
+    '',
+    outcome.line,
+    reply ? `\nTheir note:\n${reply}\n` : '',
+    `Details: ${link}`,
+    '',
+    'EAA Chapter 1699 Tool Locker',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: outcome.line,
+    eyebrow: 'Tool Locker',
+    title: outcome.heading,
+    subtitle: toolName,
+    bodyHtml: [
+      para(`Hi ${esc(requesterName)},`),
+      para(esc(outcome.line)),
+      ...(reply ? [para('Their note:', 'margin-bottom:6px;'), quote(reply)] : []),
+      button('See the details', link),
+      sign('EAA Chapter 1699 Tool Locker'),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because you asked to borrow a tool.'),
+  });
+  return { subject: outcome.subject, text, html };
 }
 
 export function applicationReceivedEmail({ name }) {
-  return {
-    subject: 'We got your EAA Chapter 1699 membership request',
-    text: [
-      `Hi ${name},`,
-      '',
-      'Thanks for asking to join EAA Chapter 1699. A chapter officer reviews',
-      'every request by hand, so give us a few days — we are all volunteers.',
-      '',
-      'If we approve it you will get a second email with a link to set your',
-      'own password. We will never send you a password, and we could not even',
-      'if we wanted to: the site only ever stores a one-way hash of it.',
-      '',
-      'In the meantime, come to something. Everything on our events calendar is',
-      'open to visitors, and turning up is a much better introduction than any',
-      'amount of paperwork.',
-      '',
-      'Blue skies,',
-      'EAA Chapter 1699 - South Albany Airport (4B0)',
-    ].join('\n'),
-  };
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Thanks for asking to join EAA Chapter 1699. A chapter officer reviews',
+    'every request by hand, so give us a few days — we are all volunteers.',
+    '',
+    'If we approve it you will get a second email with a link to set your',
+    'own password. We will never send you a password, and we could not even',
+    'if we wanted to: the site only ever stores a one-way hash of it.',
+    '',
+    'In the meantime, come to something. Everything on our events calendar is',
+    'open to visitors, and turning up is a much better introduction than any',
+    'amount of paperwork.',
+    '',
+    'Blue skies,',
+    'EAA Chapter 1699 - South Albany Airport (4B0)',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: 'A chapter officer reviews every request by hand.',
+    eyebrow: 'Membership',
+    title: 'We got your request',
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      para('Thanks for asking to join EAA Chapter 1699. A chapter officer reviews every request by hand, so give us a few days: we are all volunteers.'),
+      para('If we approve it you will get a second email with a link to set your own password. We will never send you a password, and we could not even if we wanted to: the site only ever stores a one-way hash of it.'),
+      para('In the meantime, come to something. Everything on our events calendar is open to visitors, and turning up is a much better introduction than any amount of paperwork.'),
+      sign(),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because you asked to join the chapter on our website.'),
+  });
+  return { subject: 'We got your EAA Chapter 1699 membership request', text, html };
 }
 
 export function applicationNotificationEmail({ name, email, interest, message, link }) {
-  return {
-    subject: `Membership request from ${name}`,
-    text: [
-      `${name} <${email}> has asked to join the chapter.`,
-      '',
-      `What brings them here: ${interest || 'not stated'}`,
-      '',
-      'Their note:',
-      message,
-      '',
-      `Review it here: ${link}`,
-      '',
-      'EAA Chapter 1699',
-    ].join('\n'),
-  };
+  const text = [
+    `${name} <${email}> has asked to join the chapter.`,
+    '',
+    `What brings them here: ${interest || 'not stated'}`,
+    '',
+    'Their note:',
+    message,
+    '',
+    `Review it here: ${link}`,
+    '',
+    'EAA Chapter 1699',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `${name} has asked to join the chapter.`,
+    eyebrow: 'Membership request',
+    title: name,
+    bodyHtml: [
+      para(`${esc(name)} has asked to join the chapter.`),
+      table(detailRow('Name', esc(name)) + detailRow('Email', esc(email)) + detailRow('Interest', esc(interest || 'not stated'))),
+      para('Their note:', 'margin-bottom:6px;'),
+      quote(message),
+      button('Review the request', link),
+      sign('EAA Chapter 1699'),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because you look after membership requests for the chapter.'),
+  });
+  return { subject: `Membership request from ${name}`, text, html };
 }
 
 export function applicationDeclinedEmail({ name, note }) {
-  return {
-    subject: 'About your EAA Chapter 1699 membership request',
-    text: [
-      `Hi ${name},`,
-      '',
-      'Thanks for your interest in EAA Chapter 1699. We are not able to set up',
-      'a Members Corner account for you at the moment.',
-      note ? `\n${note}\n` : '',
-      'This does not shut any doors: our events are open to everyone, and you',
-      'are very welcome at a fly-in breakfast or a meeting night. Come and say',
-      'hello, and do ask again.',
-      '',
-      'Blue skies,',
-      'EAA Chapter 1699 - South Albany Airport (4B0)',
-    ].join('\n'),
-  };
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Thanks for your interest in EAA Chapter 1699. We are not able to set up',
+    'a Members Corner account for you at the moment.',
+    note ? `\n${note}\n` : '',
+    'This does not shut any doors: our events are open to everyone, and you',
+    'are very welcome at a fly-in breakfast or a meeting night. Come and say',
+    'hello, and do ask again.',
+    '',
+    'Blue skies,',
+    'EAA Chapter 1699 - South Albany Airport (4B0)',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: 'About your membership request.',
+    eyebrow: 'Membership',
+    title: 'About your request',
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      para('Thanks for your interest in EAA Chapter 1699. We are not able to set up a Members Corner account for you at the moment.'),
+      ...(note ? [quote(note)] : []),
+      para('This does not shut any doors: our events are open to everyone, and you are very welcome at a fly-in breakfast or a meeting night. Come and say hello, and do ask again.'),
+      sign(),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because you asked to join the chapter on our website.'),
+  });
+  return { subject: 'About your EAA Chapter 1699 membership request', text, html };
 }
 
 export function contactNotificationEmail({ name, email, topic, message }) {
@@ -600,64 +693,96 @@ export function contactReplyEmail({ name, topic, body, signedBy, original }) {
 
 /** A board member has sent a document for a President or Vice President to review. */
 export function documentSubmittedEmail({ reviewerName, submitterName, title, kind, version, link }) {
-  return {
-    subject: `For your review: ${title}`,
-    text: [
-      `Hi ${reviewerName},`,
-      '',
-      `${submitterName} has sent ${kind.toLowerCase()} "${title}" (version ${version}) for review.`,
-      '',
-      'Open it on the chapter site to read it and approve it, or ask for changes:',
-      '',
-      link,
-      '',
-      'Either the President or the Vice President can approve. Nothing is shared',
-      'with members until it has been approved and published.',
-      '',
-      'EAA Chapter 1699',
-    ].join('\n'),
-  };
+  const text = [
+    `Hi ${reviewerName},`,
+    '',
+    `${submitterName} has sent ${kind.toLowerCase()} "${title}" (version ${version}) for review.`,
+    '',
+    'Open it on the chapter site to read it and approve it, or ask for changes:',
+    '',
+    link,
+    '',
+    'Either the President or the Vice President can approve. Nothing is shared',
+    'with members until it has been approved and published.',
+    '',
+    'EAA Chapter 1699',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `${submitterName} sent "${title}" for your review.`,
+    eyebrow: 'Needs your review',
+    title,
+    subtitle: `${kind}, version ${version}`,
+    bodyHtml: [
+      para(`Hi ${esc(reviewerName)},`),
+      para(`${esc(submitterName)} has sent ${esc(kind.toLowerCase())} &ldquo;${esc(title)}&rdquo; (version ${esc(version)}) for review. Open it to read it and approve it, or ask for changes.`),
+      button('Open the document', link),
+      para('Either the President or the Vice President can approve. Nothing is shared with members until it has been approved and published.', 'font-size:14px; color:#4a5b6b;'),
+      sign('EAA Chapter 1699'),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because you are the chapter&rsquo;s President or Vice President. Messages about approvals are not optional.'),
+  });
+  return { subject: `For your review: ${title}`, text, html };
 }
 
 /** The decision on a document, for whoever sent it for review. */
 export function documentReviewedEmail({ name, reviewerName, reviewerOffice, title, decision, comment, link }) {
   const approved = decision === 'approved';
-  return {
-    subject: approved ? `Approved: ${title}` : `Changes requested: ${title}`,
-    text: [
-      `Hi ${name},`,
-      '',
-      approved
-        ? `${reviewerName} (${reviewerOffice}) approved "${title}".`
-        : `${reviewerName} (${reviewerOffice}) asked for changes to "${title}".`,
-      comment ? `\nTheir note:\n${comment}\n` : '',
-      approved
-        ? 'It is not visible to members yet. Publish it from the document page when you are ready.'
-        : 'Upload a corrected version and send it for review again.',
-      '',
-      link,
-      '',
-      'EAA Chapter 1699',
-    ].join('\n'),
-  };
-}
-
-/** The day-before reminder for a meeting. `when`, `where` and the links are already formatted. */
-export function meetingReminderEmail({
-  name, title, when, where, summary, rainDate, link: eventLink, directionsLink = null,
-  unsubscribeLink, accountLink,
-}) {
+  const line = approved
+    ? `${reviewerName} (${reviewerOffice}) approved "${title}".`
+    : `${reviewerName} (${reviewerOffice}) asked for changes to "${title}".`;
+  const next = approved
+    ? 'It is not visible to members yet. Publish it from the document page when you are ready.'
+    : 'Upload a corrected version and send it for review again.';
   const text = [
     `Hi ${name},`,
     '',
-    `A quick reminder: ${title} is tomorrow, ${when.long}.`,
+    line,
+    comment ? `\nTheir note:\n${comment}\n` : '',
+    next,
+    '',
+    link,
+    '',
+    'EAA Chapter 1699',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: line,
+    eyebrow: approved ? 'Approved' : 'Changes requested',
+    title,
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      para(esc(line)),
+      ...(comment ? [para('Their note:', 'margin-bottom:6px;'), quote(comment)] : []),
+      para(esc(next)),
+      button('Open the document', link),
+      sign('EAA Chapter 1699'),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because you sent this document for review. Messages about approvals are not optional.'),
+  });
+  return { subject: approved ? `Approved: ${title}` : `Changes requested: ${title}`, text, html };
+}
+
+/**
+ * A reminder for an event: `lead` is 'day' (tomorrow) or 'week' (a week away).
+ * `when`, `where` and the links are already formatted.
+ */
+export function eventReminderEmail({
+  name, title, kindLabel = 'Event', lead = 'day', when, where, summary, rainDate, link: eventLink,
+  directionsLink = null, unsubscribeLink, accountLink,
+}) {
+  const week = lead === 'week';
+  const text = [
+    `Hi ${name},`,
+    '',
+    week
+      ? `${title} is a week away: ${when.long}. Here are the details so you can plan.`
+      : `A quick reminder: ${title} is tomorrow, ${when.long}.`,
     ...(where ? ['', `Where: ${where}`] : []),
     ...(summary ? ['', summary] : []),
     ...(rainDate ? ['', `Rain date: ${rainDate}`] : []),
     '',
     `Details: ${eventLink}`,
     '',
-    'See you there.',
+    week ? 'We hope you can make it.' : 'See you there.',
     'EAA Chapter 1699',
     '',
     '--',
@@ -673,27 +798,190 @@ export function meetingReminderEmail({
   ].join('');
 
   const html = renderEmail({
-    preheader: `${title} is tomorrow, ${when.long}.`,
-    eyebrow: 'Meeting reminder',
+    preheader: week ? `${title} is a week away, ${when.long}.` : `${title} is tomorrow, ${when.long}.`,
+    eyebrow: week ? 'Coming up in a week' : `${kindLabel} reminder`,
     title,
-    subtitle: `Tomorrow \u00b7 ${when.long}`,
+    subtitle: `${week ? 'In a week' : 'Tomorrow'} \u00b7 ${when.long}`,
     bodyHtml: [
       para(`Hi ${esc(name)},`),
-      para('A quick reminder that we are meeting tomorrow.'),
+      para(week ? 'This is a week away. Here are the details so you can plan.' : 'A quick reminder that this is tomorrow.'),
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px; border-bottom:1px solid #e3e8ee;">${details}</table>`,
       ...(summary ? [para(esc(summary))] : []),
       ...(rainDate
         ? [`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;"><tr><td bgcolor="#fdeed6" style="background:#fdeed6; border-radius:10px; padding:12px 16px; font-size:15px; line-height:1.5; color:#7c4a08;"><strong>Rain date:</strong> ${esc(rainDate)}</td></tr></table>`]
         : []),
-      button('See the meeting details', eventLink),
-      para('See you there.<br>EAA Chapter 1699', 'margin-bottom:24px;'),
+      button('See the details', eventLink),
+      para(week ? 'We hope you can make it.<br>EAA Chapter 1699' : 'See you there.<br>EAA Chapter 1699', 'margin-bottom:24px;'),
     ].join(''),
     footerHtml: [
-      'You are getting this because you are a member of EAA Chapter 1699 and meeting reminders are switched on.',
+      'You are getting this because you are a member of EAA Chapter 1699 and event reminders are switched on.',
       `<br>${emailLink(unsubscribeLink, 'Stop these reminders')} &nbsp;&middot;&nbsp; ${emailLink(accountLink, 'Email preferences')}`,
       '<br><br>EAA Chapter 1699 &middot; South Albany Airport (4B0) &middot; Selkirk, New York',
     ].join(''),
   });
 
-  return { subject: `Reminder: ${title}, ${when.short}`, text, html };
+  return { subject: week ? `Coming up: ${title}, ${when.short}` : `Reminder: ${title}, ${when.short}`, text, html };
+}
+
+/**
+ * A change to an event, or its cancellation, written by an editor. `message` is
+ * the editor's own words; the rest is the event as it stands.
+ */
+export function eventUpdateEmail({
+  name, title, cancelled = false, message, when, where, link: eventLink, directionsLink = null,
+  unsubscribeLink, accountLink,
+}) {
+  const text = [
+    `Hi ${name},`,
+    '',
+    cancelled ? `${title} has been cancelled.` : `A change to ${title}.`,
+    '',
+    message,
+    '',
+    ...(cancelled ? [`It was to be on ${when.long}.`] : [`When: ${when.long}`, ...(where ? [`Where: ${where}`] : [])]),
+    '',
+    `Details: ${eventLink}`,
+    '',
+    'EAA Chapter 1699',
+    '',
+    '--',
+    `Stop these messages: ${unsubscribeLink}`,
+    `Or choose what you get on your account page: ${accountLink}`,
+  ].join('\n');
+
+  const rows = cancelled
+    ? ''
+    : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px; border-bottom:1px solid #e3e8ee;">${detailRow('When', esc(when.long))}${
+        where ? detailRow('Where', `${esc(where)}${directionsLink ? `<br>${emailLink(directionsLink, 'Get directions')}` : ''}`) : ''
+      }</table>`;
+
+  const html = renderEmail({
+    preheader: cancelled ? `${title} has been cancelled.` : `A change to ${title}.`,
+    eyebrow: cancelled ? 'Event cancelled' : 'Event update',
+    title,
+    subtitle: cancelled ? `Was ${when.long}` : when.long,
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      ...paragraphs(message).map((p) => para(esc(p).replace(/\n/g, '<br>'))),
+      rows,
+      button('See the event page', eventLink),
+      para('EAA Chapter 1699', 'margin-bottom:24px;'),
+    ].join(''),
+    footerHtml: [
+      'You are getting this because you are a member of EAA Chapter 1699 and event reminders and updates are switched on.',
+      `<br>${emailLink(unsubscribeLink, 'Stop these messages')} &nbsp;&middot;&nbsp; ${emailLink(accountLink, 'Email preferences')}`,
+      '<br><br>EAA Chapter 1699 &middot; South Albany Airport (4B0) &middot; Selkirk, New York',
+    ].join(''),
+  });
+
+  return { subject: cancelled ? `Cancelled: ${title}, ${when.short}` : `Update: ${title}`, text, html };
+}
+
+/** "- a\n* b\n1. c" -> ['a', 'b', 'c']. One agenda item per line, bullets and numbers optional. */
+export function agendaItems(text) {
+  return String(text ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:[-*\u2022]|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/** Blank-line-separated paragraphs, with single line breaks kept. */
+const paragraphs = (text) =>
+  String(text ?? '')
+    .split(/\r?\n\s*\r?\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+/** The notice that goes to members ahead of a meeting, once the President or Vice President has approved it. */
+export function meetingNoticeEmail({
+  name, title, when, where, speaker, agenda, note, rainDate, link: eventLink, directionsLink = null,
+  unsubscribeLink, accountLink,
+}) {
+  const items = agendaItems(agenda);
+  const text = [
+    `Hi ${name},`,
+    '',
+    `We are meeting on ${when.long}.`,
+    ...(note ? ['', note] : []),
+    '',
+    `When: ${when.long}`,
+    ...(where ? [`Where: ${where}`] : []),
+    ...(speaker ? [`Speaker: ${speaker}`] : []),
+    ...(items.length ? ['', 'On the agenda:', ...items.map((i) => `  - ${i}`)] : []),
+    ...(rainDate ? ['', `Rain date: ${rainDate}`] : []),
+    '',
+    `Details: ${eventLink}`,
+    '',
+    'We hope to see you there.',
+    'EAA Chapter 1699',
+    '',
+    '--',
+    `Stop meeting notices: ${unsubscribeLink}`,
+    `Or choose what you get on your account page: ${accountLink}`,
+  ].join('\n');
+
+  const rows = [
+    detailRow('When', esc(when.long)),
+    ...(where ? [detailRow('Where', `${esc(where)}${directionsLink ? `<br>${emailLink(directionsLink, 'Get directions')}` : ''}`)] : []),
+    ...(speaker ? [detailRow('Speaker', esc(speaker))] : []),
+  ].join('');
+
+  const html = renderEmail({
+    preheader: `${title}, ${when.long}.`,
+    eyebrow: 'Meeting notice',
+    title,
+    subtitle: when.long,
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      ...paragraphs(note).map((p) => para(esc(p).replace(/\n/g, '<br>'))),
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px; border-bottom:1px solid #e3e8ee;">${rows}</table>`,
+      ...(items.length
+        ? [
+            '<div style="margin:0 0 8px; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#7d8b98;">On the agenda</div>',
+            `<ul style="margin:0 0 20px; padding-left:20px; font-size:16px; line-height:1.6; color:#17252f;">${items.map((i) => `<li style="margin-bottom:4px;">${esc(i)}</li>`).join('')}</ul>`,
+          ]
+        : []),
+      ...(rainDate
+        ? [`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;"><tr><td bgcolor="#fdeed6" style="background:#fdeed6; border-radius:10px; padding:12px 16px; font-size:15px; line-height:1.5; color:#7c4a08;"><strong>Rain date:</strong> ${esc(rainDate)}</td></tr></table>`]
+        : []),
+      button('See the meeting details', eventLink),
+      para('We hope to see you there.<br>EAA Chapter 1699', 'margin-bottom:24px;'),
+    ].join(''),
+    footerHtml: [
+      'You are getting this because you are a member of EAA Chapter 1699 and meeting notices are switched on.',
+      `<br>${emailLink(unsubscribeLink, 'Stop meeting notices')} &nbsp;&middot;&nbsp; ${emailLink(accountLink, 'Email preferences')}`,
+      '<br><br>EAA Chapter 1699 &middot; South Albany Airport (4B0) &middot; Selkirk, New York',
+    ].join(''),
+  });
+
+  return { subject: `Meeting notice: ${title}, ${when.short}`, text, html };
+}
+
+/**
+ * A short message to a board member about something that needs them: a notice to
+ * approve, a reminder that it is still waiting, an approval that no longer stands.
+ */
+export function boardAlertEmail({ name, subject, eyebrow, heading, lines, buttonLabel, link: pageLink, office }) {
+  const text = [
+    `Hi ${name},`,
+    '',
+    ...lines,
+    '',
+    `${buttonLabel}: ${pageLink}`,
+    '',
+    'EAA Chapter 1699',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: lines[0],
+    eyebrow,
+    title: heading,
+    bodyHtml: [
+      para(`Hi ${esc(name)},`),
+      ...lines.map((l) => para(esc(l))),
+      button(buttonLabel, pageLink),
+      para('EAA Chapter 1699', 'margin-bottom:24px;'),
+    ].join(''),
+    footerHtml: `You are getting this because you are the chapter's ${esc(office)}. Messages about approvals are not optional.<br><br>EAA Chapter 1699 &middot; South Albany Airport (4B0) &middot; Selkirk, New York`,
+  });
+  return { subject, text, html };
 }

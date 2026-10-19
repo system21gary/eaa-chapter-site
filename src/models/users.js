@@ -256,6 +256,13 @@ const APPROVER_ROLES = ['president', 'vice_president'];
 export const isBoard = (user) => Boolean(user?.board_role);
 export const canApprove = (user) => APPROVER_ROLES.includes(user?.board_role);
 
+/** Who can make an approved document visible to every member. */
+export const canPublish = (user) => ['president', 'vice_president', 'secretary'].includes(user?.board_role);
+
+/** Meeting notices can also be approved by the Secretary, who writes most of them. */
+const NOTICE_APPROVER_ROLES = [...APPROVER_ROLES, 'secretary'];
+export const canApproveNotice = (user) => NOTICE_APPROVER_ROLES.includes(user?.board_role);
+
 /**
  * Puts somebody in an office, or (with null) takes them out of one. An office
  * has a single holder, so naming a new one releases the previous holder in the
@@ -287,7 +294,7 @@ export function listBoard() {
 export const MAIL_PREFS = {
   mail_newsletter: { label: 'Chapter newsletter', hint: 'The monthly update: events, member builds, Young Eagles and fly-ins.' },
   mail_meeting_notices: { label: 'Meeting notices', hint: 'The notice with date, location, agenda and speaker, about ten days ahead.' },
-  mail_reminders: { label: 'Reminders', hint: 'The short note the day before a meeting.' },
+  mail_reminders: { label: 'Reminders', hint: 'A short note before an event: the day before, and a week ahead for fly-ins and Young Eagles days. Also changes and cancellations.' },
 };
 
 export function setMailPrefs(userId, prefs) {

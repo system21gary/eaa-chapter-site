@@ -69,7 +69,7 @@
                     {% endif %}
                   </td>
                   {# Edit, Re-invite and Suspend share the bottom line, starting under the status pill and running across Last seen. #}
-                  <td style="vertical-align:top; position:relative">
+                  <td style="vertical-align:top; position:relative; height:5.75rem">
                     <span class="pill pill-{{ 'green' if m.status == 'active' else ('red' if m.status == 'suspended' else 'grey') }}">{{ m.status }}</span>
                     <div class="row-actions" style="position:absolute; left:.9rem; bottom:.7rem; max-width:none; flex-wrap:nowrap">
                       <a class="btn btn-outline btn-sm" href="{{ ('/members/admin/members/' ~ m.id ~ '/edit') | url }}"

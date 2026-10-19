@@ -6,6 +6,8 @@ import { writeLimiter } from '../middleware/rate-limit.js';
 import { asyncRoute } from '../middleware/errors.js';
 import { audit } from '../lib/audit.js';
 import * as Scheduler from '../lib/scheduler.js';
+import * as Notices from '../lib/notices.js';
+import { whenOf } from '../lib/event-format.js';
 
 /**
  * Scheduled emails: what the site is about to send on its own, with a way to
@@ -26,12 +28,16 @@ router.get('/', (req, res) => {
     robots: 'noindex',
     items: Scheduler.plan(),
     recent: Scheduler.recentSends(),
+    notices: Notices.listRecent(8).map((n) => ({ ...n, when: n.starts_at ? whenOf(n) : null })),
+    noticeLabels: Notices.STATUS_LABELS,
+    isOfficer: Users.isBoard(req.user),
     audience: Scheduler.audience(),
     totalMembers: Users.listMembers({ status: 'active' }).length,
     paused: Scheduler.isPaused(),
     enabled: config.scheduler.enabled,
     reminderHour: config.scheduler.reminderHour,
     rules: Scheduler.RULES,
+    leads: Scheduler.LEADS,
   });
 });
 
@@ -56,7 +62,7 @@ router.post(
   asyncRoute(async (req, res) => {
     const item = Scheduler.plan().find((p) => p.key === String(req.body.key ?? ''));
     if (!item) return back(req, res, 'error', 'That one is no longer scheduled.');
-    await Scheduler.sendTest(item.event, req.user);
+    await Scheduler.sendTest(item.event, req.user, item.lead);
     audit(req, 'scheduler.test', { detail: item.key });
     return back(req, res, 'success', `A test copy is on its way to ${req.user.email}.`);
   })

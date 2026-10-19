@@ -11,7 +11,9 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { documentPath } from '../src/lib/document-files.js';
 import * as Scheduler from '../src/lib/scheduler.js';
-import { meetingReminderEmail, inlineAttachments } from '../src/lib/mailer.js';
+import * as Notices from '../src/lib/notices.js';
+import * as Mail from '../src/lib/mailer.js';
+import { eventReminderEmail, meetingNoticeEmail, eventUpdateEmail, inlineAttachments } from '../src/lib/mailer.js';
 import nodemailer from 'nodemailer';
 import { makeToken } from '../src/lib/unsubscribe.js';
 import { zonedToUtc } from '../src/lib/localtime.js';
@@ -908,7 +910,7 @@ console.log('\nScheduled emails and unsubscribe');
   record(/\/unsubscribe\/[\w-]+\.[\w-]+/.test(row.body_text) && /List-Unsubscribe-Post/.test(row.headers ?? '') && /One-Click/.test(row.headers), 'it carries an unsubscribe link and the one-click header');
   record(/Thursday, March 13 at 7:00 PM/.test(row.body_text), 'the time reads in chapter time');
   record(/<table/.test(row.body_html ?? '') && row.body_html.includes(`${title} one`) && /\/unsubscribe\/[\w-]+\.[\w-]+/.test(row.body_html) && /Thursday, March 13 at 7:00 PM/.test(row.body_html), 'it also has a styled HTML version, with the details and unsubscribe link');
-  const hostile = meetingReminderEmail({
+  const hostile = eventReminderEmail({
     name: '<b>N</b>', title: '<img src=x onerror=alert(1)> & Co', when: { long: 'Thursday', short: 'Thu' }, where: '<script>x</script>',
     summary: '"><svg onload=1>', rainDate: '<i>', link: 'https://x.test/?a=1&b="2"', unsubscribeLink: 'https://x.test/u', accountLink: 'https://x.test/a',
   });
@@ -991,6 +993,7 @@ console.log('\nScheduled emails and unsubscribe');
 
   // Clean up.
   for (const id of [e1, e2, e3, near]) {
+    run('DELETE FROM notices WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
     run('DELETE FROM scheduled_sends WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
     run('DELETE FROM events WHERE id = ?', [id]);
   }
@@ -1004,6 +1007,417 @@ console.log('\nScheduled emails and unsubscribe');
   console.log = realLog;
   Users.setBoardRole(admin.id, oldOffice);
   if (heldTreasurer && !Users.findById(heldTreasurer.id).board_role) Users.setBoardRole(heldTreasurer.id, 'treasurer');
+}
+
+console.log('\nMeeting notices');
+{
+  const realLog = console.log;
+  console.log = (...args) => {
+    const first = String(args[0] ?? '');
+    if (first.includes('outbox #') || first.startsWith('[scheduler]') || first.startsWith('[notices]')) return;
+    realLog(...args);
+  };
+  const stamp = Date.now();
+  const title = `Smoke Notice ${stamp}`;
+  const oldOffice = Users.findById(admin.id).board_role;
+  const heldPres = Users.listBoard().find((u) => u.board_role === 'president');
+  const heldVp = Users.listBoard().find((u) => u.board_role === 'vice_president');
+  const heldSec = Users.listBoard().find((u) => u.board_role === 'secretary');
+  const wasPaused = Scheduler.isPaused();
+  const mk = (tag, extra = '') => {
+    const u = Users.createUser({ email: `smoke.notice.${tag}.${stamp}@example.com`, firstName: tag, lastName: 'Notice', role: 'member', status: 'active' });
+    if (extra) run(extra, [u.id]);
+    return u;
+  };
+  const vp = mk('VP');
+  const ma = mk('A');
+  const mb = mk('B', 'UPDATE users SET mail_meeting_notices = 0 WHERE id = ?');
+  Users.setBoardRole(vp.id, 'vice_president');
+  Users.setBoardRole(admin.id, null);
+  const addEvent = (label, startsAt) =>
+    Number(run(
+      `INSERT INTO events (slug, title, starts_at, kind, status, location_name, city, state, created_at, updated_at)
+       VALUES (?, ?, ?, 'meeting', 'published', 'Hangar 2', 'Selkirk', 'NY', ?, ?)`,
+      [`smoke-notice-${label}-${stamp}`, `${title} ${label}`, startsAt.toISOString(), new Date().toISOString(), new Date().toISOString()]
+    ).lastInsertRowid);
+  const noticeFor = (eventId) => get('SELECT * FROM notices WHERE event_id = ? ORDER BY id DESC', [eventId]);
+  const mailTo = (u, like) => get('SELECT COUNT(*) AS n FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [u.email, `%${like}%`]).n;
+  const days = (d, from) => new Date(from.getTime() + d * 86_400_000);
+  const ids = [];
+  const run_ = (now) => Notices.runNotices({ now });
+
+  // Drafting, about two weeks out.
+  const start1 = zonedToUtc(2031, 6, 12, 19, 0);
+  const e1 = addEvent('one', start1); ids.push(e1);
+  await run_(days(-15, start1));
+  record(!noticeFor(e1), 'no notice is drafted more than two weeks before a meeting');
+  await run_(days(-13, start1));
+  const n1 = noticeFor(e1);
+  record(n1?.status === 'draft', 'a draft is made about two weeks out');
+  record(toLocalInput(n1.send_at) === '2031-06-02T09:00', 'it is due ten days before, at 9:00 chapter time', toLocalInput(n1?.send_at));
+  record(mailTo(vp, 'Meeting notice to approve') === 1, 'the Vice President is told it is ready');
+  await run_(days(-13, start1));
+  record(mailTo(vp, 'Meeting notice to approve') === 1 && get('SELECT COUNT(*) AS n FROM notices WHERE event_id = ?', [e1]).n === 1, 'running again makes no second draft or email');
+
+  // Unapproved: chased daily, never sent.
+  const due1 = new Date(n1.send_at);
+  await run_(new Date(due1.getTime() + 3600_000));
+  record(mailTo(vp, 'Still waiting for approval') === 1, 'when due and unapproved, the approvers are chased');
+  await run_(new Date(due1.getTime() + 2 * 3600_000));
+  record(mailTo(vp, 'Still waiting for approval') === 1, 'but only once a day');
+  await run_(new Date(due1.getTime() + 26 * 3600_000));
+  record(mailTo(vp, 'Still waiting for approval') === 2, 'and again the next day');
+  record(mailTo(ma, `${title} one`) === 0 && noticeFor(e1).status === 'draft', 'an unapproved notice is never sent');
+
+  // Who can do what.
+  Users.setBoardRole(admin.id, 'secretary');
+  let page = await req(`/members/documents/notices/${n1.id}`);
+  record(page.status === 200 && /Needs approval/.test(page.text) && page.text.includes('Approve this notice'), 'the secretary can open it and is offered Approve', `-> ${page.status}`);
+  let r = await req(`/members/documents/notices/${n1.id}`, { method: 'POST', body: { _csrf: csrfFrom(page.text), subject: 'Ready for the board', speaker: 'Pat Pilot: owning a Cub', agenda: '- Treasurer report\n- Fly-out planning\n3. Raffle', note: 'First paragraph.\n\nSecond paragraph.' } });
+  record(noticeFor(e1).speaker?.startsWith('Pat Pilot') && noticeFor(e1).subject === 'Ready for the board', 'any officer can write the wording');
+  Users.setBoardRole(admin.id, 'treasurer');
+  page = await req(`/members/documents/notices/${n1.id}`);
+  r = await req(`/members/documents/notices/${n1.id}/approve`, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  record(!page.text.includes('Approve this notice') && r.status === 403 && noticeFor(e1).status === 'draft', 'the treasurer cannot approve', `-> ${r.status}`);
+  Users.setBoardRole(admin.id, null);
+  r = await req(`/members/documents/notices/${n1.id}`);
+  record(r.status === 403, 'an administrator who is not an officer cannot open it', `-> ${r.status}`);
+
+  // Approval, and what withdraws it.
+  Users.setBoardRole(admin.id, 'president');
+  page = await req(`/members/documents/notices/${n1.id}`);
+  record(page.text.includes('Approve this notice'), 'the President is offered Approve');
+  await req(`/members/documents/notices/${n1.id}/approve`, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  record(noticeFor(e1).status === 'approved' && /President/.test(noticeFor(e1).approved_label ?? ''), 'the President approves; the record keeps the name and office');
+  page = await req(`/members/documents/notices/${n1.id}`);
+  await req(`/members/documents/notices/${n1.id}`, { method: 'POST', body: { _csrf: csrfFrom(page.text), subject: 'Ready for the board', speaker: 'Pat Pilot: owning a Cub (changed)', agenda: '- Treasurer report', note: '' } });
+  record(noticeFor(e1).status === 'draft' && !noticeFor(e1).approved_by, 'editing an approved notice withdraws the approval');
+  page = await req(`/members/documents/notices/${n1.id}`);
+  await req(`/members/documents/notices/${n1.id}/approve`, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  run("UPDATE events SET location_name = 'Hangar 3' WHERE id = ?", [e1]);
+  const heads = mailTo(vp, 'Approval withdrawn');
+  await run_(new Date(due1.getTime() + 3600_000));
+  record(noticeFor(e1).status === 'draft' && mailTo(vp, 'Approval withdrawn') === heads + 1 && mailTo(ma, `${title} one`) === 0, 'changing the place after approval withdraws it, tells the approvers and sends nothing');
+  page = await req(`/members/documents/notices/${n1.id}`);
+  await req(`/members/documents/notices/${n1.id}/approve`, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  record(noticeFor(e1).status === 'approved', 'it can be approved again');
+
+  // Sending.
+  const sendAt = new Date(noticeFor(e1).send_at);
+  await run_(new Date(sendAt.getTime() - 3600_000));
+  record(mailTo(ma, `${title} one`) === 0, 'an approved notice waits for its time');
+  await run_(new Date(sendAt.getTime() + 3600_000));
+  const sent = noticeFor(e1);
+  record(sent.status === 'sent' && mailTo(ma, 'Meeting notice:') === 1, 'at its time an approved notice goes to members');
+  record(mailTo(mb, 'Meeting notice:') === 0, 'a member who turned meeting notices off does not get it');
+  const mail = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [ma.email, '%Meeting notice:%']);
+  record(/Pat Pilot/.test(mail.body_text) && /Treasurer report/.test(mail.body_html) && /Hangar 3/.test(mail.body_text) && /\/unsubscribe\//.test(mail.body_html) && /List-Unsubscribe/.test(mail.headers ?? ''), 'it carries the speaker, agenda, new place and an unsubscribe link');
+  const post = sent.post_id && get('SELECT * FROM posts WHERE id = ?', [sent.post_id]);
+  record(post?.status === 'published' && post.visibility === 'public' && /Treasurer report/.test(post.body_md), 'it is also posted on the website');
+  await run_(new Date(sendAt.getTime() + 7200_000));
+  record(mailTo(ma, 'Meeting notice:') === 1, 'it is never sent twice');
+
+  // Approved late: goes at the next run.
+  const start2 = zonedToUtc(2031, 7, 10, 19, 0);
+  const e2 = addEvent('two', start2); ids.push(e2);
+  await run_(days(-13, start2));
+  const n2 = noticeFor(e2);
+  const late = new Date(new Date(n2.send_at).getTime() + 30 * 3600_000);
+  Notices.approve(n2.id, Users.findById(admin.id), { now: late });
+  await run_(late);
+  record(noticeFor(e2).status === 'sent', 'approved after its time, it goes at the next run');
+
+  // Too close to the meeting.
+  const start3 = zonedToUtc(2031, 8, 14, 19, 0);
+  const e3 = addEvent('three', start3); ids.push(e3);
+  await run_(days(-13, start3));
+  const n3 = noticeFor(e3);
+  const closing = new Date(start3.getTime() - 47 * 3600_000);
+  const refused = Notices.approve(n3.id, Users.findById(admin.id), { now: closing });
+  await run_(closing);
+  record(!refused.ok && noticeFor(e3).status === 'cancelled' && mailTo(ma, `${title} three`) === 0 && mailTo(vp, 'No meeting notice sent') >= 1, 'inside the last 48 hours nothing is sent; the approvers are told');
+
+  // A meeting that moves.
+  const start4 = zonedToUtc(2031, 9, 11, 19, 0);
+  const e4 = addEvent('four', start4); ids.push(e4);
+  await run_(days(-13, start4));
+  const n4 = noticeFor(e4);
+  Notices.approve(n4.id, Users.findById(admin.id), { now: days(-12, start4) });
+  run('UPDATE events SET starts_at = ? WHERE id = ?', [zonedToUtc(2031, 9, 18, 19, 0).toISOString(), e4]);
+  await run_(days(-5, start4));
+  const old4 = get('SELECT * FROM notices WHERE id = ?', [n4.id]);
+  const fresh4 = noticeFor(e4);
+  record(old4.status === 'cancelled' && fresh4.id !== n4.id && fresh4.status === 'draft', 'a meeting that moves loses its approval and gets a new draft');
+  record(mailTo(ma, `${title} four`) === 0, 'and the old approval sends nothing');
+  // The Secretary can approve a notice too.
+  Users.setBoardRole(admin.id, 'secretary');
+  page = await req(`/members/documents/notices/${fresh4.id}`);
+  await req(`/members/documents/notices/${fresh4.id}/approve`, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  record(noticeFor(e4).status === 'approved' && /Secretary/.test(noticeFor(e4).approved_label ?? ''), 'the Secretary can approve a notice; the record keeps the office');
+  record(Users.listBoard().filter((u) => Users.canApproveNotice(u)).some((u) => u.id === admin.id), 'and is among those told when one needs approving');
+
+  // The pages, the badge, and pause.
+  page = await req('/members/documents/board');
+  record(/Meeting notices/.test(page.text) && page.text.includes(`${title} four`), 'the board page lists the notices');
+  const e5 = addEvent('five', zonedToUtc(2031, 10, 9, 19, 0)); ids.push(e5);
+  Scheduler.setPaused(true);
+  await Scheduler.tick({ now: days(-13, zonedToUtc(2031, 10, 9, 19, 0)) });
+  record(!noticeFor(e5), 'while paused no notice is drafted');
+  Scheduler.setPaused(false);
+  await Scheduler.tick({ now: days(-13, zonedToUtc(2031, 10, 9, 19, 0)) });
+  record(Boolean(noticeFor(e5)), 'the scheduler tick also runs the notices');
+  r = await req('/members/documents/notices/' + noticeFor(e5).id + '/preview', { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
+  record(mailTo(admin, '[PREVIEW]') >= 1, 'an officer can email themselves a preview');
+
+  // Nothing a person types can inject markup.
+  const hostile = meetingNoticeEmail({
+    name: '<b>N</b>', title: '<img src=x onerror=1>', when: { long: 'Thu', short: 'Thu' }, where: '<script>x</script>',
+    speaker: '<svg onload=1>', agenda: '<i>one</i>\n- "><u>two', note: '<a href=javascript:1>hi</a>', rainDate: '<s>', link: 'https://x.test/e', unsubscribeLink: 'https://x.test/u', accountLink: 'https://x.test/a',
+  });
+  record(!/<img src=x|<script|<svg|<b>N|<i>one|<u>two|<s>|<a href=javascript/.test(hostile.html), 'markup in a notice cannot get into the HTML email');
+
+  // Clean up.
+  for (const id of ids) {
+    run('DELETE FROM notices WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
+    run('DELETE FROM scheduled_sends WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
+    run('DELETE FROM events WHERE id = ?', [id]);
+  }
+  run("DELETE FROM posts WHERE title LIKE ?", [`${title}%`]);
+  run('DELETE FROM email_outbox WHERE subject LIKE ?', [`%${title}%`]);
+  run("DELETE FROM email_outbox WHERE to_addr = ? AND subject LIKE '[PREVIEW]%'", [admin.email]);
+  for (const u of [vp, ma, mb]) {
+    run('DELETE FROM email_outbox WHERE to_addr = ?', [u.email]);
+    run('DELETE FROM users WHERE id = ?', [u.id]);
+  }
+  Scheduler.setPaused(wasPaused);
+  console.log = realLog;
+  Users.setBoardRole(admin.id, oldOffice);
+  for (const [u, office] of [[heldPres, 'president'], [heldVp, 'vice_president'], [heldSec, 'secretary']]) {
+    if (u && !Users.findById(u.id).board_role && Users.findById(u.id)) Users.setBoardRole(u.id, office);
+  }
+}
+
+console.log('\nDashboard to do');
+{
+  const stamp = Date.now();
+  const oldRole = admin.role;
+  const oldOffice = Users.findById(admin.id).board_role;
+  const held = ['president', 'vice_president', 'secretary', 'treasurer'].map((o) => [o, Users.listBoard().find((u) => u.board_role === o)]);
+  const wasPaused = Scheduler.isPaused();
+  const t = (suffix) => `Mock ${suffix} ${stamp}`;
+  const ts = new Date().toISOString();
+  const addDoc = (suffix, status, createdBy, { submittedBy = null, published = false } = {}) => {
+    const id = Number(run(
+      `INSERT INTO documents (kind, title, status, visibility, created_by, created_at, updated_at, next_version)
+       VALUES ('minutes', ?, ?, 'board', ?, ?, ?, 2)`, [t(suffix), status, createdBy, ts, ts]
+    ).lastInsertRowid);
+    const vid = Number(run(
+      `INSERT INTO document_versions (document_id, number, original_name, stored_name, mime, size, sha256, created_by, created_at, submitted_by, submitted_at)
+       VALUES (?, 1, 'x.pdf', ?, 'application/pdf', 1, 'ab', ?, ?, ?, ?)`, [id, `${stamp}${id}`.padEnd(32, '0').slice(0, 32), createdBy, ts, submittedBy, submittedBy ? ts : null]
+    ).lastInsertRowid);
+    if (published) run('UPDATE documents SET published_version_id = ? WHERE id = ?', [vid, id]);
+    return id;
+  };
+  const docA = addDoc('A review', 'in_review', admin.id, { submittedBy: admin.id });
+  const docB = addDoc('B changes', 'changes_requested', admin.id, { submittedBy: admin.id });
+  const docC = addDoc('C publish', 'approved', null);
+  const docD = addDoc('D draft', 'draft', admin.id);
+  const evt = Number(run(
+    `INSERT INTO events (slug, title, starts_at, kind, status, created_at, updated_at)
+     VALUES (?, ?, ?, 'meeting', 'published', ?, ?)`, [`mock-todo-${stamp}`, t('Meeting'), new Date(Date.now() + 10 * 86_400_000).toISOString(), ts, ts]
+  ).lastInsertRowid);
+  run(`INSERT INTO notices (event_id, occurrence_key, subject, status, send_at, created_at, updated_at)
+       VALUES (?, ?, 'x', 'draft', ?, ?, ?)`, [evt, `event:${evt}:mock-${stamp}`, new Date(Date.now() - 86_400_000).toISOString(), ts, ts]);
+  const app = Number(run(`INSERT INTO membership_applications (first_name, last_name, email, message, created_at) VALUES ('Mock', 'Applicant', ?, 'hi', ?)`, [`mock.todo.${stamp}@example.com`, ts]).lastInsertRowid);
+  const msg = Number(run(`INSERT INTO contact_messages (name, email, message, created_at) VALUES ('Mock', ?, 'hi', ?)`, [`mock.todo.${stamp}@example.com`, ts]).lastInsertRowid);
+
+  const as = async (role, office) => {
+    run('UPDATE users SET role = ? WHERE id = ?', [role, admin.id]);
+    Users.setBoardRole(admin.id, office);
+    return (await req('/members')).text;
+  };
+  const has = (html, text) => html.includes(text);
+
+  let h = await as('member', null);
+  record(!has(h, 'id="todo-heading"'), 'an ordinary member has no To do section');
+
+  h = await as('member', 'president');
+  record(has(h, 'id="todo-heading"') && has(h, `Review: ${t('A review')}`) && has(h, `Approve the notice for ${t('Meeting')}`) && has(h, `Publish: ${t('C publish')}`), 'the President sees documents to review and publish, and notices to approve');
+  record(has(h, `Changes requested: ${t('B changes')}`) && has(h, `Send for review: ${t('D draft')}`), 'and their own documents that need them');
+  record(!has(h, 'membership request') && !has(h, 'to answer'), 'but none of the administrator items');
+  record(/Was due|already/.test(h) || has(h, 'It was due to go to members already'), 'an overdue notice says so');
+
+  h = await as('member', 'secretary');
+  record(!has(h, `Review: ${t('A review')}`) && has(h, `Approve the notice for ${t('Meeting')}`) && has(h, `Publish: ${t('C publish')}`), 'the Secretary approves notices and publishes, but does not review documents');
+
+  h = await as('member', 'treasurer');
+  record(!has(h, 'Approve the notice') && !has(h, 'Publish:') && !has(h, 'Review:') && has(h, `Changes requested: ${t('B changes')}`), 'the Treasurer sees only their own documents');
+
+  h = await as('admin', null);
+  record(has(h, 'membership request') && has(h, 'to answer') && !has(h, 'Approve the notice') && !has(h, `Review: ${t('A review')}`), 'an administrator who is not an officer sees site items, not the board\'s');
+  Scheduler.setPaused(true);
+  h = (await req('/members')).text;
+  record(has(h, 'Scheduled sending is paused'), 'and is told when sending is paused');
+  Scheduler.setPaused(wasPaused);
+
+  for (const id of [docA, docB, docC, docD]) run('DELETE FROM documents WHERE id = ?', [id]);
+  h = await as('member', 'treasurer');
+  record(has(h, 'id="todo-heading"') && has(h, 'all caught up'), 'an officer with nothing waiting is told so');
+
+  run('DELETE FROM notices WHERE event_id = ?', [evt]);
+  run('DELETE FROM events WHERE id = ?', [evt]);
+  run('DELETE FROM membership_applications WHERE id = ?', [app]);
+  run('DELETE FROM contact_messages WHERE id = ?', [msg]);
+  run('UPDATE users SET role = ? WHERE id = ?', [oldRole, admin.id]);
+  Users.setBoardRole(admin.id, oldOffice);
+  for (const [office, u] of held) if (u && !Users.findById(u.id).board_role) Users.setBoardRole(u.id, office);
+}
+
+console.log('\nReminders for every kind of event, and updates');
+{
+  const realLog = console.log;
+  console.log = (...args) => {
+    const first = String(args[0] ?? '');
+    if (first.includes('outbox #') || first.startsWith('[scheduler]') || first.startsWith('[notices]')) return;
+    realLog(...args);
+  };
+  const stamp = Date.now();
+  const title = `Smoke Kind ${stamp}`;
+  const oldRole = admin.role;
+  const wasPaused = Scheduler.isPaused();
+  const mk = (tag, extra = '') => {
+    const u = Users.createUser({ email: `smoke.kind.${tag}.${stamp}@example.com`, firstName: tag, lastName: 'Kind', role: 'member', status: 'active' });
+    if (extra) run(extra, [u.id]);
+    return u;
+  };
+  const a = mk('A');
+  const b = mk('B', 'UPDATE users SET mail_reminders = 0 WHERE id = ?');
+  const ids = [];
+  const addEvent = (label, kind, startsAt, extra = {}) => {
+    const id = Number(run(
+      `INSERT INTO events (slug, title, starts_at, kind, status, reminders, rain_date, location_name, city, state, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Hangar 2', 'Selkirk', 'NY', ?, ?)`,
+      [`smoke-kind-${label}-${stamp}`, `${title} ${label}`, startsAt.toISOString(), kind, extra.status ?? 'published', extra.reminders ?? null,
+        extra.rain ?? null, new Date().toISOString(), new Date().toISOString()]
+    ).lastInsertRowid);
+    ids.push(id);
+    return id;
+  };
+  const mailTo = (u, like) => get('SELECT COUNT(*) AS n FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [u.email, `%${like}%`]).n;
+  const items = (id, now) => Scheduler.plan({ now }).filter((p) => p.event.id === id).map((p) => p.lead);
+  const start = zonedToUtc(2031, 11, 13, 19, 0);
+  const before = new Date(start.getTime() - 20 * 86_400_000);
+
+  // What each type sends by default.
+  const expected = { meeting: ['day'], workshop: ['day'], 'fly-in': ['week', 'day'], 'young-eagles': ['week', 'day'], social: [], chapter: [] };
+  for (const [kind, leads] of Object.entries(expected)) {
+    const id = addEvent(`k-${kind}`, kind, start);
+    record(JSON.stringify(items(id, before)) === JSON.stringify(leads), `a ${kind} event sends ${leads.length ? leads.join(' and ') : 'no'} reminder${leads.length === 1 ? '' : 's'} by default`, JSON.stringify(items(id, before)));
+  }
+  record(items(addEvent('s-day', 'social', start, { reminders: 'day' }), before).join() === 'day', 'a social can be given a reminder');
+  record(items(addEvent('m-off', 'meeting', start, { reminders: 'off' }), before).length === 0, 'a meeting can have its reminder switched off');
+  record(items(addEvent('w-both', 'workshop', start, { reminders: 'week_and_day' }), before).join() === 'week,day', 'a workshop can be given both');
+  record(items(addEvent('draft', 'fly-in', start, { status: 'draft' }), before).length === 0 && items(addEvent('cxl', 'fly-in', start, { status: 'cancelled' }), before).length === 0, 'drafts and cancelled events get none');
+
+  // A fly-in: a week before, then the day before; members who opted out are left out.
+  const fly = addEvent('plane', 'fly-in', start, { rain: zonedToUtc(2031, 11, 14, 0, 0).toISOString() });
+  const weekDue = Scheduler.reminderDueAt(get('SELECT * FROM events WHERE id = ?', [fly]), 'week');
+  const dayDue = Scheduler.reminderDueAt(get('SELECT * FROM events WHERE id = ?', [fly]), 'day');
+  record(toLocalInput(weekDue) === '2031-11-06T09:00' && toLocalInput(dayDue) === '2031-11-12T09:00', 'the week-before reminder is 9:00 a week ahead, the other the morning before');
+  await Scheduler.tick({ now: new Date(weekDue.getTime() + 3600_000) });
+  record(mailTo(a, `Coming up: ${title} plane`) === 1 && mailTo(a, `Reminder: ${title} plane`) === 0, 'a week ahead, members get the first reminder');
+  record(mailTo(b, `${title} plane`) === 0, 'a member who turned reminders off gets neither');
+  const wk = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [a.email, `Coming up: ${title} plane%`]);
+  record(/a week away/.test(wk.body_text) && /Rain date: Friday, November 14/.test(wk.body_text) && !/2031-1/.test(wk.body_text) && /\/unsubscribe\//.test(wk.body_html), 'it reads right: a week away, a proper rain date, an unsubscribe link');
+  await Scheduler.tick({ now: new Date(weekDue.getTime() + 2 * 3600_000) });
+  record(mailTo(a, `Coming up: ${title} plane`) === 1, 'it is not sent twice');
+  await Scheduler.tick({ now: new Date(dayDue.getTime() + 3600_000) });
+  record(mailTo(a, `Reminder: ${title} plane`) === 1 && mailTo(a, `Coming up: ${title} plane`) === 1, 'the day before, the second one goes');
+
+  // The event form carries the setting.
+  const form = await req('/members/admin/events/new');
+  record(/name="reminders"/.test(form.text), 'the event form has the reminders setting');
+  let r = await multipart('/members/admin/events/new', {
+    _csrf: csrfFrom(form.text), title: `${title} Form`, starts_at: '2031-12-11T19:00', kind: 'workshop', status: 'published', reminders: 'week_and_day',
+  });
+  const made = get('SELECT * FROM events WHERE title = ?', [`${title} Form`]);
+  if (made) ids.push(made.id);
+  record(made?.reminders === 'week_and_day', 'it is saved with the event', `-> ${r.status}`);
+  const edit = await req(`/members/admin/events/${made.id}/edit`);
+  record(/<option value="week_and_day" selected>/.test(edit.text), 'and shown again when editing');
+
+  // Telling members about a change.
+  run("UPDATE users SET role = 'admin' WHERE id = ?", [admin.id]);
+  const ev = fly;
+  const send = (kind, message, action = 'send', extra = {}) =>
+    req(`/members/admin/events/${ev}/update`, { method: 'POST', body: { _csrf: csrfFrom(edit.text), kind, message, action, ...extra } });
+  const page = await req(`/members/admin/events/${ev}/edit`);
+  record(/Tell members about a change/.test(page.text), 'an event has a "Tell members about a change" box');
+  r = await req(`/members/admin/events/${ev}/update`, { method: 'POST', body: { _csrf: csrfFrom(page.text), kind: 'update', message: 'ok', action: 'preview' } });
+  record(r.status === 302 && mailTo(admin, '[PREVIEW]') === 0, 'a message that is too short is refused');
+  r = await req(`/members/admin/events/${ev}/update`, { method: 'POST', body: { _csrf: csrfFrom(page.text), kind: 'update', message: 'Moved to <b>10 AM</b> because of the forecast.', action: 'preview' } });
+  record(mailTo(admin, '[PREVIEW] Update') === 1 && mailTo(a, 'Update:') === 0, 'a preview goes only to the editor');
+  r = await req(`/members/admin/events/${ev}/update`, { method: 'POST', body: { _csrf: csrfFrom(page.text), kind: 'update', message: 'Moved to <b>10 AM</b> because of the forecast.', action: 'send' } });
+  const upd = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject = ?', [a.email, `Update: ${title} plane`]);
+  record(Boolean(upd) && mailTo(b, 'Update:') === 0, 'sending reaches members who have reminders on, and not those who turned them off');
+  record(/Moved to <b>10 AM<\/b>/.test(upd.body_text) && !/<b>10 AM/.test(upd.body_html) && /&lt;b&gt;10 AM/.test(upd.body_html), "the editor's words cannot inject markup");
+  r = await req(`/members/admin/events/${ev}/update`, { method: 'POST', body: { _csrf: csrfFrom(page.text), kind: 'update', message: 'Moved to <b>10 AM</b> because of the forecast.', action: 'send' } });
+  record(mailTo(a, 'Update:') === 1, 'the same message is not sent twice by a double click');
+  r = await req(`/members/admin/events/${ev}/update`, { method: 'POST', body: { _csrf: csrfFrom(page.text), kind: 'cancelled', message: 'Cancelled for weather. We will pick a new date soon.', action: 'send', mark_cancelled: '1' } });
+  record(mailTo(a, `Cancelled: ${title} plane`) === 1 && get('SELECT status FROM events WHERE id = ?', [ev]).status === 'cancelled', 'a cancellation is sent and the event is marked cancelled');
+  record(items(ev, new Date(dayDue.getTime() - 86_400_000)).length === 0, 'so no further reminders are planned for it');
+  record(get('SELECT COUNT(*) AS n FROM event_updates WHERE event_id = ?', [ev]).n === 2, 'each message is recorded');
+  const draftEvent = get('SELECT id FROM events WHERE slug = ?', [`smoke-kind-draft-${stamp}`]).id;
+  r = await req(`/members/admin/events/${draftEvent}/update`, { method: 'POST', body: { _csrf: csrfFrom(page.text), kind: 'update', message: 'Something changed.', action: 'send' } });
+  record(get('SELECT COUNT(*) AS n FROM event_updates WHERE event_id = ?', [draftEvent]).n === 0, 'nothing is sent about a draft event');
+  run("UPDATE users SET role = 'member' WHERE id = ?", [admin.id]);
+  r = await req(`/members/admin/events/${ev}/update`, { method: 'POST', body: { _csrf: csrfFrom(page.text), kind: 'update', message: 'Not allowed to send this.', action: 'send' } });
+  record(r.status === 403 && get('SELECT COUNT(*) AS n FROM event_updates WHERE event_id = ?', [ev]).n === 2, 'an ordinary member cannot send one', `-> ${r.status}`);
+  run('UPDATE users SET role = ? WHERE id = ?', [oldRole, admin.id]);
+
+  const hostile = eventUpdateEmail({
+    name: '<b>N</b>', title: '<img src=x onerror=1>', cancelled: true, message: '<script>x</script>\n\n"><svg onload=1>', when: { long: 'Thu', short: 'Thu' }, where: '<i>', link: 'https://x.test/e', unsubscribeLink: 'https://x.test/u', accountLink: 'https://x.test/a',
+  });
+  record(!/<img src=x|<script|<svg|<b>N|<i>/.test(hostile.html), 'markup cannot get into an update email');
+
+  for (const id of ids) {
+    run('DELETE FROM event_updates WHERE event_id = ?', [id]);
+    run('DELETE FROM scheduled_sends WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
+    run('DELETE FROM notices WHERE occurrence_key LIKE ?', [`event:${id}:%`]);
+    run('DELETE FROM events WHERE id = ?', [id]);
+  }
+  run('DELETE FROM email_outbox WHERE subject LIKE ?', [`%${title}%`]);
+  run("DELETE FROM email_outbox WHERE to_addr = ? AND subject LIKE '[PREVIEW]%'", [admin.email]);
+  for (const u of [a, b]) {
+    run('DELETE FROM email_outbox WHERE to_addr = ?', [u.email]);
+    run('DELETE FROM users WHERE id = ?', [u.id]);
+  }
+  Scheduler.setPaused(wasPaused);
+  console.log = realLog;
+}
+
+console.log('\nEvery member-facing email has an HTML version');
+{
+  const evil = '<img src=x onerror=1><script>x</script>"><svg onload=1>';
+  const link = 'https://example.test/path?a=1&b=2';
+  const mails = {
+    reset: Mail.passwordResetEmail({ name: evil, link, ttlMinutes: 60 }),
+    invite: Mail.inviteEmail({ name: evil, link, invitedBy: evil, ttlDays: 14 }),
+    borrowRequest: Mail.borrowRequestEmail({ ownerName: evil, requesterName: evil, toolName: evil, message: evil, link, neededFrom: null, neededTo: null }),
+    borrowDecision: Mail.borrowDecisionEmail({ requesterName: evil, toolName: evil, ownerName: evil, status: 'approved', reply: evil, link }),
+    applicationReceived: Mail.applicationReceivedEmail({ name: evil }),
+    applicationNotification: Mail.applicationNotificationEmail({ name: evil, email: evil, interest: evil, message: evil, link }),
+    applicationDeclined: Mail.applicationDeclinedEmail({ name: evil, note: evil }),
+    documentSubmitted: Mail.documentSubmittedEmail({ reviewerName: evil, submitterName: evil, title: evil, kind: 'Meeting minutes', version: 2, link }),
+    documentReviewed: Mail.documentReviewedEmail({ name: evil, reviewerName: evil, reviewerOffice: 'President', title: evil, decision: 'changes_requested', comment: evil, link }),
+  };
+  for (const [name, m] of Object.entries(mails)) {
+    record(/<table/.test(m.html ?? '') && !/<img src=x|<script|<svg/.test(m.html) && m.text.length > 40, `${name}: has styled HTML, nothing injectable, and a plain-text copy`);
+  }
+  const reset = Mail.passwordResetEmail({ name: 'Ann', link, ttlMinutes: 60 });
+  record(reset.text.includes(link) && reset.html.includes('href="https://example.test/path?a=1&amp;b=2"') && reset.html.split('https://example.test/path?a=1&amp;b=2').length - 1 >= 2, 'the reset link is a button and also pasted in full, in both copies');
+  const sent = get("SELECT body_text, body_html FROM email_outbox WHERE subject = 'Reset your EAA Chapter 1699 password' ORDER BY id DESC LIMIT 1");
+  record(!sent || (/<table/.test(sent.body_html ?? '') && /\/reset\//.test(sent.body_html) && /\/reset\//.test(sent.body_text)), 'a real reset request queues both versions');
 }
 
 console.log('\nChapter time');

@@ -437,6 +437,16 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .history-when { color: var(--ink-faint); font-size: .8rem; }
 .history li.is-deleted { color: var(--red); }
 
+/* The dashboard's To do list. */
+.todo-list { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: grid; grid-template-columns: 8.5rem 1fr auto; gap: .9rem; align-items: center; padding: .8rem 0; border-top: 1px solid var(--line); }
+.todo-item:first-child { border-top: 0; }
+.todo-item .pill { justify-self: start; }
+.todo-title { font-weight: 700; }
+.todo-detail { color: var(--ink-soft); font-size: .88rem; }
+.todo-late .todo-detail { color: var(--red); }
+@media (max-width: 640px) { .todo-item { grid-template-columns: 1fr auto; } .todo-item .pill { grid-column: 1 / -1; } }
+
 .honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 .form-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }

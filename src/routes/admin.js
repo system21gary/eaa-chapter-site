@@ -26,6 +26,7 @@ import {
 import { recentAudit } from '../lib/audit.js';
 import { audit } from '../lib/audit.js';
 import { suggestLocals } from '../lib/suggestions.js';
+import * as EventUpdates from '../lib/event-updates.js';
 import { buildReport, flushStats } from '../lib/stats.js';
 import { columnChart } from '../lib/stats-chart.js';
 
@@ -75,6 +76,7 @@ const eventSchema = {
   status: f.enum(['draft', 'published', 'cancelled'], { label: 'Status', fallback: 'published' }),
   recap_md: f.optionalString({ max: 40000, label: 'Recap' }),
   attendance: f.int({ min: 0, max: 100000, optional: true, label: 'Attendance' }),
+  reminders: f.enum(['off', 'day', 'week_and_day'], { label: 'Reminders', optional: true }),
 };
 
 router.get('/events/new', requireEditor, (req, res) => {
@@ -127,8 +129,46 @@ router.get('/events/:id/edit', requireEditor, (req, res, next) => {
     event,
     errors: {},
     isNew: false,
+    updates: EventUpdates.listUpdates(event.id),
+    updateAudience: EventUpdates.audience(),
   });
 });
+
+/** Tells members about a change to an event, or that it is cancelled. Preview first; then send. */
+router.post('/events/:id/update', requireEditor, writeLimiter, asyncRoute(async (req, res, next) => {
+  const event = Events.getEventById(req.params.id);
+  if (!event) return next();
+  const back = (type, message) => {
+    req.flash(type, message);
+    return req.session.save(() => res.redirect(`/members/admin/events/${event.id}/edit#tell-members`));
+  };
+  let data;
+  try {
+    data = validate(req.body, {
+      kind: f.enum(['update', 'cancelled'], { label: 'Kind of message' }),
+      message: f.string({ min: 3, max: 1500, label: 'Message' }),
+    });
+  } catch (err) {
+    if (err instanceof ValidationError) return back('error', Object.values(err.errors)[0]);
+    throw err;
+  }
+  if (event.status === 'draft') return back('error', 'This event is still a draft, so members have not seen it. Publish it first.');
+
+  if (req.body.action === 'preview') {
+    await EventUpdates.sendPreview(event, data, req.user);
+    return back('success', `A preview is on its way to ${req.user.email}.`);
+  }
+  const result = await EventUpdates.sendUpdate(event, data, req.user);
+  if (!result.ok) return back('error', result.reason);
+  audit(req, 'event.update.sent', { entity: 'event', entityId: event.id, detail: `${data.kind} to ${result.recipients}` });
+  let note = '';
+  if (data.kind === 'cancelled' && req.body.mark_cancelled === '1' && event.status !== 'cancelled') {
+    run("UPDATE events SET status = 'cancelled', updated_at = ? WHERE id = ?", [nowIso(), event.id]);
+    audit(req, 'event.updated', { entity: 'event', entityId: event.id, detail: `${event.title} (marked cancelled)` });
+    note = ' The event is now marked cancelled, so no more reminders will go out for it.';
+  }
+  return back('success', `Sent to ${result.recipients} member${result.recipients === 1 ? '' : 's'}.${note}`);
+}));
 
 async function saveEventHandler(req, res, next) {
   const id = req.params.id ? Number(req.params.id) : null;
@@ -157,6 +197,8 @@ async function saveEventHandler(req, res, next) {
         cloneOf,
         errors: err.errors,
         isNew: !id,
+        updates: id ? EventUpdates.listUpdates(id) : [],
+        updateAudience: EventUpdates.audience(),
       });
     }
     throw err;
@@ -187,6 +229,7 @@ async function saveEventHandler(req, res, next) {
     status: data.status,
     recapMd: data.recap_md,
     attendance: data.attendance,
+    reminders: data.reminders,
   };
 
   const poster = req.files?.find((file) => file.fieldname === 'poster');

@@ -6,7 +6,7 @@ const EVENT_COLUMNS = `
   id, slug, title, summary, starts_at, ends_at, all_day, rain_date,
   location_name, address, city, state, zip, latitude, longitude, cost,
   contact_name, contact_email, contact_phone, external_url, poster_path,
-  poster_alt, kind, status, attendance, created_at, updated_at
+  poster_alt, kind, status, attendance, reminders, created_at, updated_at
 `;
 
 function uniqueSlug(title, startsAt, excludeId = null) {
@@ -116,7 +116,7 @@ export function saveEvent(fields, id = null) {
          latitude = ?, longitude = ?, cost = ?, contact_name = ?,
          contact_email = ?, contact_phone = ?, external_url = ?,
          poster_path = ?, poster_alt = ?, kind = ?, status = ?,
-         recap_md = ?, recap_html = ?, attendance = ?, updated_at = ?
+         recap_md = ?, recap_html = ?, attendance = ?, reminders = ?, updated_at = ?
        WHERE id = ?`,
       [
         fields.title,
@@ -147,6 +147,7 @@ export function saveEvent(fields, id = null) {
         fields.recapMd,
         recapHtml,
         fields.attendance,
+        fields.reminders ?? null,
         ts,
         Number(id),
       ]
@@ -159,9 +160,9 @@ export function saveEvent(fields, id = null) {
        (slug, title, summary, body_md, body_html, starts_at, ends_at, all_day,
         rain_date, location_name, address, city, state, zip, latitude, longitude,
         cost, contact_name, contact_email, contact_phone, external_url,
-        poster_path, poster_alt, kind, status, recap_md, recap_html, attendance,
+        poster_path, poster_alt, kind, status, recap_md, recap_html, attendance, reminders,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       uniqueSlug(fields.title, fields.startsAt),
       fields.title,
@@ -191,6 +192,7 @@ export function saveEvent(fields, id = null) {
       fields.recapMd ?? null,
       recapHtml,
       fields.attendance ?? null,
+      fields.reminders ?? null,
       ts,
       ts,
     ]

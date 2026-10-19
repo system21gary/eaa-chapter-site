@@ -1,18 +1,23 @@
 import config from '../config.js';
 import { all, get, run, nowIso } from '../db/index.js';
 import * as Users from '../models/users.js';
-import { TZ, toLocalDateInput, zonedToUtc } from './localtime.js';
+import { toLocalDateInput } from './localtime.js';
+import { whenOf, whereOf, localDayAt, effectiveReminders, KIND_LABELS, rainDateText } from './event-format.js';
 import { absoluteUrl } from '../middleware/base-path.js';
-import { sendMail, meetingReminderEmail } from './mailer.js';
+import { sendMail, eventReminderEmail } from './mailer.js';
 import { unsubscribeUrl, unsubscribeHeaders } from './unsubscribe.js';
 import { mapUrl } from '../views/filters.js';
+import { runNotices } from './notices.js';
 
 /**
  * Automatic email.
  *
- * Today there is one rule: the day before a chapter meeting, members who have
- * not opted out of reminders get a short note. Meeting dates come from the
- * events calendar, so moving a meeting moves its reminder.
+ * Today there is one rule: before a chapter event, members who have not opted
+ * out of reminders get a short note -- the day before, and for the bigger
+ * events (fly-ins, Young Eagles days) a week before as well. Which events, and
+ * which reminders, is the event's own setting, with a default for each type
+ * (see event-format.js). Dates come from the events calendar, so moving an event
+ * moves its reminders.
  *
  * How it stays safe:
  *  - Each send is recorded in `scheduled_sends` BEFORE anything is queued, under
@@ -27,7 +32,13 @@ import { mapUrl } from '../views/filters.js';
  *    suspensions are honoured.
  */
 export const RULES = {
-  meeting_reminder: { label: 'Meeting reminder', pref: 'mail_reminders', category: 'reminders' },
+  event_reminder: { label: 'Event reminder', pref: 'mail_reminders', category: 'reminders' },
+};
+
+/** How far ahead each reminder goes, in calendar days. */
+export const LEADS = {
+  week: { days: 7, label: 'a week before' },
+  day: { days: 1, label: 'the day before' },
 };
 
 const CATCH_UP_HOURS = 18;
@@ -49,33 +60,38 @@ export function setPaused(paused) {
 
 /* --------------------------------------------------------------- planning */
 
-/** 9:00 (REMINDER_HOUR) chapter time on the calendar day before the event. */
-export function reminderDueAt(event) {
-  const [y, m, d] = toLocalDateInput(event.starts_at).split('-').map(Number);
-  const before = new Date(Date.UTC(y, m - 1, d - 1));
-  return zonedToUtc(before.getUTCFullYear(), before.getUTCMonth() + 1, before.getUTCDate(), config.scheduler.reminderHour, 0);
+/** REMINDER_HOUR (9:00) chapter time, `lead` days before the event's date. */
+export function reminderDueAt(event, lead = 'day') {
+  return localDayAt(event, LEADS[lead].days);
 }
 
 /**
  * What is going to be sent, and what has been dealt with. The occurrence key
- * includes the event's local date, so a meeting that moves gets a fresh
- * reminder for its new date.
+ * includes the event's local date and the lead, so an event that moves gets
+ * fresh reminders for its new date.
  */
 export function plan({ now = new Date(), days = HORIZON_DAYS } = {}) {
   const events = all(
-    `SELECT id, slug, title, summary, starts_at, ends_at, all_day, rain_date, location_name, address, city, state, latitude, longitude
+    `SELECT id, slug, title, summary, starts_at, ends_at, all_day, rain_date, location_name, address, city, state,
+            latitude, longitude, kind, reminders
        FROM events
-      WHERE kind = 'meeting' AND status = 'published' AND starts_at > ? AND starts_at <= ?
+      WHERE status = 'published' AND starts_at > ? AND starts_at <= ?
       ORDER BY starts_at`,
     [now.toISOString(), new Date(now.getTime() + days * 86_400_000).toISOString()]
   );
-  return events.map((event) => {
-    const key = `event:${event.id}:${toLocalDateInput(event.starts_at)}`;
-    const due = reminderDueAt(event);
-    const record = get('SELECT * FROM scheduled_sends WHERE rule = ? AND occurrence_key = ?', ['meeting_reminder', key]);
-    const state = record ? record.status : due <= now ? 'due' : 'scheduled';
-    return { rule: 'meeting_reminder', key, event, dueAt: due.toISOString(), state, record };
-  });
+  const items = [];
+  for (const event of events) {
+    const mode = effectiveReminders(event);
+    if (mode === 'off') continue;
+    for (const lead of mode === 'week_and_day' ? ['week', 'day'] : ['day']) {
+      const key = `event:${event.id}:${toLocalDateInput(event.starts_at)}:${lead}`;
+      const due = reminderDueAt(event, lead);
+      const record = get('SELECT * FROM scheduled_sends WHERE rule = ? AND occurrence_key = ?', ['event_reminder', key]);
+      const state = record ? record.status : due <= now ? 'due' : 'scheduled';
+      items.push({ rule: 'event_reminder', lead, key, event, dueAt: due.toISOString(), state, record });
+    }
+  }
+  return items;
 }
 
 /** Most recent first. */
@@ -88,38 +104,25 @@ export function recentSends(limit = 15) {
 }
 
 /** How many members a rule would reach right now. */
-export function audience(rule = 'meeting_reminder') {
+export function audience(rule = 'event_reminder') {
   return Users.mailRecipients(RULES[rule].pref).length;
 }
 
 /* ---------------------------------------------------------------- sending */
 
-const dateFmt = (opts) => new Intl.DateTimeFormat('en-US', { timeZone: TZ, ...opts });
-
-function whenOf(event) {
-  const start = new Date(event.starts_at);
-  const day = dateFmt({ weekday: 'long', month: 'long', day: 'numeric' }).format(start);
-  const time = event.all_day ? null : dateFmt({ hour: 'numeric', minute: '2-digit' }).format(start);
-  return {
-    long: time ? `${day} at ${time}` : day,
-    short: time ? `${dateFmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(start)}, ${time}` : dateFmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(start),
-  };
-}
-
-function reminderFor(event, user) {
-  const where = [event.location_name, [event.address, event.city, event.state].filter(Boolean).join(', ')]
-    .filter(Boolean)
-    .join(', ');
+function reminderFor(event, user, lead = 'day') {
   return {
     to: user.email,
     headers: unsubscribeHeaders(user.id, 'reminders'),
-    ...meetingReminderEmail({
+    ...eventReminderEmail({
       name: user.first_name,
       title: event.title,
+      kindLabel: KIND_LABELS[event.kind] ?? 'Event',
+      lead,
       when: whenOf(event),
-      where,
+      where: whereOf(event),
       summary: event.summary,
-      rainDate: event.rain_date,
+      rainDate: rainDateText(event),
       link: absoluteUrl(`/events/${event.slug}`),
       directionsLink: mapUrl(event),
       unsubscribeLink: unsubscribeUrl(user.id, 'reminders'),
@@ -129,14 +132,15 @@ function reminderFor(event, user) {
 }
 
 /** A copy for one person, to check what members will receive. Not recorded as a send. */
-export async function sendTest(event, user) {
-  const mail = reminderFor(event, user);
+export async function sendTest(event, user, lead = 'day') {
+  const mail = reminderFor(event, user, lead);
   await sendMail({ ...mail, subject: `[TEST] ${mail.subject}` });
 }
 
-async function sendReminder(event) {
-  const recipients = Users.mailRecipients(RULES.meeting_reminder.pref);
-  for (const user of recipients) await sendMail(reminderFor(event, user));
+async function sendReminder(event, lead) {
+  // Members who have turned reminders off, and suspended members, are left out here.
+  const recipients = Users.mailRecipients(RULES.event_reminder.pref);
+  for (const user of recipients) await sendMail(reminderFor(event, user, lead));
   return recipients.length;
 }
 
@@ -145,7 +149,7 @@ async function sendReminder(event) {
  * `now` is a parameter so tests can step through time.
  */
 export async function tick({ now = new Date() } = {}) {
-  const done = { sent: [], skipped: [] };
+  const done = { sent: [], skipped: [], notices: null };
   if (isPaused()) return { ...done, paused: true };
 
   for (const item of plan({ now })) {
@@ -161,7 +165,7 @@ export async function tick({ now = new Date() } = {}) {
       done.skipped.push(item.key);
       continue;
     }
-    const count = await sendReminder(item.event);
+    const count = await sendReminder(item.event, item.lead);
     run("UPDATE scheduled_sends SET status = 'sent', recipients = ?, sent_at = ? WHERE rule = ? AND occurrence_key = ?", [
       count,
       nowIso(),
@@ -169,8 +173,9 @@ export async function tick({ now = new Date() } = {}) {
       item.key,
     ]);
     done.sent.push({ key: item.key, recipients: count });
-    console.log(`[scheduler] sent "${item.event.title}" reminder to ${count} member${count === 1 ? '' : 's'}`);
+    console.log(`[scheduler] sent "${item.event.title}" (${LEADS[item.lead].label}) reminder to ${count} member${count === 1 ? '' : 's'}`);
   }
+  done.notices = await runNotices({ now });
   return done;
 }
 

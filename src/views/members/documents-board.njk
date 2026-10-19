@@ -16,6 +16,31 @@
       {% endif %}
     </div>
 
+    {% if notices.length %}
+      <h2 style="margin-top:2rem">Meeting notices</h2>
+      <div class="table-wrap" style="margin-top:.8rem">
+        <table class="data">
+          <thead><tr><th>Meeting</th><th>Goes to members</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for n in notices %}
+              <tr>
+                <td>
+                  <strong><a href="{{ ('/members/documents/notices/' ~ n.id) | url }}">{{ n.event_title or n.subject }}</a></strong>
+                  {% if n.when %}<br><span class="small muted">{{ n.when.long }}</span>{% endif %}
+                </td>
+                <td class="small muted">{% if n.status == 'sent' %}Sent {{ n.sent_at | shortdate }}{% elif n.status == 'cancelled' %}—{% else %}{{ n.send_at | shortdate }}{% endif %}</td>
+                <td>
+                  <span class="pill pill-{{ 'amber' if n.status in ['draft', 'sending'] else ('green' if n.status in ['approved', 'sent'] else 'grey') }}">{{ noticeLabels[n.status] }}</span>
+                  {% if n.status == 'draft' and canApproveNotice %}<br><span class="tiny"><strong>Needs your approval</strong></span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <h2 style="margin-top:2.5rem">Documents</h2>
+    {% endif %}
+
     {% if docs.length %}
       <div class="table-wrap" style="margin-top:2rem">
         <table class="data">

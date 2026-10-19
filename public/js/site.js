@@ -752,6 +752,13 @@
     });
   });
 
+  /* A button that asks first (for forms with more than one button, where the form itself cannot). */
+  document.querySelectorAll('[data-confirm-button]').forEach(function (button) {
+    button.addEventListener('click', function (e) {
+      if (!window.confirm(button.getAttribute('data-confirm-button'))) e.preventDefault();
+    });
+  });
+
   /* ----------------------------------------------- spam trap timestamp */
   document.querySelectorAll('input[name="rendered_at"]').forEach(function (input) {
     input.value = String(Date.now());

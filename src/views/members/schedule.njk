@@ -7,8 +7,9 @@
       <div>
         <span class="eyebrow">Administrators</span>
         <h1>Scheduled emails</h1>
-        <p>What the site will send on its own. Each meeting gets a short reminder the day
-           before, at {{ reminderHour }}:00 AM, to members who have not turned reminders off.</p>
+        <p>What the site will send on its own. Events get a short reminder at {{ reminderHour }}:00 AM, the day before
+           and for fly-ins and Young Eagles days a week before too, to members who have not turned reminders off.
+           Each event can change this on its own page.</p>
       </div>
       <form method="post" action="{{ '/members/admin/schedule/pause' | url }}">
         <input type="hidden" name="_csrf" value="{{ csrfToken }}">
@@ -31,7 +32,7 @@
           <tbody>
             {% for i in items %}
               <tr>
-                <td><strong>{{ rules[i.rule].label }}</strong><br><span class="small muted">{{ i.event.title }} · {{ i.event.starts_at | datetime }}</span></td>
+                <td><strong>{{ rules[i.rule].label }}</strong> <span class="small muted">({{ leads[i.lead].label }})</span><br><span class="small muted">{{ i.event.title }} · {{ i.event.starts_at | datetime }}</span></td>
                 <td class="small">{{ i.dueAt | datetime }}</td>
                 <td class="small">{{ audience }} of {{ totalMembers }} members</td>
                 <td>
@@ -72,7 +73,29 @@
     {% else %}
       <div class="empty" style="margin-top:.8rem">
         <h3>Nothing scheduled</h3>
-        <p>Reminders are made for events of type Meeting on the calendar, in the next 45 days.</p>
+        <p>Reminders are made for published events on the calendar in the next 45 days, unless the event or its type has them off.</p>
+      </div>
+    {% endif %}
+
+    {% if notices.length %}
+      <h2 style="margin-top:2.5rem">Meeting notices</h2>
+      <p class="muted small" style="margin-top:.2rem">Drafted about two weeks before a meeting and sent about ten days before, once the President, Vice President or Secretary approves. An unapproved notice is never sent.</p>
+      <div class="table-wrap" style="margin-top:.8rem">
+        <table class="data">
+          <thead><tr><th>Meeting</th><th>Goes out</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for n in notices %}
+              <tr>
+                <td>
+                  {% if isOfficer %}<strong><a href="{{ ('/members/documents/notices/' ~ n.id) | url }}">{{ n.event_title or n.subject }}</a></strong>{% else %}<strong>{{ n.event_title or n.subject }}</strong>{% endif %}
+                  {% if n.when %}<br><span class="small muted">{{ n.when.long }}</span>{% endif %}
+                </td>
+                <td class="small muted">{% if n.status == 'sent' %}Sent {{ n.sent_at | datetime }}{% elif n.status == 'cancelled' %}—{% else %}{{ n.send_at | datetime }}{% endif %}</td>
+                <td><span class="pill pill-{{ 'amber' if n.status in ['draft', 'sending'] else ('green' if n.status in ['approved', 'sent'] else 'grey') }}">{{ noticeLabels[n.status] }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     {% endif %}
 
@@ -84,7 +107,7 @@
           <tbody>
             {% for r in recent %}
               <tr>
-                <td>{{ rules[r.rule].label }}{% if r.event_title %}: {{ r.event_title }}{% endif %}</td>
+                <td>{{ rules[r.rule].label }}{% if r.event_title %}: {{ r.event_title }}{% endif %} <span class="small muted">({{ 'a week before' if r.occurrence_key.endsWith(':week') else 'the day before' }})</span></td>
                 <td class="small muted">{{ (r.sent_at or r.created_at) | datetime }}</td>
                 <td class="small">
                   {% if r.status == 'sent' %}Sent to {{ r.recipients }} member{{ 's' if r.recipients != 1 }}

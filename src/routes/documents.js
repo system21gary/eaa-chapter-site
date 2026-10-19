@@ -5,6 +5,8 @@ import config from '../config.js';
 import { absoluteUrl } from '../middleware/base-path.js';
 import * as Users from '../models/users.js';
 import * as Docs from '../models/documents.js';
+import * as Notices from '../lib/notices.js';
+import { whenOf } from '../lib/event-format.js';
 import { requireAuth } from '../middleware/auth.js';
 import { writeLimiter, uploadLimiter } from '../middleware/rate-limit.js';
 import { asyncRoute } from '../middleware/errors.js';
@@ -47,7 +49,7 @@ function receiveFile(req, res, next) {
 const isOfficer = (user) => Users.isBoard(user);
 // Officers only. Being an administrator (the site's technical role) does not open the board's papers.
 const canReadBoard = (user) => Users.isBoard(user);
-const canPublish = (user) => ['president', 'vice_president', 'secretary'].includes(user?.board_role);
+const canPublish = Users.canPublish;
 
 function deny(next, message = 'That area is for the chapter board.') {
   const err = new Error(message);
@@ -102,10 +104,13 @@ router.get('/board', requireBoardReader, (req, res) => {
     title: 'Board documents',
     robots: 'noindex',
     docs: Docs.listAll(),
+    notices: Notices.listRecent().map((n) => ({ ...n, when: n.starts_at ? whenOf(n) : null })),
+    noticeLabels: Notices.STATUS_LABELS,
     kinds: Docs.KINDS,
     statusLabels: Docs.STATUS_LABELS,
     isOfficer: isOfficer(req.user),
     canApprove: Users.canApprove(req.user),
+    canApproveNotice: Users.canApproveNotice(req.user),
   });
 });
 

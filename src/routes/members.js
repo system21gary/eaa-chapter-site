@@ -16,6 +16,7 @@ import { validate, f, ValidationError } from '../lib/validate.js';
 import { processImage, deleteImage } from '../lib/images.js';
 import { listUserSessions } from '../lib/session-store.js';
 import { audit } from '../lib/audit.js';
+import { todosFor, hasDuties } from '../lib/todos.js';
 
 const router = express.Router();
 
@@ -32,13 +33,13 @@ router.use(suggestLocals({ homeBaseOptions: ['users', 'home_base'] }));
 /* -------------------------------------------------------------- dashboard */
 
 router.get('/', (req, res) => {
-  const inbox = Tools.requestsForOwner(req.user.id, { status: 'pending' });
   res.render('members/dashboard.njk', {
     title: 'Members Corner',
     robots: 'noindex',
     posts: Posts.listPosts({ viewer: req.user, limit: 4 }),
     myTools: Tools.listTools({ ownerId: req.user.id, limit: 6 }),
-    inbox,
+    todos: todosFor(req.user),
+    showTodos: hasDuties(req.user),
     myRequests: Tools.requestsByRequester(req.user.id).slice(0, 5),
     upcoming: Events.upcomingEvents({ limit: 3 }),
     stats: Tools.lockerStats(),

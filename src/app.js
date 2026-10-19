@@ -18,7 +18,7 @@ import { statsMiddleware, pingHandler } from './lib/stats.js';
 import { statsLimiter } from './middleware/rate-limit.js';
 import { waitingCount as waitingMessageCount } from './models/contact.js';
 import { pendingRequestCount as pendingToolRequestCount } from './models/tools.js';
-import { BOARD_ROLES, MAIL_PREFS, canApprove } from './models/users.js';
+import { BOARD_ROLES, MAIL_PREFS, canApprove, canApproveNotice } from './models/users.js';
 import { pendingReviewCount as documentsInReview } from './models/documents.js';
 
 import publicRoutes from './routes/public.js';
@@ -32,6 +32,8 @@ import adminRoutes from './routes/admin.js';
 import documentsRoutes from './routes/documents.js';
 import unsubscribeRoutes from './routes/unsubscribe.js';
 import scheduleRoutes from './routes/schedule.js';
+import noticesRoutes from './routes/notices.js';
+import { awaitingApprovalCount as noticesAwaiting } from './lib/notices.js';
 import mediaRoutes from './routes/media.js';
 
 export function createApp() {
@@ -151,9 +153,11 @@ export function createApp() {
     if (req.user?.role === 'admin' && req.path.startsWith('/members')) {
       res.locals.pendingApplications = pendingApplicationCount();
     }
-    // Badge for the President and Vice President: documents waiting on a decision.
-    if (canApprove(req.user) && req.path.startsWith('/members')) {
-      res.locals.documentsToReview = documentsInReview();
+    // Badge for whoever has something to decide: documents waiting on the President or
+    // Vice President, and meeting notices waiting on them or the Secretary.
+    if (req.user && req.path.startsWith('/members') && (canApprove(req.user) || canApproveNotice(req.user))) {
+      res.locals.documentsToReview =
+        (canApprove(req.user) ? documentsInReview() : 0) + (canApproveNotice(req.user) ? noticesAwaiting() : 0);
     }
     // Tool loan requests waiting on this member to answer, for the Tool Locker tab.
     if (req.user && req.path.startsWith('/members')) {
@@ -176,6 +180,7 @@ export function createApp() {
   app.use('/members/blog', blogRoutes);
   app.use('/members/locker', lockerRoutes);
   app.use('/unsubscribe', unsubscribeRoutes);
+  app.use('/members/documents/notices', noticesRoutes);
   app.use('/members/documents', documentsRoutes);
   app.use('/members/admin/schedule', scheduleRoutes);
   app.use('/members/admin', adminRoutes);

@@ -133,3 +133,15 @@ export function renderEmail({ preheader, eyebrow, title, subtitle = '', bodyHtml
 /** Link styled for the footer and for inline use. */
 export const link = (url, label, color = '#0077c0') =>
   `<a href="${esc(url)}" target="_blank" style="color:${color}; text-decoration:underline;">${esc(label)}</a>`;
+
+/** A quoted note (someone's own words), set off with a yellow rule. `text` is plain and is escaped here. */
+export const quote = (text) =>
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;"><tr><td style="border-left:4px solid ${C.amber}; padding:6px 0 6px 16px; font-size:16px; line-height:1.6; color:${C.inkSoft}; white-space:pre-wrap;">${esc(text)}</td></tr></table>`;
+
+/** "Or copy this link" with the address in a box that can be selected and pasted. For links that matter. */
+export const linkFallback = (url) =>
+  `<p style="margin:0 0 20px; font-size:13px; line-height:1.5; color:${C.inkFaint};">If the button does not work, copy this address into your browser:<br><span style="word-break:break-all; font-family:ui-monospace, Menlo, Consolas, monospace; color:${C.inkSoft};">${esc(url)}</span></p>`;
+
+/** The small print for a message that is not a mailing: why they got it, and who we are. */
+export const plainFooter = (reasonHtml) =>
+  `${reasonHtml ? `${reasonHtml}<br><br>` : ''}EAA Chapter 1699 &middot; South Albany Airport (4B0) &middot; Selkirk, New York`;

@@ -1,0 +1,159 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap">
+    <p class="crumbs"><a href="{{ '/members/documents/board' | url }}">Board documents</a> <span aria-hidden="true">›</span> Meeting notice</p>
+    <h1>{{ notice.event_title or 'Meeting notice' }}</h1>
+    <div class="pill-row" style="margin:.6rem 0 0">
+      <span class="pill pill-{{ 'amber' if notice.status in ['draft', 'sending'] else ('green' if notice.status in ['approved', 'sent'] else 'grey') }}">{{ statusLabels[notice.status] }}</span>
+    </div>
+    <p class="muted small" style="margin-top:.6rem">
+      {% if notice.status == 'sent' %}Sent {{ notice.sent_at | datetime }} to {{ notice.recipients }} member{{ 's' if notice.recipients != 1 }}.
+      {% elif notice.status in ['draft', 'approved'] %}Due to go to members {{ notice.send_at | datetime }}.
+      {% elif notice.status == 'cancelled' %}This notice was cancelled and nothing was sent.{% endif %}
+    </p>
+
+    <div class="split" style="margin-top:2rem">
+      <div class="stack">
+        {% if when %}
+          <article class="card">
+            <div class="card-body">
+              <h3>The meeting</h3>
+              <p style="margin:.2rem 0"><strong>When:</strong> {{ when.long }}</p>
+              {% if where %}<p style="margin:.2rem 0"><strong>Where:</strong> {{ where }}</p>{% endif %}
+              {% if rainDate %}<p style="margin:.2rem 0"><strong>Rain date:</strong> {{ rainDate }}</p>{% endif %}
+              <p class="small muted" style="margin:.8rem 0 0">
+                These come from the event on the calendar. If they change after a notice is approved, the approval is
+                withdrawn and it has to be approved again.
+                {% if eventLink %}<a href="{{ eventLink }}">See the event page</a>.{% endif %}
+              </p>
+            </div>
+          </article>
+        {% endif %}
+
+        {% if can.edit %}
+          <form method="post" action="{{ ('/members/documents/notices/' ~ notice.id) | url }}" class="form-card">
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            <fieldset>
+              <legend>What members will read</legend>
+              {% if notice.status == 'approved' %}
+                <div class="notice" style="margin-bottom:1rem">This notice is approved. Saving changes to it withdraws the approval, so it has to be approved again.</div>
+              {% endif %}
+              <div class="field">
+                <label for="subject">Email subject</label>
+                <input type="text" id="subject" name="subject" required maxlength="140" value="{{ form.subject or '' }}" aria-invalid="{{ 'true' if errors.subject }}">
+                {{ err(errors, 'subject') }}
+              </div>
+              <div class="field">
+                <label for="speaker">Speaker <span class="muted">(optional)</span></label>
+                <input type="text" id="speaker" name="speaker" maxlength="160" value="{{ form.speaker or '' }}" placeholder="Name, and what they will talk about">
+                {{ err(errors, 'speaker') }}
+              </div>
+              <div class="field">
+                <label for="agenda">Agenda <span class="muted">(optional, one item per line)</span></label>
+                <textarea id="agenda" name="agenda" rows="5" maxlength="2000">{{ form.agenda or '' }}</textarea>
+                {{ err(errors, 'agenda') }}
+              </div>
+              <div class="field">
+                <label for="note">Message <span class="muted">(optional)</span></label>
+                <textarea id="note" name="note" rows="5" maxlength="2000">{{ form.note or '' }}</textarea>
+                {{ err(errors, 'note') }}
+                <span class="hint">A paragraph or two at the top of the email and of the website post. Leave a blank line between paragraphs.</span>
+              </div>
+            </fieldset>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div>
+          </form>
+        {% else %}
+          <article class="card">
+            <div class="card-body">
+              <h3>What members {{ 'read' if notice.status == 'sent' else 'would have read' }}</h3>
+              <p class="small" style="margin:.2rem 0"><strong>Subject:</strong> {{ notice.subject }}</p>
+              {% if notice.speaker %}<p class="small" style="margin:.2rem 0"><strong>Speaker:</strong> {{ notice.speaker }}</p>{% endif %}
+              {% if notice.agenda %}<p class="small" style="margin:.2rem 0; white-space:pre-wrap"><strong>Agenda:</strong>
+{{ notice.agenda }}</p>{% endif %}
+              {% if notice.note %}<p class="small" style="margin:.6rem 0 0; white-space:pre-wrap">{{ notice.note }}</p>{% endif %}
+            </div>
+          </article>
+        {% endif %}
+
+        <article class="card">
+          <div class="card-body">
+            <h3>History</h3>
+            <ol class="history" tabindex="0" aria-label="Notice history, newest first">
+              {% for e in log %}
+                <li>
+                  <span class="history-when">{{ e.created_at | datetime }}</span>
+                  <span><strong>{{ e.actor_label or 'The site' }}</strong>
+                    {% if e.action == 'drafted' %}drafted the notice
+                    {% elif e.action == 'edited' %}edited the wording
+                    {% elif e.action == 'approved' %}approved it
+                    {% elif e.action == 'approval_withdrawn' %}withdrew the approval
+                    {% elif e.action == 'nudged' %}reminded the approvers
+                    {% elif e.action == 'sent' %}sent it
+                    {% elif e.action == 'cancelled' %}cancelled it
+                    {% else %}{{ e.action }}{% endif %}
+                    {% if e.detail %}<br><span class="small muted">{{ e.detail }}</span>{% endif %}
+                  </span>
+                </li>
+              {% endfor %}
+            </ol>
+          </div>
+        </article>
+      </div>
+
+      <aside class="sidebar">
+        {% if notice.status == 'approved' %}
+          <div class="card"><div class="card-body">
+            <h3>Approved</h3>
+            <p class="small muted">By {{ notice.approved_label }}, {{ notice.approved_at | datetime }}. It goes to {{ audience }} member{{ 's' if audience != 1 }} {{ notice.send_at | datetime }} and is posted on the website for everyone to read.</p>
+          </div></div>
+        {% endif %}
+
+        {% if can.approve %}
+          <div class="card"><div class="card-body">
+            <h3>Approve</h3>
+            <p class="small muted">
+              Approving sends this to {{ audience }} member{{ 's' if audience != 1 }} on {{ notice.send_at | datetime }}
+              (straight away if that has passed) and posts it on the public website. Members who have turned
+              meeting notices off are left out. The President, the Vice President or the Secretary can approve.
+            </p>
+            <form method="post" action="{{ ('/members/documents/notices/' ~ notice.id ~ '/approve') | url }}">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+              <button type="submit" class="btn btn-primary btn-block btn-sm">Approve this notice</button>
+            </form>
+          </div></div>
+        {% elif notice.status == 'draft' %}
+          <div class="notice">Waiting for the President, Vice President or Secretary to approve it. It will not be sent until they do.</div>
+        {% endif %}
+
+        {% if notice.event_slug %}
+          <div class="card"><div class="card-body">
+            <h3>Preview</h3>
+            <p class="small muted">Email yourself the notice exactly as members will get it.</p>
+            <form method="post" action="{{ ('/members/documents/notices/' ~ notice.id ~ '/preview') | url }}">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+              <button type="submit" class="btn btn-outline btn-block btn-sm">Email me a preview</button>
+            </form>
+          </div></div>
+        {% endif %}
+
+        {% if can.cancel %}
+          <div class="card"><div class="card-body">
+            <h3>Do not send</h3>
+            <p class="small muted">Cancels the notice for this meeting. Nothing goes to members.</p>
+            <form method="post" action="{{ ('/members/documents/notices/' ~ notice.id ~ '/cancel') | url }}" data-confirm="Cancel this notice? Nothing will be sent for this meeting.">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+              <button type="submit" class="btn btn-danger btn-block btn-sm">Cancel the notice</button>
+            </form>
+          </div></div>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

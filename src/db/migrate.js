@@ -863,6 +863,85 @@ const migrations = [
     ALTER TABLE email_outbox ADD COLUMN headers TEXT;
     `,
   },
+  {
+    version: 19,
+    name: 'meeting notices',
+    sql: `
+    -- The notice that goes to members ahead of a meeting. The site drafts one
+    -- about two weeks out; the President or Vice President approves it; it
+    -- sends about ten days out (or at once if approved later) and is posted on
+    -- the website. occurrence_key is the event plus its local date, so a
+    -- meeting that moves gets a new notice instead of an old approval.
+    CREATE TABLE notices (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id         INTEGER REFERENCES events(id) ON DELETE SET NULL,
+      occurrence_key   TEXT NOT NULL UNIQUE,
+      subject          TEXT NOT NULL,
+      speaker          TEXT,
+      agenda           TEXT,
+      note             TEXT,
+      status           TEXT NOT NULL DEFAULT 'draft'
+                         CHECK (status IN ('draft', 'approved', 'sending', 'sent', 'cancelled')),
+      send_at          TEXT NOT NULL,
+      -- A fingerprint of the event's date, place and title when it was approved.
+      -- If any of those change afterwards the approval no longer stands.
+      approved_facts   TEXT,
+      approved_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      approved_label   TEXT,
+      approved_at      TEXT,
+      sent_at          TEXT,
+      recipients       INTEGER,
+      post_id          INTEGER REFERENCES posts(id) ON DELETE SET NULL,
+      last_nudged_on   TEXT,
+      created_at       TEXT NOT NULL,
+      updated_at       TEXT NOT NULL
+    );
+    CREATE INDEX idx_notices_status ON notices(status, send_at);
+
+    CREATE TABLE notice_events (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      notice_id   INTEGER NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
+      action      TEXT NOT NULL,
+      actor_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_label TEXT,
+      detail      TEXT,
+      created_at  TEXT NOT NULL
+    );
+    CREATE INDEX idx_notice_events_notice ON notice_events(notice_id, id);
+    `,
+  },
+  {
+    version: 20,
+    name: 'reminders for every kind of event, and event updates',
+    sql: `
+    -- Which reminders an event sends. NULL means "the default for its type"
+    -- (see lib/event-format.js): meetings and workshops the day before; fly-ins
+    -- and Young Eagles days a week before and the day before; socials and
+    -- general chapter events none.
+    ALTER TABLE events ADD COLUMN reminders TEXT CHECK (reminders IN ('off', 'day', 'week_and_day'));
+
+    -- Reminders are no longer only for meetings, and an event can have two. The
+    -- rule is renamed and the occurrence key gains the lead (':day' or ':week'),
+    -- so a reminder already sent is still recognised as sent and nothing repeats.
+    UPDATE scheduled_sends SET rule = 'event_reminder', occurrence_key = occurrence_key || ':day'
+     WHERE rule = 'meeting_reminder';
+
+    -- Messages an editor sends to members about a change to an event: a new
+    -- time or place, or a cancellation. A record of who said what, to how many.
+    CREATE TABLE event_updates (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id    INTEGER REFERENCES events(id) ON DELETE SET NULL,
+      event_title TEXT NOT NULL,
+      kind        TEXT NOT NULL CHECK (kind IN ('update', 'cancelled')),
+      message     TEXT NOT NULL,
+      sent_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      sent_label  TEXT,
+      recipients  INTEGER,
+      created_at  TEXT NOT NULL
+    );
+    CREATE INDEX idx_event_updates_event ON event_updates(event_id, id);
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

@@ -10,12 +10,30 @@
       Locker, the build logs, and the member directory.
     </p>
 
-    {% if inbox.length %}
-      <div class="notice" style="margin:1.5rem 0">
-        <strong>{{ inbox.length }} borrow request{{ 's' if inbox.length != 1 }} waiting on you.</strong>
-        Somebody wants to borrow one of your tools —
-        <a href="{{ '/members/locker/requests' | url }}">have a look</a>.
-      </div>
+    {% if todos.length or showTodos %}
+      <section class="card todo" aria-labelledby="todo-heading" style="margin:1.5rem 0">
+        <div class="card-body">
+          <h2 id="todo-heading" style="margin:0 0 .4rem; font-size:1.3rem">
+            To do {% if todos.length %}<span class="pill pill-amber">{{ todos.length }}</span>{% endif %}
+          </h2>
+          {% if todos.length %}
+            <ul class="todo-list">
+              {% for t in todos %}
+                <li class="todo-item{{ ' todo-late' if t.tone == 'late' }}">
+                  <span class="pill pill-{{ 'red' if t.tone == 'late' else 'grey' }}">{{ t.kind }}</span>
+                  <span>
+                    <span class="todo-title">{{ t.title }}</span><br>
+                    <span class="todo-detail">{{ t.detail }}{% if t.when %} · {{ t.when | relative }}{% endif %}</span>
+                  </span>
+                  <a class="btn btn-outline btn-sm" href="{{ t.href | url }}">Open</a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted" style="margin:0">You are all caught up. Nothing is waiting on you.</p>
+          {% endif %}
+        </div>
+      </section>
     {% endif %}
 
     <div class="dash-tiles">
