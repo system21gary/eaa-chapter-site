@@ -550,9 +550,13 @@ table.data tr:last-child td { border-bottom: 0; }
 /* A list that stops growing the page: fixed height, scrolls inside. */
 .scroll-box { max-height: 18rem; overflow-y: auto; overscroll-behavior: contain; }
 /* Activity log: the two panes are the same fixed height, so the columns line up. */
+.split.log-split { gap: 2rem; }
+@media (min-width: 901px) { .split.log-split { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); } }
 .log-split .sidebar { position: static; display: block; }
-.log-pane { height: 22rem; }
-.log-pane.scroll-box { max-height: none; }
+.log-pane { height: 32rem; }
+.log-pane.scroll-box { max-height: none; overflow-x: hidden; }
+.log-pane table.data { table-layout: auto; }
+.log-pane table.data td { overflow-wrap: anywhere; }
 .card.log-pane { display: flex; flex-direction: column; overflow: hidden; }
 .card.log-pane .card-body { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .scroll-box-fill { flex: 1; min-height: 0; max-height: none; padding-right: .5rem; }
