@@ -64,6 +64,22 @@
     show(0);
   });
 
+  /* ------------------------------------------- members bar "more" menu
+     A <details> element, so it opens and closes without any script. This adds
+     the usual dropdown manners: a click elsewhere or Esc closes it. */
+  var more = document.querySelector('.members-more');
+  if (more) {
+    document.addEventListener('click', function (e) {
+      if (more.open && !more.contains(e.target)) more.open = false;
+    });
+    more.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && more.open) {
+        more.open = false;
+        more.querySelector('summary').focus();
+      }
+    });
+  }
+
   /* ------------------------------------------------- password strength UI
      Purely a hint for the member. The authoritative check runs on the
      server, which never trusts anything this function decides. */
