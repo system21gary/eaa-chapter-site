@@ -24,6 +24,7 @@ import {
   outboxHealth,
 } from '../lib/mailer.js';
 import { recentAudit } from '../lib/audit.js';
+import { systemInfo } from '../lib/sysinfo.js';
 import { audit } from '../lib/audit.js';
 import { suggestLocals } from '../lib/suggestions.js';
 import * as EventUpdates from '../lib/event-updates.js';
@@ -919,6 +920,7 @@ router.get('/log', requireAdmin, (req, res) => {
     outbox: recentOutbox(50),
     mailHealth: outboxHealth(),
     mailLive: config.mail.transport === 'smtp',
+    sys: systemInfo(),
   });
 });
 

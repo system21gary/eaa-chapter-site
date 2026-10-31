@@ -11,39 +11,39 @@
       login form, not enough to be a pile of personal data.
     </p>
 
-    <div class="split" style="margin-top:2rem">
+    <div class="split log-split" style="margin-top:2rem">
       <div>
-        <h2>Recent activity</h2>
-        <div class="table-wrap" style="margin-top:1rem">
-          <table class="data">
-            <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead>
-            <tbody>
-              {% for e in entries %}
-                <tr>
-                  <td class="tiny muted" style="white-space:nowrap">{{ e.created_at | datetime }}</td>
-                  <td class="tiny">
-                    {% if e.first_name %}{{ e.first_name }} {{ e.last_name }}{% else %}<span class="muted">anonymous</span>{% endif %}
-                  </td>
-                  <td>
-                    <span class="pill {{ 'pill-red' if 'failed' in e.action or 'locked' in e.action }}{{ 'pill-green' if 'success' in e.action }}">
-                      {{ e.action }}
-                    </span>
-                  </td>
-                  <td class="tiny muted">
-                    {{ e.detail or '' }}
-                    {%- if e.entity %} <span class="mono">{{ e.entity }}#{{ e.entity_id }}</span>{% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+      <h2>Recent activity</h2>
+      <div class="table-wrap scroll-box log-pane" style="margin-top:1rem" tabindex="0" role="region" aria-label="Recent activity, scrollable">
+        <table class="data">
+          <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead>
+          <tbody>
+            {% for e in entries %}
+              <tr>
+                <td class="tiny muted" style="white-space:nowrap">{{ e.created_at | datetime }}</td>
+                <td class="tiny">
+                  {% if e.first_name %}{{ e.first_name }} {{ e.last_name }}{% else %}<span class="muted">anonymous</span>{% endif %}
+                </td>
+                <td>
+                  <span class="pill {{ 'pill-red' if 'failed' in e.action or 'locked' in e.action }}{{ 'pill-green' if 'success' in e.action }}">
+                    {{ e.action }}
+                  </span>
+                </td>
+                <td class="tiny muted">
+                  {{ e.detail or '' }}
+                  {%- if e.entity %} <span class="mono">{{ e.entity }}#{{ e.entity_id }}</span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       </div>
 
       <aside class="sidebar">
-        <div class="card">
+        <h2>Mail queue</h2>
+        <div class="card log-pane" style="margin-top:1rem">
           <div class="card-body">
-            <h3>Mail queue</h3>
             {% if mailLive %}
               <p class="small muted">
                 Sending over SMTP. Messages are queued here first and delivered
@@ -66,7 +66,7 @@
               </div>
             {% endif %}
 
-            <ul class="plain small" style="margin-top:1rem">
+            <ul class="plain small scroll-box scroll-box-fill" style="margin-top:1rem" tabindex="0" aria-label="Queued mail, scrollable">
               {% for m in outbox %}
                 <li style="padding-bottom:.6rem; border-bottom:1px solid var(--line); margin-bottom:.6rem">
                   <a href="{{ '' | url }}/members/admin/log/mail/{{ m.id }}">{{ m.subject }}</a><br>
@@ -108,6 +108,29 @@
         </div>
       </aside>
     </div>
+
+    <footer class="site-footnote">
+      <h3>Site info</h3>
+      <ul class="factlist small">
+      <li><span class="label">Node</span><span class="mono">{{ sys.nodeVersion }}</span></li>
+      <li><span class="label">Up for</span><span>{{ sys.uptime }}</span></li>
+      <li><span class="label">Last restart</span><span>{{ sys.startedAt | datetime }} <span class="tiny muted">({{ sys.startedAt | relative }})</span></span></li>
+      <li><span class="label">Environment</span><span>{{ sys.environment }}</span></li>
+      {% if sys.appVersion %}<li><span class="label">App version</span><span class="mono">{{ sys.appVersion }}</span></li>{% endif %}
+      <li><span class="label">Schema</span><span>{% if sys.schema !== null %}migration {{ sys.schema }}{% else %}unknown{% endif %}</span></li>
+      <li><span class="label">Memory</span><span>{{ sys.memory }} <span class="tiny muted">(heap {{ sys.heap }}; machine {{ sys.machineMemory }})</span></span></li>
+      {% if sys.database %}<li><span class="label">Database</span><span>{{ sys.database }}{% if sys.wal %} <span class="tiny muted">(+ {{ sys.wal }} write-ahead log)</span>{% endif %}</span></li>{% endif %}
+      {% if sys.disk %}<li><span class="label">Disk</span><span>{{ sys.disk.usedPercent }}% full <span class="tiny muted">({{ sys.disk.free }} free of {{ sys.disk.total }})</span></span></li>{% endif %}
+      <li><span class="label">Backups</span><span>{{ 'Replicating to a bucket' if sys.backupConfigured else 'Not configured' }}</span></li>
+      <li><span class="label">Scheduler</span><span>{{ 'On' if sys.scheduler else 'Off' }}</span></li>
+      <li><span class="label">Platform</span><span>{{ sys.platform }}</span></li>
+      <li><span class="label">Time zone</span><span>{{ sys.timezone }}</span></li>
+      {% if sys.fly %}
+        <li><span class="label">Fly</span><span>{{ sys.fly.app }}{% if sys.fly.region %} · {{ sys.fly.region }}{% endif %}</span></li>
+        {% if sys.fly.machine %}<li><span class="label">Machine</span><span class="mono">{{ sys.fly.machine }}</span></li>{% endif %}
+      {% endif %}
+      </ul>
+    </footer>
   </div>
 </section>
 {% endblock %}

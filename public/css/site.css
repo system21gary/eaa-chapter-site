@@ -546,6 +546,20 @@ table.data { width: 100%; border-collapse: collapse; font-size: .92rem; }
 table.data th, table.data td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
 table.data th { background: #f6f8fa; font-size: .74rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); }
 table.data tr:last-child td { border-bottom: 0; }
+
+/* A list that stops growing the page: fixed height, scrolls inside. */
+.scroll-box { max-height: 18rem; overflow-y: auto; overscroll-behavior: contain; }
+/* Activity log: the two panes are the same fixed height, so the columns line up. */
+.log-split .sidebar { position: static; display: block; }
+.log-pane { height: 22rem; }
+.log-pane.scroll-box { max-height: none; }
+.card.log-pane { display: flex; flex-direction: column; overflow: hidden; }
+.card.log-pane .card-body { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.scroll-box-fill { flex: 1; min-height: 0; max-height: none; padding-right: .5rem; }
+.site-footnote { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--ink-faint); }
+.site-footnote h3 { font-size: .74rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; margin: 0 0 .6rem; }
+.site-footnote .factlist { grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: .35rem 2rem; margin: 0; }
+.scroll-box table.data thead th { position: sticky; top: 0; z-index: 1; }
 table.data tbody tr:hover { background: #fafbfc; }
 /* Inline controls inside a table need a floor, or the option text truncates. */
 table.data select { min-width: 9rem; padding-block: .35rem; font-size: .88rem; }
