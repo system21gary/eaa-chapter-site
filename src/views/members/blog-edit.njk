@@ -42,12 +42,13 @@
 
       <fieldset>
         <legend>Cover image</legend>
-        {% if post.cover_path %}
-          <p><img src="{{ post.cover_path | media }}" alt="" style="max-width:300px; border-radius:12px"></p>
-        {% endif %}
+        <div id="cover-current" class="cover-slot{{ ' has-cover' if post.cover_path }}">
+          <img src="{{ post.cover_path | media if post.cover_path else 'data:,' }}" alt="">
+          <span class="cover-empty">No cover image yet</span>
+        </div>
         <div class="field">
           <label for="cover">{{ 'Replace image' if post.cover_path else 'Upload an image' }}</label>
-          <input type="file" id="cover" name="cover" accept="image/*" data-preview="#cover-preview">
+          <input type="file" id="cover" name="cover" accept="image/*" data-dropzone data-max-bytes="{{ maxMb * 1048576 }}" data-preview="#cover-preview">
         </div>
         <div id="cover-preview" class="preview-grid"></div>
         <div class="field">
@@ -57,25 +58,55 @@
       </fieldset>
 
       <fieldset>
+        <legend>Photos</legend>
+        {% if post.photos and post.photos.length %}
+          <ul class="photo-tiles" data-photo-sorter data-order-url="{{ ('/members/blog/' ~ post.slug ~ '/photos/order') | url }}"
+              data-csrf="{{ csrfToken }}" aria-label="Photos on this post">
+            {% for photo in post.photos %}
+              <li class="photo-tile{{ ' is-cover' if photo.full_path == post.cover_path }}" data-id="{{ photo.id }}"
+                  data-full-src="{{ photo.full_path | media }}"
+                  data-cover-url="{{ ('/members/blog/photos/' ~ photo.id ~ '/cover') | url }}"
+                  data-delete-url="{{ ('/members/blog/photos/' ~ photo.id ~ '/delete') | url }}">
+                <img src="{{ photo.thumb_path | media }}" alt="" draggable="false">
+                <span class="photo-badge">Cover</span>
+                <div class="photo-tile-actions">
+                  <button type="button" class="btn btn-outline btn-sm" data-photo-cover {{ 'disabled' if photo.full_path == post.cover_path }}>
+                    <span class="is-not-cover">Make cover</span><span class="is-the-cover">Cover ✓</span>
+                  </button>
+                  <button type="button" class="btn btn-danger btn-sm" data-photo-delete>Delete</button>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+          <p class="small muted" style="margin-bottom:1rem">
+            Drag to reorder. Reordering, "Make cover" and "Delete" take effect straight away;
+            Save changes is for the text and anything new you add below.
+          </p>
+        {% endif %}
+        <div class="field">
+          <label for="photos">Add photos <span class="muted">(up to {{ maxPhotos }} per post)</span></label>
+          <input type="file" id="photos" name="photos" accept="image/*" multiple
+                 data-dropzone data-max-bytes="{{ maxMb * 1048576 }}" data-max-files="{{ maxPhotos }}"
+                 data-preview="#photo-preview">
+          <span class="hint">
+            Pick several at once or drag them in. On the post they show as a slideshow under the text.
+            Photos are resized and re-encoded on upload, which strips camera location data.
+          </span>
+        </div>
+        <div id="photo-preview" class="preview-grid"></div>
+      </fieldset>
+
+      <fieldset>
         <legend>Publishing</legend>
 
-        <div class="field-row">
-          <div class="field">
-            <label for="status">Status</label>
-            <select id="status" name="status">
-              <option value="draft" {{ 'selected' if post.status == 'draft' }}>Draft</option>
-              <option value="published" {{ 'selected' if post.status == 'published' }}>Published</option>
-              <option value="archived" {{ 'selected' if post.status == 'archived' }}>Archived</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="visibility">Who can read it</label>
-            <select id="visibility" name="visibility">
-              <option value="members" {{ 'selected' if post.visibility != 'public' }}>Members only</option>
-              <option value="public" {{ 'selected' if post.visibility == 'public' }}>Anyone (shows on the public site)</option>
-            </select>
-          </div>
+        <div class="field">
+          <label for="status">Status</label>
+          <select id="status" name="status">
+            <option value="draft" {{ 'selected' if post.status == 'draft' }}>Draft</option>
+            <option value="published" {{ 'selected' if post.status == 'published' }}>Published</option>
+            <option value="archived" {{ 'selected' if post.status == 'archived' }}>Archived</option>
+          </select>
+          <span class="hint">Posts are visible to signed-in members only.</span>
         </div>
 
         <div class="field">

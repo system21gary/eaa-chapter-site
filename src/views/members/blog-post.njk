@@ -8,7 +8,6 @@
 
       <div class="pill-row" style="margin-bottom:.8rem">
         {% if post.status == 'draft' %}<span class="pill pill-grey">Draft — not visible to members yet</span>{% endif %}
-        {% if post.visibility == 'public' %}<span class="pill">Public post</span>{% endif %}
         {% for tag in post.tags %}<span class="pill pill-amber">{{ tag }}</span>{% endfor %}
       </div>
 
@@ -37,6 +36,14 @@
       {% endif %}
 
       <div class="prose">{{ post.body_html | safe }}</div>
+
+      {% if post.gallery and post.gallery.length %}
+        <section class="post-photos" aria-label="Photos">
+          {% set photos = post.gallery %}
+          {% set carouselId = 'post-photos' %}
+          {% include "partials/carousel.njk" %}
+        </section>
+      {% endif %}
 
       {% if canEdit %}
         <div class="entry-actions">
@@ -102,7 +109,6 @@
           <ul class="factlist" style="margin-top:1rem">
             <li><span class="label">Author</span><span>{{ post.author_display or (post.author_first ~ ' ' ~ post.author_last) }}</span></li>
             <li><span class="label">Posted</span><span>{{ (post.published_at or post.created_at) | shortdate }}</span></li>
-            <li><span class="label">Visible to</span><span>{{ 'Everyone' if post.visibility == 'public' else 'Members only' }}</span></li>
           </ul>
         </div>
       </div>

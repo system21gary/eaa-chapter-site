@@ -91,6 +91,10 @@ export function getPostBySlug(slug, { viewer = null } = {}) {
   post.tags = all('SELECT tag FROM post_tags WHERE post_id = ? ORDER BY tag', [post.id]).map(
     (r) => r.tag
   );
+  post.photos = listPhotos(post.id);
+  // The carousel under the text. A photo chosen as the cover is already shown
+  // large above the text, so it is left out here rather than appearing twice.
+  post.gallery = post.photos.filter((p) => p.full_path !== post.cover_path);
   return post;
 }
 
@@ -199,6 +203,74 @@ export function updatePost(id, fields, editorId) {
 
 export function deletePost(id) {
   run('DELETE FROM posts WHERE id = ?', [Number(id)]);
+}
+
+/* ---------------------------------------------------------------- photos */
+
+export function listPhotos(postId) {
+  return all(
+    'SELECT id, post_id, full_path, thumb_path, caption FROM post_photos WHERE post_id = ? ORDER BY sort, id',
+    [Number(postId)]
+  );
+}
+
+export function countPhotos(postId) {
+  return get('SELECT COUNT(*) AS n FROM post_photos WHERE post_id = ?', [Number(postId)]).n;
+}
+
+export function addPhoto(postId, { fullPath, thumbPath, caption = null }) {
+  const next = get(
+    'SELECT COALESCE(MAX(sort), -1) + 1 AS s FROM post_photos WHERE post_id = ?',
+    [Number(postId)]
+  ).s;
+  run(
+    `INSERT INTO post_photos (post_id, full_path, thumb_path, caption, sort, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [Number(postId), fullPath, thumbPath, caption, next, nowIso()]
+  );
+}
+
+/** Points the post's cover at a stored image path, or clears it (null). */
+export function setCover(postId, relPath) {
+  run('UPDATE posts SET cover_path = ? WHERE id = ?', [relPath, Number(postId)]);
+}
+
+/** Sets the display order from a list of photo ids; ids not on this post are ignored. */
+export function reorderPhotos(postId, orderedIds) {
+  const mine = new Set(listPhotos(postId).map((p) => p.id));
+  let sort = 0;
+  transaction(() => {
+    for (const id of orderedIds.map(Number)) {
+      if (!mine.has(id)) continue;
+      run('UPDATE post_photos SET sort = ? WHERE id = ?', [sort, id]);
+      sort += 1;
+      mine.delete(id);
+    }
+    // Anything not mentioned keeps its place, after the ones that were.
+    for (const p of listPhotos(postId)) {
+      if (mine.has(p.id)) {
+        run('UPDATE post_photos SET sort = ? WHERE id = ?', [sort, p.id]);
+        sort += 1;
+      }
+    }
+  });
+}
+
+/** A stored image can be a post's cover and one of its photos at once; delete the file only when neither. */
+export function fileInUse(relPath) {
+  if (!relPath) return false;
+  return Boolean(
+    get('SELECT 1 AS x FROM posts WHERE cover_path = ?', [relPath]) ||
+      get('SELECT 1 AS x FROM post_photos WHERE full_path = ? OR thumb_path = ?', [relPath, relPath])
+  );
+}
+
+export function getPhoto(id) {
+  return get('SELECT * FROM post_photos WHERE id = ?', [Number(id)]) ?? null;
+}
+
+export function deletePhoto(id) {
+  run('DELETE FROM post_photos WHERE id = ?', [Number(id)]);
 }
 
 function setTags(postId, tags) {

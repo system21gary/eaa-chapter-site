@@ -87,7 +87,8 @@ previews and a mobile menu.
 
 - **Dashboard** — pending borrow requests, latest posts, your tools, next events
 - **Blog** — markdown CMS with drafts, tags, pinning, revision history,
-  per-post `members` / `public` visibility, and plain-text comments
+  multiple photos per post shown as a carousel, and plain-text comments (all posts are
+  behind the login)
 - **Tool Locker** — listings with image carousels, category and availability
   filters, location, lending terms, and a full borrow-request workflow
   (request → approve/decline → mark returned, with availability kept in step)

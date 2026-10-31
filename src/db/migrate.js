@@ -969,6 +969,25 @@ const migrations = [
     );
     `,
   },
+  {
+    version: 22,
+    name: 'blog post photo galleries',
+    sql: `
+    -- Extra photos on a blog post, shown as a carousel under the text. The
+    -- cover image stays on posts.cover_path. Files live under the private
+    -- postphotos/ folder, so a members-only post's pictures need a login.
+    CREATE TABLE post_photos (
+      id         INTEGER PRIMARY KEY,
+      post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      full_path  TEXT NOT NULL,
+      thumb_path TEXT NOT NULL,
+      caption    TEXT,
+      sort       INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_post_photos_post ON post_photos(post_id, sort);
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

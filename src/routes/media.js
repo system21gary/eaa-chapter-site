@@ -17,7 +17,7 @@ const router = express.Router();
 
 // Folders whose contents are members-only. Anything a member uploads about
 // themselves or their hangar stays behind the login.
-const PRIVATE_PREFIXES = ['tools/', 'avatars/'];
+const PRIVATE_PREFIXES = ['tools/', 'avatars/', 'postphotos/'];
 
 router.get(/^\/(.+)$/, (req, res, next) => {
   const relPath = req.params[0];

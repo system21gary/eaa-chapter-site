@@ -222,6 +222,8 @@ export const config = {
   uploads: {
     maxBytes: int('UPLOAD_MAX_BYTES', 12 * 1024 * 1024),
     maxFilesPerTool: int('UPLOAD_MAX_FILES', 8),
+    // Gallery photos on one blog post (the cover image is separate).
+    maxPostPhotos: int('POST_MAX_PHOTOS', 20),
     // Everything is re-encoded to these dimensions; originals are discarded.
     fullWidth: 1600,
     thumbWidth: 480,

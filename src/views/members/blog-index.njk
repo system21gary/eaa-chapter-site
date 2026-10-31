@@ -45,7 +45,6 @@
               <div class="pill-row" style="margin-bottom:.6rem">
                 {% if post.pinned %}<span class="pill pill-amber">Pinned</span>{% endif %}
                 {% if post.status == 'draft' %}<span class="pill pill-grey">Draft</span>{% endif %}
-                {% if post.visibility == 'public' %}<span class="pill">Public</span>{% endif %}
               </div>
 
               <h3 style="margin-bottom:.3rem">
@@ -80,7 +79,6 @@
                       <span class="cell pills">
                         {% if post.pinned %}<span class="pill pill-amber">Pinned</span>{% endif %}
                         {% if post.status == 'draft' %}<span class="pill pill-grey">Draft</span>{% endif %}
-                        {% if post.visibility == 'public' %}<span class="pill">Public</span>{% endif %}
                       </span>
                       <span class="cell">{% if post.comment_count %}{{ post.comment_count }} comment{{ 's' if post.comment_count != 1 }}{% endif %}</span>
                       <span class="cell">{{ post.author_display or (post.author_first ~ ' ' ~ post.author_last) }}</span>

@@ -102,7 +102,6 @@
                   <p class="timeline-date">
                     {{ (post.published_at or post.created_at) | shortdate }}
                     {%- if post.status == 'draft' %} <span class="pill pill-grey">Draft</span>{% endif %}
-                    {%- if post.visibility == 'public' %} <span class="pill">Public</span>{% endif %}
                   </p>
                   <h3 style="margin-bottom:.3rem">
                     <a href="{{ '' | url }}/members/blog/{{ post.slug }}">{{ post.title }}</a>

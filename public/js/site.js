@@ -687,13 +687,16 @@
      Wraps a file input marked data-dropzone. The native "Choose file" button
      stays, so keyboards, screen readers and browsers without drag-and-drop
      work as before; dropping a file on the box just fills that same input. */
+  var pageDropZone = null;
   document.querySelectorAll('input[type="file"][data-dropzone]').forEach(function (input) {
     var maxBytes = Number(input.getAttribute('data-max-bytes')) || 0;
     var zone = document.createElement('div');
     zone.className = 'dropzone';
     var prompt = document.createElement('p');
     prompt.className = 'dropzone-prompt';
-    prompt.textContent = 'Drag a file here, or choose one:';
+    var multiple = input.multiple;
+    var maxFiles = Number(input.getAttribute('data-max-files')) || 0;
+    prompt.textContent = multiple ? 'Drag photos here, or choose some:' : 'Drag a file here, or choose one:';
     var status = document.createElement('p');
     status.className = 'dropzone-status';
     status.setAttribute('aria-live', 'polite');
@@ -723,6 +726,61 @@
     }
     input.addEventListener('change', check);
 
+    // Several files at once (data-dropzone on an input with `multiple`).
+    // Files over the size limit, or past the file-count limit, are dropped from
+    // the selection with a message; the rest are kept. A drop adds to what is
+    // already chosen instead of replacing it.
+    var applying = false;
+    function setFiles(list) {
+      var kept = [];
+      var big = 0;
+      var extra = 0;
+      list.forEach(function (file) {
+        if (maxBytes && file.size > maxBytes) { big += 1; return; }
+        if (maxFiles && kept.length >= maxFiles) { extra += 1; return; }
+        kept.push(file);
+      });
+      var transfer = new DataTransfer();
+      kept.forEach(function (file) { transfer.items.add(file); });
+      applying = true;
+      input.files = transfer.files;
+      input.dispatchEvent(new Event('change')); // let the preview thumbnails refresh
+      applying = false;
+      var notes = [];
+      if (big) notes.push(big + ' over the ' + size(maxBytes) + ' limit');
+      if (extra) notes.push(extra + ' past the limit of ' + maxFiles);
+      var total = kept.reduce(function (n, file) { return n + file.size; }, 0);
+      var ready = kept.length
+        ? kept.length + ' photo' + (kept.length === 1 ? '' : 's') + ' ready (' + size(total) + ')'
+        : '';
+      show([ready, notes.length ? 'not added: ' + notes.join(', ') : ''].filter(Boolean).join('. '), notes.length > 0);
+    }
+    if (multiple) {
+      input.removeEventListener('change', check);
+      input.addEventListener('change', function () {
+        if (!applying) setFiles(Array.prototype.slice.call(input.files || []));
+      });
+    }
+
+    // Adds dropped image files to what is already chosen. Returns how many were new.
+    function addDropped(files) {
+      var have = Array.prototype.slice.call(input.files || []);
+      var seen = {};
+      have.forEach(function (f) { seen[f.name + '|' + f.size + '|' + f.lastModified] = true; });
+      var fresh = 0;
+      Array.prototype.slice.call(files).forEach(function (f) {
+        if (!/^image\//.test(f.type)) return;
+        var key = f.name + '|' + f.size + '|' + f.lastModified;
+        if (!seen[key]) { seen[key] = true; have.push(f); fresh += 1; }
+      });
+      try { setFiles(have); } catch (err) {
+        show('Your browser could not take those files. Use Choose files instead.', true);
+        return 0;
+      }
+      return fresh;
+    }
+    if (multiple && !pageDropZone) pageDropZone = { zone: zone, add: addDropped, status: status };
+
     ['dragenter', 'dragover'].forEach(function (name) {
       zone.addEventListener(name, function (e) {
         e.preventDefault();
@@ -737,6 +795,11 @@
       zone.classList.remove('is-over');
       var files = e.dataTransfer && e.dataTransfer.files;
       if (!files || !files.length) return;
+      if (multiple) { addDropped(files); return; }
+      if (/^image\//.test(input.accept || '') && !/^image\//.test(files[0].type)) {
+        show(files[0].name + ' is not an image.', true);
+        return;
+      }
       try {
         var transfer = new DataTransfer();
         transfer.items.add(files[0]);
@@ -746,10 +809,167 @@
         return;
       }
       check();
+      input.dispatchEvent(new Event('change')); // refreshes any preview thumbnail
       if (files.length > 1 && input.files.length) {
         show('One file at a time: using ' + files[0].name + '. Add the others separately.', true);
       }
     });
+  });
+
+  /* A page with a multi-photo drop zone takes image files dropped ANYWHERE on it.
+     Otherwise a drop that misses the box either makes the browser open the file
+     in place of the form, or lands in the rich-text editor, which accepts it as
+     an attachment and focuses itself, scrolling the page back up to the editor.
+     These listeners run first (capture) so nothing else sees a file drag. The
+     page is never scrolled: a toast confirms what was added. */
+  if (pageDropZone) {
+    var isFileDrag = function (e) {
+      var types = e.dataTransfer && e.dataTransfer.types;
+      return Boolean(types) && Array.prototype.indexOf.call(types, 'Files') !== -1;
+    };
+    // A drag over a different drop zone (the cover image box) is that box's own.
+    var otherZone = function (e) {
+      var z = e.target && e.target.closest && e.target.closest('.dropzone');
+      return Boolean(z) && z !== pageDropZone.zone;
+    };
+    var overCount = 0;
+    ['dragenter', 'dragover'].forEach(function (name) {
+      document.addEventListener(name, function (e) {
+        if (!isFileDrag(e) || otherZone(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (name === 'dragenter') overCount += 1;
+        pageDropZone.zone.classList.add('is-over');
+      }, true);
+    });
+    document.addEventListener('dragleave', function (e) {
+      if (!isFileDrag(e) || otherZone(e)) return;
+      overCount = Math.max(0, overCount - 1);
+      if (overCount === 0) pageDropZone.zone.classList.remove('is-over');
+    }, true);
+    document.addEventListener('drop', function (e) {
+      if (!isFileDrag(e) || otherZone(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      overCount = 0;
+      pageDropZone.zone.classList.remove('is-over');
+      var files = e.dataTransfer.files;
+      if (!files || !files.length) return;
+      var y = window.scrollY;
+      var added = pageDropZone.add(files);
+      window.scrollTo(0, y); // whatever just happened, stay where you are
+      showToast(
+        added ? added + ' photo' + (added === 1 ? '' : 's') + ' added. They upload when you save the post.'
+              : 'No new images to add. Only image files can be dropped here.',
+        added ? 'success' : 'info'
+      );
+    }, true);
+  }
+
+  /* ------------------------------------------------------ photo tiles
+     The photos on a blog post's edit page. Every action happens at once, in the
+     background (no waiting for Save): dragging a tile saves the new order, and
+     Make cover / Delete ask first, then do it and update the page. */
+  document.querySelectorAll('[data-photo-sorter]').forEach(function (list) {
+    var csrf = list.getAttribute('data-csrf');
+    var orderUrl = list.getAttribute('data-order-url');
+    var dragging = null;
+    var orderBefore = '';
+
+    function ids() {
+      return Array.prototype.map.call(list.children, function (tile) { return tile.getAttribute('data-id'); });
+    }
+    function post(url, body) {
+      return window.fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'X-CSRF-Token': csrf,
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: body || ''
+      }).then(function (res) {
+        return res.json().then(
+          function (data) { return { ok: res.ok && data.ok, data: data }; },
+          function () { return { ok: false, data: { message: 'That did not save. Reload the page and try again.' } }; }
+        );
+      });
+    }
+    function done(result, fallback) {
+      showToast(result.data.message || fallback, result.ok ? 'success' : 'error');
+    }
+    function setCoverImage(src) {
+      var holder = document.getElementById('cover-current');
+      if (!holder) return;
+      if (src) holder.querySelector('img').src = src;
+      holder.classList.toggle('has-cover', Boolean(src));
+    }
+    Array.prototype.forEach.call(list.children, function (tile) { tile.draggable = true; });
+
+    list.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('button[data-photo-cover], button[data-photo-delete]');
+      if (!btn) return;
+      var tile = btn.closest('.photo-tile');
+      var isCover = btn.hasAttribute('data-photo-cover');
+      var question = isCover
+        ? 'Make this photo the cover image of the post?'
+        : (tile.classList.contains('is-cover')
+          ? 'Delete this photo? It is the cover image, so the post will have no cover.'
+          : 'Delete this photo from the post?');
+      if (!window.confirm(question)) return;
+      tile.classList.add('is-busy');
+      post(tile.getAttribute(isCover ? 'data-cover-url' : 'data-delete-url')).then(function (result) {
+        tile.classList.remove('is-busy');
+        done(result, 'That did not save.');
+        if (!result.ok) return;
+        if (isCover) {
+          Array.prototype.forEach.call(list.children, function (t) {
+            t.classList.toggle('is-cover', t === tile);
+            t.querySelector('[data-photo-cover]').disabled = t === tile;
+          });
+          setCoverImage(tile.getAttribute('data-full-src'));
+        } else {
+          if (result.data.coverCleared) setCoverImage(null);
+          tile.remove();
+        }
+      }).catch(function () {
+        tile.classList.remove('is-busy');
+        showToast('Could not reach the site. Check your connection and try again.', 'error');
+      });
+    });
+
+    list.addEventListener('dragstart', function (e) {
+      var tile = e.target.closest && e.target.closest('.photo-tile');
+      if (!tile) return;
+      dragging = tile;
+      orderBefore = ids().join(',');
+      tile.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('application/x-photo-tile', tile.getAttribute('data-id')); // Firefox needs data to start a drag
+    });
+    list.addEventListener('dragend', function () {
+      if (!dragging) return;
+      dragging.classList.remove('is-dragging');
+      dragging = null;
+      var now = ids().join(',');
+      if (now === orderBefore) return;
+      post(orderUrl, 'order=' + encodeURIComponent(now)).then(function (result) {
+        done(result, 'Order saved.');
+      }).catch(function () {
+        showToast('Could not reach the site. The new order was not saved.', 'error');
+      });
+    });
+    list.addEventListener('dragover', function (e) {
+      if (!dragging) return;
+      e.preventDefault();
+      var over = e.target.closest && e.target.closest('.photo-tile');
+      if (!over || over === dragging) return;
+      var box = over.getBoundingClientRect();
+      var after = (e.clientX - box.left) > box.width / 2;
+      list.insertBefore(dragging, after ? over.nextElementSibling : over);
+    });
+    list.addEventListener('drop', function (e) { if (dragging) e.preventDefault(); });
   });
 
   /* A button that asks first (for forms with more than one button, where the form itself cannot). */

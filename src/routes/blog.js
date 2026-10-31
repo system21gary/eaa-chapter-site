@@ -15,8 +15,69 @@ import { audit } from '../lib/audit.js';
 const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: config.uploads.maxBytes, files: 1, fields: 25 },
+  limits: { fileSize: config.uploads.maxBytes, files: 1 + config.uploads.maxPostPhotos, fields: 25 },
 });
+// One cover image, plus any number of gallery photos up to the per-post limit.
+const postFiles = upload.fields([
+  { name: 'cover', maxCount: 1 },
+  { name: 'photos', maxCount: config.uploads.maxPostPhotos },
+]);
+
+/**
+ * Processes and attaches the gallery photos from an upload. Stops at the
+ * per-post limit and skips any file that is not a usable image, so one bad
+ * file does not lose the rest. Returns what happened, for the flash message.
+ */
+async function storePhotos(postId, files) {
+  const result = { added: 0, skipped: 0, overLimit: 0 };
+  let slot = Posts.countPhotos(postId);
+  for (const file of files ?? []) {
+    if (slot >= config.uploads.maxPostPhotos) {
+      result.overLimit += 1;
+      continue;
+    }
+    try {
+      const img = await processImage(file.buffer, { folder: 'postphotos' });
+      Posts.addPhoto(postId, { fullPath: img.fullPath, thumbPath: img.thumbPath });
+      slot += 1;
+      result.added += 1;
+    } catch (err) {
+      console.warn(`[blog] skipped a photo for post ${postId}: ${err.message}`);
+      result.skipped += 1;
+    }
+  }
+  return result;
+}
+
+/** Upload limits the edit form shows and hands to the drop zone. */
+const editLimits = {
+  maxPhotos: config.uploads.maxPostPhotos,
+  maxMb: Math.round(config.uploads.maxBytes / 1048576),
+};
+
+/** Ids from a repeated form field, as numbers. */
+function idList(value) {
+  return [].concat(value ?? []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+}
+
+/** Deletes stored files that no post uses any more. */
+async function releaseFiles(...relPaths) {
+  for (const rel of new Set(relPaths.filter(Boolean))) {
+    if (!Posts.fileInUse(rel)) await deleteImage(rel);
+  }
+}
+
+/** "Post updated." plus a note about any photos that were not added. */
+function photoNote(result) {
+  const notes = [];
+  if (result.overLimit) {
+    notes.push(`${result.overLimit} not added: a post holds at most ${config.uploads.maxPostPhotos} photos`);
+  }
+  if (result.skipped) {
+    notes.push(`${result.skipped} could not be read as an image`);
+  }
+  return notes.length ? ` (${notes.join('; ')}.)` : '';
+}
 
 router.use(requireAuth);
 
@@ -58,9 +119,10 @@ router.get('/', (req, res) => {
 
 router.get('/new', requireEditor, (req, res) => {
   res.render('members/blog-edit.njk', {
+    ...editLimits,
     title: 'New post',
     robots: 'noindex',
-    post: { status: 'draft', visibility: 'members', tags: [] },
+    post: { status: 'draft', tags: [] },
     errors: {},
     isNew: true,
   });
@@ -71,7 +133,6 @@ const postSchema = {
   summary: f.optionalString({ max: 300, label: 'Summary' }),
   body_md: f.string({ min: 10, max: 60000, label: 'Post body' }),
   status: f.enum(['draft', 'published', 'archived'], { label: 'Status', fallback: 'draft' }),
-  visibility: f.enum(['members', 'public'], { label: 'Visibility', fallback: 'members' }),
   cover_alt: f.optionalString({ max: 200, label: 'Cover image description' }),
   tags: f.tags(),
   pinned: f.bool(),
@@ -82,7 +143,7 @@ router.post(
   requireEditor,
   writeLimiter,
   uploadLimiter,
-  upload.single('cover'),
+  postFiles,
   verifyMultipartCsrf,
   asyncRoute(async (req, res) => {
     let data;
@@ -91,6 +152,7 @@ router.post(
     } catch (err) {
       if (err instanceof ValidationError) {
         return res.status(400).render('members/blog-edit.njk', {
+          ...editLimits,
           title: 'New post',
           robots: 'noindex',
           post: { ...req.body, tags: String(req.body.tags ?? '').split(',') },
@@ -102,8 +164,9 @@ router.post(
     }
 
     let coverPath = null;
-    if (req.file) {
-      const img = await processImage(req.file.buffer, { folder: 'posts' });
+    const cover = req.files?.cover?.[0];
+    if (cover) {
+      const img = await processImage(cover.buffer, { folder: 'posts' });
       coverPath = img.fullPath;
     }
 
@@ -113,15 +176,18 @@ router.post(
       bodyMd: data.body_md,
       authorId: req.user.id,
       status: data.status,
-      visibility: data.visibility,
       tags: data.tags,
       coverPath,
       coverAlt: data.cover_alt,
       pinned: data.pinned,
     });
 
+    const photos = await storePhotos(id, req.files?.photos);
     audit(req, 'blog.post.created', { entity: 'post', entityId: id, detail: data.title });
-    req.flash('success', data.status === 'published' ? 'Post published.' : 'Draft saved.');
+    req.flash(
+      photos.skipped || photos.overLimit ? 'error' : 'success',
+      (data.status === 'published' ? 'Post published.' : 'Draft saved.') + photoNote(photos)
+    );
     const post = Posts.getPostById(id);
     return req.session.save(() => res.redirect(`/members/blog/${post.slug}`));
   })
@@ -145,6 +211,7 @@ router.get('/:slug/edit', requireEditor, (req, res, next) => {
   const post = Posts.getPostBySlug(req.params.slug, { viewer: req.user });
   if (!post) return next();
   res.render('members/blog-edit.njk', {
+    ...editLimits,
     title: `Edit: ${post.title}`,
     robots: 'noindex',
     post,
@@ -159,7 +226,7 @@ router.post(
   requireEditor,
   writeLimiter,
   uploadLimiter,
-  upload.single('cover'),
+  postFiles,
   verifyMultipartCsrf,
   asyncRoute(async (req, res, next) => {
     const existing = Posts.getPostBySlug(req.params.slug, { viewer: req.user });
@@ -171,6 +238,7 @@ router.post(
     } catch (err) {
       if (err instanceof ValidationError) {
         return res.status(400).render('members/blog-edit.njk', {
+          ...editLimits,
           title: `Edit: ${existing.title}`,
           robots: 'noindex',
           post: { ...existing, ...req.body, tags: String(req.body.tags ?? '').split(',') },
@@ -186,21 +254,22 @@ router.post(
       summary: data.summary,
       bodyMd: data.body_md,
       status: data.status,
-      visibility: data.visibility,
       tags: data.tags,
       coverAlt: data.cover_alt,
       pinned: data.pinned,
     };
 
-    if (req.file) {
-      const img = await processImage(req.file.buffer, { folder: 'posts' });
+    const cover = req.files?.cover?.[0];
+    if (cover) {
+      const img = await processImage(cover.buffer, { folder: 'posts' });
       fields.coverPath = img.fullPath;
-      if (existing.cover_path) await deleteImage(existing.cover_path);
     }
 
     Posts.updatePost(existing.id, fields, req.user.id);
+    if ('coverPath' in fields) await releaseFiles(existing.cover_path);
+    const photos = await storePhotos(existing.id, req.files?.photos);
     audit(req, 'blog.post.updated', { entity: 'post', entityId: existing.id });
-    req.flash('success', 'Post updated.');
+    req.flash(photos.skipped || photos.overLimit ? 'error' : 'success', `Post updated.${photoNote(photos)}`);
     const fresh = Posts.getPostById(existing.id);
     return req.session.save(() => res.redirect(`/members/blog/${fresh.slug}`));
   })
@@ -210,11 +279,72 @@ router.post('/:slug/delete', requireEditor, writeLimiter, asyncRoute(async (req,
   const post = Posts.getPostBySlug(req.params.slug, { viewer: req.user });
   if (!post) return next();
   if (post.cover_path) await deleteImage(post.cover_path);
+  await deleteImage(...post.photos.flatMap((p) => [p.full_path, p.thumb_path]));
   Posts.deletePost(post.id);
   audit(req, 'blog.post.deleted', { entity: 'post', entityId: post.id, detail: post.title });
   req.flash('success', 'Post deleted.');
   return req.session.save(() => res.redirect('/members/blog'));
 }));
+
+/* ------------------------------------------- photo actions (immediate) --
+   The edit page's tiles act straight away, in the background, rather than on
+   Save: reorder, make a photo the cover, delete a photo. Each answers JSON. */
+
+function photoAction(handler) {
+  return [
+    requireEditor,
+    writeLimiter,
+    asyncRoute(async (req, res, next) => {
+      try {
+        const out = await handler(req);
+        if (out === null) return next();
+        return res.json({ ok: true, ...out });
+      } catch (err) {
+        if (err.status && err.status < 500) return res.status(err.status).json({ ok: false, message: err.message });
+        throw err;
+      }
+    }),
+  ];
+}
+
+router.post(
+  '/:slug/photos/order',
+  ...photoAction(async (req) => {
+    const post = Posts.getPostBySlug(req.params.slug, { viewer: req.user });
+    if (!post) return null;
+    Posts.reorderPhotos(post.id, idList(String(req.body.order ?? '').split(',')));
+    return { message: 'Order saved.' };
+  })
+);
+
+router.post(
+  '/photos/:id/cover',
+  ...photoAction(async (req) => {
+    const photo = Posts.getPhoto(req.params.id);
+    if (!photo) return null;
+    const post = Posts.getPostById(photo.post_id);
+    const previous = post.cover_path;
+    Posts.setCover(post.id, photo.full_path);
+    await releaseFiles(previous);
+    audit(req, 'blog.cover.set', { entity: 'post', entityId: post.id });
+    return { message: 'Cover image set.' };
+  })
+);
+
+router.post(
+  '/photos/:id/delete',
+  ...photoAction(async (req) => {
+    const photo = Posts.getPhoto(req.params.id);
+    if (!photo) return null;
+    const post = Posts.getPostById(photo.post_id);
+    const wasCover = post.cover_path === photo.full_path;
+    Posts.deletePhoto(photo.id);
+    if (wasCover) Posts.setCover(post.id, null);
+    await releaseFiles(photo.full_path, photo.thumb_path);
+    audit(req, 'blog.photo.removed', { entity: 'post', entityId: post.id });
+    return { message: 'Photo deleted.', coverCleared: wasCover };
+  })
+);
 
 /* --------------------------------------------------------------- comments */
 
