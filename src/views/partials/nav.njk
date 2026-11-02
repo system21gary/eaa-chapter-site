@@ -48,8 +48,9 @@
           {# Everything an officer needs beyond the member links lives behind one menu. <details> works without JavaScript; site.js only adds close-on-outside-click and Esc. #}
           {% set moreBadge = (waitingMessages or 0) + ((pendingApplications or 0) if currentUser.role == 'admin' else 0) %}
           <details class="members-more">
-            <summary {% if currentPath.startsWith('/members/admin') %}class="is-current"{% endif %} aria-label="More: admin options{% if moreBadge %} ({{ moreBadge }} waiting){% endif %}">
+            <summary {% if currentPath.startsWith('/members/admin') %}class="is-current"{% endif %} {% if moreBadge %}aria-label="Admin tools ({{ moreBadge }} waiting)"{% endif %}>
               <span class="members-more-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span class="members-more-label">Admin tools</span>
               {% if moreBadge %}<span class="nav-badge" aria-hidden="true">{{ moreBadge }}</span>{% endif %}
             </summary>
             <div class="members-more-menu">
