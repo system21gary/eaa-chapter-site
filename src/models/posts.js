@@ -4,7 +4,7 @@ import { slugify } from '../lib/validate.js';
 
 const LIST_COLUMNS = `
   p.id, p.slug, p.title, p.summary, p.cover_path, p.cover_alt, p.status,
-  p.visibility, p.pinned, p.published_at, p.created_at, p.updated_at,
+  p.pinned, p.published_at, p.created_at, p.updated_at,
   u.first_name AS author_first, u.last_name AS author_last,
   u.display_name AS author_display, u.avatar_path AS author_avatar
 `;
@@ -24,17 +24,16 @@ function uniqueSlug(title, excludeId = null) {
 }
 
 /**
- * Visibility is enforced in SQL, not in the template. A post marked
- * `members` can never be selected by a public query, so a template bug cannot
- * leak it.
+ * The blog is for members only. Without a signed-in viewer nothing is
+ * returned, so a public page or a template bug cannot leak a post. Members see
+ * published posts; editors and admins can also ask for drafts.
  */
 export function listPosts({ viewer = null, tag = null, limit = 20, offset = 0, includeDrafts = false } = {}) {
+  if (!viewer) return [];
   const where = [];
   const params = [];
 
-  if (!viewer) {
-    where.push("p.status = 'published' AND p.visibility = 'public'");
-  } else if (includeDrafts && (viewer.role === 'editor' || viewer.role === 'admin')) {
+  if (includeDrafts && (viewer.role === 'editor' || viewer.role === 'admin')) {
     where.push("p.status IN ('published','draft')");
   } else {
     where.push("p.status = 'published'");
@@ -60,9 +59,8 @@ export function listPosts({ viewer = null, tag = null, limit = 20, offset = 0, i
 }
 
 export function countPosts({ viewer = null, tag = null } = {}) {
-  const where = viewer
-    ? ["p.status = 'published'"]
-    : ["p.status = 'published' AND p.visibility = 'public'"];
+  if (!viewer) return 0;
+  const where = ["p.status = 'published'"];
   const params = [];
   if (tag) {
     where.push('EXISTS (SELECT 1 FROM post_tags t WHERE t.post_id = p.id AND t.tag = ?)');
@@ -72,6 +70,7 @@ export function countPosts({ viewer = null, tag = null } = {}) {
 }
 
 export function getPostBySlug(slug, { viewer = null } = {}) {
+  if (!viewer) return null;
   const post = get(
     `SELECT p.*,
             u.first_name  AS author_first,
@@ -84,9 +83,8 @@ export function getPostBySlug(slug, { viewer = null } = {}) {
   );
   if (!post) return null;
 
-  const isStaff = viewer && (viewer.role === 'editor' || viewer.role === 'admin');
+  const isStaff = viewer.role === 'editor' || viewer.role === 'admin';
   if (post.status !== 'published' && !isStaff) return null;
-  if (post.visibility === 'members' && !viewer) return null;
 
   post.tags = all('SELECT tag FROM post_tags WHERE post_id = ? ORDER BY tag', [post.id]).map(
     (r) => r.tag
@@ -113,7 +111,6 @@ export function createPost({
   bodyMd,
   authorId,
   status = 'draft',
-  visibility = 'members',
   tags = [],
   coverPath = null,
   coverAlt = null,
@@ -128,8 +125,8 @@ export function createPost({
     const info = run(
       `INSERT INTO posts
          (slug, title, summary, body_md, body_html, cover_path, cover_alt,
-          author_id, status, visibility, pinned, published_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          author_id, status, pinned, published_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         slug,
         title,
@@ -140,7 +137,6 @@ export function createPost({
         coverAlt,
         authorId,
         status,
-        visibility,
         pinned ? 1 : 0,
         status === 'published' ? ts : null,
         ts,
@@ -169,7 +165,7 @@ export function updatePost(id, fields, editorId) {
     run(
       `UPDATE posts SET
          title = ?, slug = ?, summary = ?, body_md = ?, body_html = ?,
-         cover_path = ?, cover_alt = ?, status = ?, visibility = ?, pinned = ?,
+         cover_path = ?, cover_alt = ?, status = ?, pinned = ?,
          published_at = CASE WHEN ? = 'published' AND published_at IS NULL THEN ? ELSE published_at END,
          updated_at = ?
        WHERE id = ?`,
@@ -182,7 +178,6 @@ export function updatePost(id, fields, editorId) {
         'coverPath' in fields ? fields.coverPath : existing.cover_path,
         'coverAlt' in fields ? fields.coverAlt : existing.cover_alt,
         status,
-        fields.visibility ?? existing.visibility,
         (fields.pinned ?? existing.pinned) ? 1 : 0,
         status,
         ts,

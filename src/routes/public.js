@@ -3,7 +3,6 @@ import config from '../config.js';
 import { absoluteUrl } from '../middleware/base-path.js';
 import { run, nowIso } from '../db/index.js';
 import * as Events from '../models/events.js';
-import * as Posts from '../models/posts.js';
 import * as Tools from '../models/tools.js';
 import * as Builds from '../models/builds.js';
 import * as Applications from '../models/applications.js';
@@ -30,7 +29,6 @@ router.get('/', (req, res) => {
   const next = Events.nextEvent();
   const upcoming = Events.upcomingEvents({ limit: 4 });
   const recent = Events.pastEvents({ limit: 3 });
-  const news = Posts.listPosts({ viewer: null, limit: 3 });
 
   res.render('pages/home.njk', {
     title: 'Welcome',
@@ -39,7 +37,6 @@ router.get('/', (req, res) => {
     nextEvent: next,
     upcoming: upcoming.filter((e) => e.id !== next?.id).slice(0, 3),
     recentEvents: recent,
-    news,
     stats: Tools.lockerStats(),
     builds: Builds.listBuilds({ viewer: req.user, limit: 3 }),
     buildStats: Builds.buildStats({ viewer: req.user }),

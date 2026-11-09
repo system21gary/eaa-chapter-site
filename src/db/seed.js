@@ -950,7 +950,6 @@ Fly in or drive in — both are equally welcome. There is parking on the field f
       author: 'marta',
       title: 'What a Technical Counselor visit actually looks like',
       days: 12,
-      visibility: 'public',
       tags: ['building', 'safety', 'tech-counselor'],
       summary:
         'Dave spent three hours going over my wings with a torch and a mirror. Here is what he found, and why you should book one.',
@@ -978,7 +977,6 @@ Talk to Dave. Or talk to me and I will introduce you.`,
       author: 'sue',
       title: '38 kids, six pilots, one very good Saturday',
       days: 58,
-      visibility: 'public',
       tags: ['young-eagles', 'events'],
       summary:
         'June’s Young Eagles rally in numbers, and the one conversation that made the whole day.',
@@ -1006,7 +1004,6 @@ That is the whole programme. Not the thirty-eight. The one.
       author: 'dave',
       title: 'The Tool Locker is open',
       days: 96,
-      visibility: 'members',
       tags: ['tool-locker', 'chapter'],
       summary:
         'Ten tools listed, six members lending. Here is how it works and what we ask of you.',
@@ -1033,7 +1030,6 @@ That is it. Ten tools are listed already, including Marta's rivet squeezer, Bill
       author: 'gary',
       title: 'August meeting notes',
       days: 3,
-      visibility: 'members',
       tags: ['meeting-notes'],
       summary:
         'Ray Scholarship update, September breakfast volunteers needed, and the paint scheme situation.',
@@ -1070,7 +1066,6 @@ Next meeting: third Wednesday, 7pm.`,
       author: 'bill',
       title: 'Compression testing: what the number actually means',
       days: 34,
-      visibility: 'public',
       tags: ['maintenance', 'engines'],
       summary:
         'A differential compression reading is not a grade. It is one data point, and it lies more often than people think.',
@@ -1106,7 +1101,6 @@ The chapter has a proper differential tester with a master orifice in the Tool L
       author: 'marta',
       title: 'Newsletter is going out by email again',
       days: 140,
-      visibility: 'members',
       tags: ['chapter'],
       summary: 'Short one: the newsletter is back, and here is what goes in it.',
       body: `The newsletter lapsed for about eight months, which was my fault and nobody else's.
@@ -1130,7 +1124,6 @@ If you want your project featured, tell me. If you had a moment in the air that 
       bodyMd: p.body,
       authorId: users[p.author].id,
       status: 'published',
-      visibility: p.visibility,
       tags: p.tags,
       coverPath: cover.fullPath,
       coverAlt: p.title,

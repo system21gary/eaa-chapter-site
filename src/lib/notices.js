@@ -340,7 +340,6 @@ async function sendDue(now) {
         bodyMd: postMarkdown(n),
         authorId: n.approved_by,
         status: 'published',
-        visibility: 'public',
         tags: ['meeting-notice'],
       });
     } catch (err) {

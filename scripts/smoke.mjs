@@ -1203,7 +1203,7 @@ console.log('\nMeeting notices');
   const mail = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [ma.email, '%Meeting notice:%']);
   record(/Pat Pilot/.test(mail.body_text) && /Treasurer report/.test(mail.body_html) && /Hangar 3/.test(mail.body_text) && /\/unsubscribe\//.test(mail.body_html) && /List-Unsubscribe/.test(mail.headers ?? ''), 'it carries the speaker, agenda, new place and an unsubscribe link');
   const post = sent.post_id && get('SELECT * FROM posts WHERE id = ?', [sent.post_id]);
-  record(post?.status === 'published' && post.visibility === 'public' && /Treasurer report/.test(post.body_md), 'it is also posted on the website');
+  record(post?.status === 'published' && /Treasurer report/.test(post.body_md), 'it is also posted on the website');
   await run_(new Date(sendAt.getTime() + 7200_000));
   record(mailTo(ma, 'Meeting notice:') === 1, 'it is never sent twice');
 

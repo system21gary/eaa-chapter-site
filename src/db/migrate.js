@@ -1011,6 +1011,16 @@ const migrations = [
     CREATE INDEX idx_member_messages_sender ON member_messages(sender_id, created_at);
     `,
   },
+  {
+    version: 24,
+    name: 'blog is members-only: drop posts.visibility',
+    sql: `
+    -- The blog lives under /members and every route requires a signed-in
+    -- member, so a "public" post had nowhere public to appear. The choice was
+    -- taken off the form already; this removes the column behind it.
+    ALTER TABLE posts DROP COLUMN visibility;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {
