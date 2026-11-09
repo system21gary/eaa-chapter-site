@@ -734,6 +734,56 @@ table.data input[type="text"] { min-width: 10rem; }
 .is-compact .tool-card .owner { order: 3; margin: 0; padding: 0; border: 0; flex: none; min-width: 9rem; }
 .tool-card .owner { display: flex; align-items: center; gap: .5rem; margin-top: auto; padding-top: .9rem; border-top: 1px solid var(--line); font-size: .84rem; color: var(--ink-soft); }
 
+/* ------------------------------------------------- member directory */
+/* Cards: the same look the directory always had, moved out of inline styles so the compact view can override it. */
+.directory-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem 1rem; margin-bottom: 1.2rem; }
+.directory-tools .view-toggle { margin: 0 0 0 auto; }
+.directory-filter { display: flex; align-items: center; gap: .8rem; flex: 1 1 22rem; max-width: 34rem; }
+.directory-filter[hidden] { display: none; }
+.directory-filter input { flex: 1 1 auto; min-width: 0; }
+.directory-filter [data-filter-count] { white-space: nowrap; }
+.member-head { display: flex; gap: .9rem; align-items: center; margin-bottom: 1rem; }
+.member-name { min-width: 0; }
+.member-name h3 { margin: 0 0 .1rem; }
+.member-aircraft, .member-base { margin: 0 0 .3rem; }
+.member-aircraft:empty, .member-base:empty { display: none; }
+.member-eaa { margin: 0 0 .6rem; }
+.member-contact { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; margin-top: .8rem; }
+.member-contact .member-message { margin-top: .35rem; }
+.member-private-short { display: none; }
+.member-card[hidden], [data-filter-empty][hidden] { display: none; }
+
+/* Compact: one row per member. Name and offices, what they fly, home base, then contact on the right. */
+.directory-grid.is-compact { gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+.is-compact .member-card { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.is-compact .member-card + .member-card { border-top: 1px solid var(--line); }
+.is-compact .member-card:hover { background: var(--blue-100); }
+.is-compact .member-card .card-body {
+  /* Every track is a share of the row or a fixed width, never sized by what is in it, so all rows -- each its
+     own grid -- get identical columns and line up. (An "auto" contact column let a long email address push the
+     aircraft and home-base columns left on that row only.) */
+  display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1fr) 15.5rem;
+  align-items: center; gap: .3rem 1.2rem; padding: .55rem 1rem;
+}
+.is-compact .member-contact > a:not(.btn) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-compact .member-head { margin: 0; gap: .65rem; min-width: 0; }
+.is-compact .member-head .avatar-lg { width: 34px; height: 34px; font-size: .72rem; }
+.is-compact .member-name { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .4rem; }
+.is-compact .member-name h3 { margin: 0; font-size: 1rem; }
+.is-compact .member-name .pill { font-size: .68rem; }
+.is-compact .member-aircraft, .is-compact .member-base { display: block; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-compact .member-label, .is-compact .member-eaa, .is-compact .member-bio { display: none; }
+.is-compact .member-contact { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .2rem .9rem; margin: 0; }
+.is-compact .member-contact .member-message { margin: 0; padding: .25rem .75rem; }
+.is-compact .member-private-long { display: none; }
+.is-compact .member-private-short { display: inline; }
+@media (max-width: 760px) {
+  .is-compact .member-card .card-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: .7rem .9rem; }
+  .is-compact .member-head { grid-column: 1 / -1; }
+  .is-compact .member-contact { grid-column: 1 / -1; justify-content: flex-start; }
+  .is-compact .member-aircraft:empty, .is-compact .member-base:empty { display: none; }
+}
+
 .filterbar { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-bottom: 1.8rem; padding: 1rem; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
 .filterbar input[type="search"] { flex: 1 1 200px; min-width: 0; }
 .filterbar select { flex: 0 1 190px; }

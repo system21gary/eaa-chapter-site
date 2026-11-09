@@ -697,6 +697,17 @@ console.log('\nMessages between members');
   record(!dir.text.includes(linkTo(shares)), 'no message link for a member who shows their email');
   record(!dir.text.includes(linkTo(closed)), 'no message link for a member who switched messages off');
   record(!dir.text.includes(hidden.email) && !dir.text.includes(closed.email), 'hidden addresses are not in the directory page');
+  record(/data-view-toggle data-view-key="eaa1699.directory.view"/.test(dir.text), 'the directory has its own cards/compact toggle');
+  record(/data-filter hidden/.test(dir.text) && /data-filter-input/.test(dir.text), 'the directory has a filter box, hidden until JavaScript shows it');
+  const filterTexts = [...dir.text.matchAll(/data-filter-text="([^"]*)"/g)].map((m) => m[1]);
+  // Every active member's real address and phone, shared or not, must be absent from what the filter matches.
+  const contacts = Users.listMembers({ status: 'active' }).flatMap((u) => [u.email, u.phone].filter(Boolean).map((v) => String(v).toLowerCase()));
+  const leaked = filterTexts.filter((t) => contacts.some((c) => t.includes(c)));
+  record(
+    filterTexts.length > 0 && filterTexts.some((t) => t.includes(hidden.last_name.toLowerCase())) && !leaked.length,
+    'the filter matches names but never carries an email address or phone number',
+    JSON.stringify(leaked.slice(0, 3))
+  );
 
   await req(linkTo(shares), { expect: 404 });
   await req(linkTo(closed), { expect: 404 });

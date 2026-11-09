@@ -11,18 +11,38 @@
       please treat them the same way.
     </p>
 
-    <div class="grid grid-3" style="margin-top:2rem">
+    {% if members.length %}
+      {#- Both controls need JavaScript, so they stay hidden until site.js shows them. Without it the page is the
+          plain card grid it always was. The filter runs in the browser over what is already on the page: a
+          server-side search would also match hidden email addresses and so reveal them. -#}
+      <div class="directory-tools" style="margin-top:2rem">
+        <div class="directory-filter" data-filter hidden>
+          <label for="directory-filter" class="sr-only">Filter members</label>
+          <input type="search" id="directory-filter" placeholder="Filter by name, aircraft or airport" autocomplete="off" data-filter-input>
+          <span class="small muted" data-filter-count aria-live="polite"></span>
+        </div>
+        <div class="view-toggle" data-view-toggle data-view-key="eaa1699.directory.view" hidden role="group" aria-label="Layout">
+          <span class="small muted">View</span>
+          <button type="button" class="btn btn-outline btn-sm" data-view="cards" aria-pressed="true">Cards</button>
+          <button type="button" class="btn btn-outline btn-sm" data-view="compact" aria-pressed="false">Compact</button>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="grid grid-3 directory-grid" data-view-target data-filter-list>
       {% for member in members %}
-        <article class="card member-card">
+        {#- What the filter matches: never an address or phone, shared or not. -#}
+        <article class="card member-card" data-filter-item
+                 data-filter-text="{{ [displayName(member), member.first_name, member.last_name, boardRoles[member.board_role] if member.board_role, member.aircraft, member.home_base] | join(' ') | lower }}">
           <div class="card-body">
-            <div style="display:flex; gap:.9rem; align-items:center; margin-bottom:1rem">
+            <div class="member-head">
               {% if member.avatar_path %}
                 <img src="{{ member.avatar_path | media }}" alt="Photo of {{ displayName(member) }}" class="avatar avatar-lg avatar-zoomable" tabindex="0">
               {% else %}
                 <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ member | initials }}</span>
               {% endif %}
-              <div style="min-width:0">
-                <h3 style="margin:0 0 .1rem">{{ displayName(member) }}</h3>
+              <div class="member-name">
+                <h3>{{ displayName(member) }}</h3>
                 {% if member.board_role %}
                   <span class="pill pill-green">{{ boardRoles[member.board_role] }}</span>
                 {% endif %}
@@ -32,30 +52,27 @@
               </div>
             </div>
 
-            {% if member.aircraft %}
-              <p class="small" style="margin:0 0 .3rem"><strong>Flies:</strong> {{ member.aircraft }}</p>
-            {% endif %}
-            {% if member.home_base %}
-              <p class="small muted" style="margin:0 0 .3rem">{{ member.home_base }}</p>
-            {% endif %}
+            {#- These two are always rendered, empty or not, so the compact rows keep their columns lined up.
+                Keep each on one line: an empty one must be truly empty for :empty to hide it on a card. -#}
+            <p class="small member-aircraft">{% if member.aircraft %}<strong class="member-label">Flies: </strong>{{ member.aircraft }}{% endif %}</p>
+            <p class="small muted member-base">{% if member.home_base %}{{ member.home_base }}{% endif %}</p>
             {% if member.eaa_number %}
-              <p class="tiny muted" style="margin:0 0 .6rem">EAA #{{ member.eaa_number }}</p>
+              <p class="tiny muted member-eaa">EAA #{{ member.eaa_number }}</p>
             {% endif %}
 
             {% if member.bio %}
-              <p class="small muted">{{ member.bio | truncate(140) }}</p>
+              <p class="small muted member-bio">{{ member.bio | truncate(140) }}</p>
             {% endif %}
 
-            <p class="small" style="margin:.8rem 0 0">
+            <div class="small member-contact">
               {% if member.email %}<a href="mailto:{{ member.email }}">{{ member.email }}</a>{% endif %}
-              {% if member.phone %}{{ '<br>' | safe if member.email }}<a href="tel:{{ member.phone }}">{{ member.phone | phone }}</a>{% endif %}
-              {% if not member.email and not member.phone and not member.can_message %}<span class="muted">Contact details are private. Ask an officer to pass on a message.</span>{% endif %}
-            </p>
-            {% if member.can_message %}
-              <p class="small" style="margin:.6rem 0 0">
-                <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/directory/{{ member.id }}/message">Send a message</a>
-              </p>
-            {% endif %}
+              {% if member.phone %}<a href="tel:{{ member.phone }}">{{ member.phone | phone }}</a>{% endif %}
+              {% if member.can_message %}
+                <a class="btn btn-outline btn-sm member-message" href="{{ '' | url }}/members/directory/{{ member.id }}/message">Send a message</a>
+              {% elif not member.email and not member.phone %}
+                <span class="muted member-private"><span class="member-private-long">Contact details are private. Ask an officer to pass on a message.</span><span class="member-private-short">Private</span></span>
+              {% endif %}
+            </div>
           </div>
         </article>
       {% else %}
@@ -66,6 +83,7 @@
         </div>
       {% endfor %}
     </div>
+    <p class="empty small muted" data-filter-empty hidden>No members match that filter.</p>
   </div>
 </section>
 {% endblock %}

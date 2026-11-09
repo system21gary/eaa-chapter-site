@@ -672,7 +672,8 @@
   var viewToggle = document.querySelector('[data-view-toggle]');
   var viewTarget = document.querySelector('[data-view-target]');
   if (viewToggle && viewTarget) {
-    var KEY = 'eaa1699.locker.view';
+    // Each page remembers its own choice; the Tool Locker's key predates the attribute.
+    var KEY = viewToggle.getAttribute('data-view-key') || 'eaa1699.locker.view';
     var setView = function (view) {
       viewTarget.classList.toggle('is-compact', view === 'compact');
       viewToggle.querySelectorAll('[data-view]').forEach(function (b) {
@@ -690,6 +691,32 @@
       setView(view);
       try { window.localStorage.setItem(KEY, view); } catch (err) { /* see above */ }
     });
+  }
+
+  /* ------------------------------------------ filter a list as you type */
+  // Used by the member directory. Matches every word typed, in any order, against each item's data-filter-text.
+  var filterBox = document.querySelector('[data-filter]');
+  var filterList = document.querySelector('[data-filter-list]');
+  if (filterBox && filterList) {
+    var filterInput = filterBox.querySelector('[data-filter-input]');
+    var filterCount = filterBox.querySelector('[data-filter-count]');
+    var filterEmpty = document.querySelector('[data-filter-empty]');
+    var filterItems = Array.prototype.slice.call(filterList.querySelectorAll('[data-filter-item]'));
+    var applyFilter = function () {
+      var words = filterInput.value.toLowerCase().split(/\s+/).filter(Boolean);
+      var shown = 0;
+      filterItems.forEach(function (item) {
+        var text = item.getAttribute('data-filter-text') || '';
+        var match = words.every(function (w) { return text.indexOf(w) !== -1; });
+        item.hidden = !match;
+        if (match) shown += 1;
+      });
+      filterCount.textContent = words.length ? shown + ' of ' + filterItems.length : '';
+      if (filterEmpty) filterEmpty.hidden = shown !== 0;
+    };
+    filterBox.hidden = false;
+    filterInput.addEventListener('input', applyFilter);
+    applyFilter();
   }
 
   /* ------------------------------------------- confirm destructive actions */
