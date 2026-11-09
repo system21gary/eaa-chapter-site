@@ -492,6 +492,88 @@ export function borrowRequestEmail({
   return { subject: `Borrow request: ${toolName}`, text, html };
 }
 
+/** Flattens a subject line typed by a member: one line, no header tricks. */
+const oneLine = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
+
+/**
+ * A message one member sent another from the directory.
+ *
+ * It goes out from the chapter's address with Reply-To set to the sender, so
+ * the recipient's address is never shown to the sender unless they choose to
+ * reply. The sender's address is also written into the body: some mail apps
+ * and forwarding rules ignore Reply-To, and a reply that lands in the chapter
+ * inbox instead would be a confusing way to lose a conversation.
+ */
+export function memberMessageEmail({ recipientName, senderName, senderEmail, subject, message, link }) {
+  const topic = oneLine(subject);
+  const text = [
+    `Hi ${recipientName},`,
+    '',
+    `${senderName}, a fellow chapter member, sent you this message through the member directory.`,
+    '',
+    `Subject: ${topic}`,
+    '',
+    message,
+    '',
+    '----',
+    `To answer, just reply to this email: it goes straight to ${senderName} at ${senderEmail}.`,
+    'Your own email address stays private unless you reply.',
+    '',
+    'You can stop members messaging you on your account page:',
+    link,
+    '',
+    'EAA Chapter 1699',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `${senderName} sent you a message through the member directory.`,
+    eyebrow: 'Member directory',
+    title: `A message from ${senderName}`,
+    subtitle: topic,
+    bodyHtml: [
+      para(`Hi ${esc(recipientName)},`),
+      para(`${esc(senderName)}, a fellow chapter member, sent you this message through the member directory.`),
+      table(detailRow('From', `${esc(senderName)}<br>${emailLink(`mailto:${senderEmail}`, senderEmail)}`) + detailRow('Subject', esc(topic))),
+      quote(message),
+      para(`To answer, just reply to this email. It goes straight to ${esc(senderName)} at ${emailLink(`mailto:${senderEmail}`, senderEmail)}. Your own email address stays private unless you reply.`),
+      para(`Rather not get these? You can switch off member messages on your ${emailLink(link, 'account page')}.`, 'font-size:14px; color:#4a5b6b;'),
+      sign(),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because another member of EAA Chapter 1699 wrote to you through the member directory.'),
+  });
+  return { subject: `Message from ${senderName}: ${topic}`, text, html };
+}
+
+/** The sender's own copy. Names the recipient but never includes their address. */
+export function memberMessageCopyEmail({ senderName, recipientName, subject, message }) {
+  const topic = oneLine(subject);
+  const text = [
+    `Hi ${senderName},`,
+    '',
+    `Here is a copy of the message you sent ${recipientName} through the member directory.`,
+    'If they reply, it will come straight to this email address.',
+    '',
+    `Subject: ${topic}`,
+    '',
+    message,
+    '',
+    'EAA Chapter 1699',
+  ].join('\n');
+  const html = renderEmail({
+    preheader: `Your message to ${recipientName}.`,
+    eyebrow: 'Member directory',
+    title: `Your message to ${recipientName}`,
+    subtitle: topic,
+    bodyHtml: [
+      para(`Hi ${esc(senderName)},`),
+      para(`Here is a copy of the message you sent ${esc(recipientName)} through the member directory. If they reply, it will come straight to this email address.`),
+      quote(message),
+      sign(),
+    ].join(''),
+    footerHtml: plainFooter('You are getting this because you asked for a copy of a message you sent.'),
+  });
+  return { subject: `Copy: your message to ${recipientName}: ${topic}`, text, html };
+}
+
 /** "Aug 20, 9:00 AM – Aug 23, 5:00 PM", in the chapter's local time. */
 function dateRange(from, to) {
   const fmt = (v) =>

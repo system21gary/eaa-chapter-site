@@ -7,7 +7,7 @@ import config from '../config.js';
 const PUBLIC_COLUMNS = `
   id, email, email_verified, first_name, last_name, display_name, phone,
   eaa_number, aircraft, home_base, bio, avatar_path, role, status,
-  share_email, share_phone, cc_membership_requests, cc_contact_messages,
+  share_email, share_phone, accept_messages, cc_membership_requests, cc_contact_messages,
   board_role, mail_newsletter, mail_meeting_notices, mail_reminders, password_set_at, last_login_at, created_at, updated_at
 `;
 
@@ -101,7 +101,7 @@ export function createUser({
 }
 
 export function updateProfile(userId, fields) {
-  const allowed = ['display_name', 'phone', 'eaa_number', 'aircraft', 'home_base', 'bio', 'share_email', 'share_phone'];
+  const allowed = ['display_name', 'phone', 'eaa_number', 'aircraft', 'home_base', 'bio', 'share_email', 'share_phone', 'accept_messages'];
   const sets = [];
   const params = [];
   for (const key of allowed) {

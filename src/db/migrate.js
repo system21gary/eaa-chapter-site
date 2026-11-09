@@ -988,6 +988,29 @@ const migrations = [
     CREATE INDEX idx_post_photos_post ON post_photos(post_id, sort);
     `,
   },
+  {
+    version: 23,
+    name: 'member-to-member messages',
+    sql: `
+    -- A member who hides their email in the directory can still be sent a
+    -- message through the site. It reaches them from the chapter's address,
+    -- with Reply-To set to the sender, so only the sender's address is
+    -- revealed, and only to the person they wrote to. On by default; a member
+    -- can switch it off on their account page.
+    ALTER TABLE users ADD COLUMN accept_messages INTEGER NOT NULL DEFAULT 1;
+
+    -- Who wrote to whom, and when. Used to rate-limit senders per account
+    -- (which survives restarts and a change of network). The message itself is
+    -- never stored: it goes out by email and the outbox row is the only copy.
+    CREATE TABLE member_messages (
+      id           INTEGER PRIMARY KEY,
+      sender_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at   TEXT NOT NULL
+    );
+    CREATE INDEX idx_member_messages_sender ON member_messages(sender_id, created_at);
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

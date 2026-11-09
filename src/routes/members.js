@@ -6,6 +6,7 @@ import * as Users from '../models/users.js';
 import * as Posts from '../models/posts.js';
 import * as Tools from '../models/tools.js';
 import * as Events from '../models/events.js';
+import * as Messages from '../models/messages.js';
 import { requireAuth } from '../middleware/auth.js';
 import { suggestLocals } from '../lib/suggestions.js';
 import { greetingFor } from '../lib/localtime.js';
@@ -70,9 +71,110 @@ router.get('/directory', (req, res) => {
       bio: m.bio,
       email: m.share_email ? m.email : null,
       phone: m.share_phone ? m.phone : null,
+      can_message: Messages.canMessage(req.user, m),
     })),
   });
 });
+
+/*
+ * Writing to a member who hides their email. The site sends the message from
+ * the chapter's address with Reply-To set to the sender, so the sender's
+ * address is shared with the one person they wrote to, and the recipient's
+ * stays private unless they reply. Anyone who cannot be messaged this way
+ * (shares their email, switched messages off, not active, or is you) gets a
+ * 404, the same as a member who does not exist.
+ */
+function messageTarget(req) {
+  const recipient = Users.findById(req.params.id);
+  return Messages.canMessage(req.user, recipient) ? recipient : null;
+}
+
+function renderMessageForm(res, recipient, { form = {}, errors = {}, status = 200 } = {}) {
+  return res.status(status).render('members/message.njk', {
+    title: `Message ${Users.displayName(recipient)}`,
+    robots: 'noindex',
+    recipient: {
+      id: recipient.id,
+      first_name: recipient.first_name,
+      last_name: recipient.last_name,
+      display_name: recipient.display_name,
+      avatar_path: recipient.avatar_path,
+    },
+    form,
+    errors,
+  });
+}
+
+router.get('/directory/:id/message', (req, res, next) => {
+  const recipient = messageTarget(req);
+  if (!recipient) return next();
+  return renderMessageForm(res, recipient, { form: { send_copy: 1 } });
+});
+
+router.post(
+  '/directory/:id/message',
+  writeLimiter,
+  asyncRoute(async (req, res, next) => {
+    const recipient = messageTarget(req);
+    if (!recipient) return next();
+
+    let data;
+    try {
+      data = validate(req.body, {
+        subject: f.string({ min: 3, max: 120, label: 'Subject' }),
+        message: f.string({ min: 10, max: 3000, label: 'Message' }),
+        send_copy: f.bool(),
+      });
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        return renderMessageForm(res, recipient, {
+          form: { ...req.body, send_copy: req.body.send_copy ? 1 : 0 },
+          errors: err.errors,
+          status: 400,
+        });
+      }
+      throw err;
+    }
+
+    const limited = Messages.limitReason(req.user.id, recipient.id);
+    if (limited) {
+      return renderMessageForm(res, recipient, { form: data, errors: { form: limited }, status: 429 });
+    }
+
+    const { sendMail, memberMessageEmail, memberMessageCopyEmail } = await import('../lib/mailer.js');
+    const senderName = Users.displayName(req.user);
+    const recipientName = Users.displayName(recipient);
+    await sendMail({
+      to: recipient.email,
+      replyTo: req.user.email,
+      ...memberMessageEmail({
+        recipientName: recipient.first_name,
+        senderName,
+        senderEmail: req.user.email,
+        subject: data.subject,
+        message: data.message,
+        link: absoluteUrl('/members/account'),
+      }),
+    });
+    if (data.send_copy) {
+      await sendMail({
+        to: req.user.email,
+        ...memberMessageCopyEmail({
+          senderName: req.user.first_name,
+          recipientName,
+          subject: data.subject,
+          message: data.message,
+        }),
+      });
+    }
+    Messages.recordMessage(req.user.id, recipient.id);
+
+    // Who wrote to whom, never what they said.
+    audit(req, 'member.message.sent', { entity: 'user', entityId: recipient.id });
+    req.flash('success', `Your message is on its way to ${recipientName}. If they reply, it will come straight to your email.`);
+    return req.session.save(() => res.redirect('/members/directory'));
+  })
+);
 
 /* ---------------------------------------------------------------- account */
 
@@ -102,6 +204,7 @@ router.post(
         bio: f.optionalString({ max: 1500, label: 'About you' }),
         share_email: f.bool(),
         share_phone: f.bool(),
+        accept_messages: f.bool(),
       });
     } catch (err) {
       if (err instanceof ValidationError) {
@@ -113,6 +216,7 @@ router.post(
             ...req.body,
             share_email: req.body.share_email ? 1 : 0,
             share_phone: req.body.share_phone ? 1 : 0,
+            accept_messages: req.body.accept_messages ? 1 : 0,
           },
           errors: err.errors,
           sessions: listUserSessions(req.user.id),

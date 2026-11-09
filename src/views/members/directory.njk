@@ -49,8 +49,13 @@
             <p class="small" style="margin:.8rem 0 0">
               {% if member.email %}<a href="mailto:{{ member.email }}">{{ member.email }}</a>{% endif %}
               {% if member.phone %}{{ '<br>' | safe if member.email }}<a href="tel:{{ member.phone }}">{{ member.phone | phone }}</a>{% endif %}
-              {% if not member.email and not member.phone %}<span class="muted">Contact details are private. Ask an officer to pass on a message.</span>{% endif %}
+              {% if not member.email and not member.phone and not member.can_message %}<span class="muted">Contact details are private. Ask an officer to pass on a message.</span>{% endif %}
             </p>
+            {% if member.can_message %}
+              <p class="small" style="margin:.6rem 0 0">
+                <a class="btn btn-outline btn-sm" href="{{ '' | url }}/members/directory/{{ member.id }}/message">Send a message</a>
+              </p>
+            {% endif %}
           </div>
         </article>
       {% else %}

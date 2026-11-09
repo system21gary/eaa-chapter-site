@@ -94,7 +94,11 @@ previews and a mobile menu.
   (request → approve/decline → mark returned, with availability kept in step)
 - **Your Builds** — create projects and post dated log entries with photos and
   hours; a project can be public or members-only
-- **Directory** — contact details, shared between members only
+- **Directory** — contact details, shared between members only. A member can hide their email
+  or phone; if their email is hidden, others can still write to them with
+  **Send a message**. The site emails it from the chapter's address with
+  Reply-To set to the sender, so the recipient's address stays private unless
+  they reply. Members can switch this off on their account page.
 - **Account** — profile, avatar, password reset, sign out everywhere
 
 ### Editors and admins

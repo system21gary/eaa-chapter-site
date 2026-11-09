@@ -1,0 +1,68 @@
+{% extends "layouts/base.njk" %}
+
+{% macro err(errors, name) %}
+  {% if errors[name] %}<span class="err">{{ errors[name] }}</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<section class="band">
+  <div class="wrap" style="max-width:720px">
+    <span class="eyebrow">Member directory</span>
+    <h1>Message {{ displayName(recipient) }}</h1>
+
+    <p class="muted" style="max-width:62ch">
+      {{ recipient.first_name }} keeps their email address private, so the site
+      will pass your message on. <strong>They will see your email address</strong>
+      ({{ currentUser.email }}) so they can reply to you directly. You will not see
+      theirs unless they do.
+    </p>
+
+    {% if errors.form %}
+      <div class="flash flash-error" role="alert">
+        <span class="flash-icon" aria-hidden="true">!</span>
+        <p>{{ errors.form }}</p>
+      </div>
+    {% endif %}
+
+    <form method="post" action="{{ '' | url }}/members/directory/{{ recipient.id }}/message" class="form-card" style="margin-top:1.5rem">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <div style="display:flex; gap:.9rem; align-items:center; margin-bottom:1.2rem">
+        {% if recipient.avatar_path %}
+          <img src="{{ recipient.avatar_path | media }}" alt="" class="avatar avatar-lg">
+        {% else %}
+          <span class="avatar avatar-lg avatar-initials" aria-hidden="true">{{ recipient | initials }}</span>
+        {% endif %}
+        <div>
+          <span class="label-text">To</span>
+          <p style="margin:0"><strong>{{ displayName(recipient) }}</strong></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="subject">Subject</label>
+        <input type="text" id="subject" name="subject" required minlength="3" maxlength="120"
+               value="{{ form.subject or '' }}" placeholder="Ride to the fly-in on Saturday?">
+        {{ err(errors, 'subject') }}
+      </div>
+
+      <div class="field">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" rows="8" required minlength="10" maxlength="3000">{{ form.message or '' }}</textarea>
+        <span class="hint">Plain text. Up to 3,000 characters.</span>
+        {{ err(errors, 'message') }}
+      </div>
+
+      <div class="check">
+        <input type="checkbox" id="send_copy" name="send_copy" value="1" {{ 'checked' if form.send_copy }}>
+        <label for="send_copy">Email me a copy</label>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Send message</button>
+        <a class="btn btn-outline" href="{{ '/members/directory' | url }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

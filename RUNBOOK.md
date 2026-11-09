@@ -121,7 +121,8 @@ editor, revisions, comments); **Tool Locker** (members list tools with photo
 carousels and a location; others ask to borrow, the owner approves or declines
 by email and on the requests page; nobody's email is shown to anybody);
 **Your Builds** (create a build and post log entries with photos); member
-**directory** with contact details masked; account page.
+**directory** with contact details masked (members who hide their email can
+still be sent a message through the site; see [Email](#email)); account page.
 
 **Editors** also write blog posts and run the events calendar.
 **Admins** (`/members/admin`): events (create, edit, posters,
@@ -392,8 +393,19 @@ which contain live password-reset links.
   reply-all reaches the sender; the in-app reply on the Inbox page is unchanged.
 - **What sends mail:** invitations, password resets, membership requests and
   decisions, contact-form notices to `CONTACT_EMAIL`, borrow requests to the
-  tool's owner and decisions back to the borrower, and the morning backup
-  report.
+  tool's owner and decisions back to the borrower, member-to-member messages
+  from the directory, and the morning backup report.
+- **Member-to-member messages:** the directory offers *Send a message* only for
+  an active member who hides their email and has *Let members message me through
+  the site* ticked on their account page (on by default). The message goes out
+  From the chapter mailbox with Reply-To set to the sender, and the sender's
+  address is also in the body for mail apps that ignore Reply-To. The recipient's
+  address is never shown to the sender; if they reply, the two carry on by email
+  without the site. The sender can ask for a copy, which names the recipient but
+  not their address. Limits per sender, counted in the database (table
+  `member_messages`, which records who wrote to whom and when, never the text):
+  5 an hour, 20 a day, 3 a day to the same member. Each send is in the activity
+  log as `member.message.sent`.
 - **Check it:** `npm run mail:check` connects and authenticates;
   `npm run mail:check -- you@example.org` also sends a test message;
   `--drain` delivers anything due. It never prints credential values.

@@ -677,6 +677,83 @@ console.log('\nOffices and email preferences');
   if (heldBefore) Users.setBoardRole(heldBefore.id, 'president');
 }
 
+console.log('\nMessages between members');
+{
+  const stamp = Date.now();
+  const mk = (tag, { share = 0, accept = 1, status = 'active' } = {}) => {
+    const u = Users.createUser({ email: `smoke.msg.${tag}.${stamp}@example.com`, firstName: 'Msg', lastName: `${tag}${stamp}`, role: 'member', status });
+    run('UPDATE users SET share_email = ?, accept_messages = ? WHERE id = ?', [share, accept, u.id]);
+    return Users.findById(u.id);
+  };
+  const hidden = mk('hidden');
+  const shares = mk('shares', { share: 1 });
+  const closed = mk('closed', { accept: 0 });
+  const pending = mk('pending', { status: 'pending' });
+  const me = Users.findByEmail(EMAIL);
+  const linkTo = (u) => `/members/directory/${u.id}/message`;
+
+  const dir = await req('/members/directory');
+  record(dir.text.includes(linkTo(hidden)), 'the directory offers a message link for a member who hides their email');
+  record(!dir.text.includes(linkTo(shares)), 'no message link for a member who shows their email');
+  record(!dir.text.includes(linkTo(closed)), 'no message link for a member who switched messages off');
+  record(!dir.text.includes(hidden.email) && !dir.text.includes(closed.email), 'hidden addresses are not in the directory page');
+
+  await req(linkTo(shares), { expect: 404 });
+  await req(linkTo(closed), { expect: 404 });
+  await req(linkTo(pending), { expect: 404 });
+  await req(linkTo(me), { expect: 404 });
+  const form = await req(linkTo(hidden), { expect: 200 });
+  record(!form.text.includes(hidden.email), "the message form does not show the recipient's address");
+  const token = csrfFrom(form.text);
+
+  const bad = await req(linkTo(hidden), { method: 'POST', body: { _csrf: token, subject: 'Hi', message: 'short' } });
+  record(bad.status === 400 && !bad.text.includes(hidden.email), 'a too-short message is refused without revealing the address', `-> ${bad.status}`);
+
+  const noCsrf = await req(linkTo(hidden), { method: 'POST', body: { subject: 'Hello there', message: 'This one has no CSRF token.' } });
+  record(noCsrf.status === 403, 'sending needs a CSRF token', `-> ${noCsrf.status}`);
+
+  const subject = `Smoke message ${stamp}\r\nBcc: someone@example.org`;
+  const sent = await req(linkTo(hidden), {
+    method: 'POST',
+    body: { _csrf: token, subject, message: 'Any chance of a ride to the fly-in on Saturday?', send_copy: '1' },
+  });
+  record(sent.status === 302, 'a message can be sent', `-> ${sent.status}`);
+  const mail = get('SELECT * FROM email_outbox WHERE to_addr = ? ORDER BY id DESC LIMIT 1', [hidden.email]);
+  record(Boolean(mail) && mail.reply_to === EMAIL, 'it goes to the recipient with Reply-To set to the sender');
+  record(Boolean(mail) && mail.body_text.includes(EMAIL) && mail.body_html.includes(EMAIL), "the sender's address is also in the body, for mail apps that ignore Reply-To");
+  record(Boolean(mail) && !/[\r\n]/.test(mail.subject) && mail.subject.includes(`Smoke message ${stamp} Bcc:`), 'the subject is flattened to one line');
+  const copy = get('SELECT * FROM email_outbox WHERE to_addr = ? AND subject LIKE ? ORDER BY id DESC LIMIT 1', [EMAIL, 'Copy: your message%']);
+  record(Boolean(copy) && !copy.body_text.includes(hidden.email) && !copy.body_html.includes(hidden.email) && !copy.reply_to, "the sender's copy never contains the recipient's address");
+  const after = await req('/members/directory');
+  record(/on its way to/.test(after.text) && !after.text.includes(hidden.email), 'the sender is told it went, and still never sees the address');
+  record(Boolean(get("SELECT 1 AS x FROM audit_log WHERE action = 'member.message.sent' AND entity_id = ?", [String(hidden.id)])), 'the activity log records who wrote to whom');
+  record(Boolean(get('SELECT 1 AS x FROM member_messages WHERE sender_id = ? AND recipient_id = ?', [me.id, hidden.id])), 'the send is counted for rate limiting');
+
+  // Two more to the same person are allowed; the fourth in a day is not.
+  for (let i = 0; i < 2; i++) {
+    await req(linkTo(hidden), { method: 'POST', body: { _csrf: token, subject: `Again ${i}`, message: 'Following up on the fly-in question.' } });
+  }
+  const before = get('SELECT COUNT(*) AS n FROM email_outbox WHERE to_addr = ?', [hidden.email]).n;
+  const fourth = await req(linkTo(hidden), { method: 'POST', body: { _csrf: token, subject: 'Once more', message: 'Following up on the fly-in question.' } });
+  const afterN = get('SELECT COUNT(*) AS n FROM email_outbox WHERE to_addr = ?', [hidden.email]).n;
+  record(fourth.status === 429 && afterN === before && /chance to reply/.test(fourth.text), 'too many messages to one member in a day are refused', `-> ${fourth.status}`);
+
+  // The account setting switches it off.
+  run('UPDATE users SET accept_messages = 1, share_email = 0 WHERE id = ?', [me.id]);
+  const acct = await req('/members/account');
+  record(/name="accept_messages"[^>]*checked/.test(acct.text), 'the account page has the messages setting, on by default');
+  const saved = await req('/members/account', { method: 'POST', body: { _csrf: csrfFrom(acct.text), display_name: '', phone: '', share_phone: '1' } });
+  record(saved.status === 302 && Users.findById(me.id).accept_messages === 0, 'unticking it switches messages off', `-> ${saved.status}`);
+  record(!Users.findById(me.id).share_email, 'and leaves the other settings as submitted');
+  run('UPDATE users SET accept_messages = 1, share_email = 1 WHERE id = ?', [me.id]);
+
+  for (const u of [hidden, shares, closed, pending]) {
+    run('DELETE FROM email_outbox WHERE to_addr = ?', [u.email]);
+    run('DELETE FROM users WHERE id = ?', [u.id]);
+  }
+  run("DELETE FROM email_outbox WHERE to_addr = ? AND subject LIKE 'Copy: your message%'", [EMAIL]);
+}
+
 console.log('\nChapter documents');
 {
   const stamp = Date.now();
@@ -1411,6 +1488,8 @@ console.log('\nEvery member-facing email has an HTML version');
     applicationNotification: Mail.applicationNotificationEmail({ name: evil, email: evil, interest: evil, message: evil, link }),
     applicationDeclined: Mail.applicationDeclinedEmail({ name: evil, note: evil }),
     documentSubmitted: Mail.documentSubmittedEmail({ reviewerName: evil, submitterName: evil, title: evil, kind: 'Meeting minutes', version: 2, link }),
+    memberMessage: Mail.memberMessageEmail({ recipientName: evil, senderName: evil, senderEmail: evil, subject: evil, message: evil, link }),
+    memberMessageCopy: Mail.memberMessageCopyEmail({ senderName: evil, recipientName: evil, subject: evil, message: evil }),
     documentReviewed: Mail.documentReviewedEmail({ name: evil, reviewerName: evil, reviewerOffice: 'President', title: evil, decision: 'changes_requested', comment: evil, link }),
   };
   for (const [name, m] of Object.entries(mails)) {
