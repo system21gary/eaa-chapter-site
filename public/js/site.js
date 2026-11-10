@@ -150,6 +150,36 @@
     textarea.setAttribute('aria-hidden', 'true');
     textarea.tabIndex = -1;
 
+    // A "Table" button. Trix cannot hold a real table, so this inserts a
+    // starter table as markdown text, one row per line; the member edits the
+    // cells as text and the page shows it as a table once saved.
+    editor.addEventListener('trix-initialize', function () {
+      var toolbar = editor.toolbarElement;
+      var group = toolbar && toolbar.querySelector('.trix-button-group--block-tools');
+      if (!group || group.querySelector('[data-insert-table]')) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'trix-button trix-button--text';
+      btn.setAttribute('data-insert-table', '');
+      btn.title = 'Insert a table';
+      btn.textContent = 'Table';
+      btn.addEventListener('click', function () {
+        var ed = editor.editor;
+        // A table row has to start its own line.
+        var at = ed.getSelectedRange()[0];
+        if (at > 0 && ed.getDocument().toString().charAt(at - 1) !== '\n') ed.insertLineBreak();
+        var start = ed.getSelectedRange()[0];
+        ed.insertHTML(
+          '<div>| Heading | Heading |<br>| --- | --- |<br>| Cell | Cell |<br>| Cell | Cell |</div>'
+        );
+        editor.focus();
+        // Select the first heading, ready to type over, rather than leaving
+        // the cursor at the end of the last row.
+        ed.setSelectedRange([start + 2, start + 9]);
+      });
+      group.appendChild(btn);
+    });
+
     field.insertBefore(hidden, textarea);
     field.insertBefore(editor, textarea);
     field.classList.add('is-rich');

@@ -16,7 +16,8 @@
     "mail:check": "node scripts/mail-check.mjs",
     "smoke": "node scripts/smoke.mjs",
     "backup:report": "node scripts/backup-report.mjs",
-    "fix:times": "node scripts/fix-times.mjs"
+    "fix:times": "node scripts/fix-times.mjs",
+    "rerender": "node scripts/rerender-html.mjs"
   },
   "dependencies": {
     "compression": "^1.7.5",

@@ -2,7 +2,7 @@ import nunjucks from 'nunjucks';
 
 import config from '../config.js';
 import { withBase, absoluteUrl } from '../middleware/base-path.js';
-import { renderMarkdown, excerpt } from '../lib/markdown.js';
+import { renderMarkdown, renderMarkdownForEditor, excerpt } from '../lib/markdown.js';
 
 import { TZ, toLocalInput, toLocalDateInput } from '../lib/localtime.js';
 import { formatPhone } from '../lib/phone.js';
@@ -121,6 +121,8 @@ export function registerFilters(env) {
    * than cached in a *_html column. Same allow-list as everything else.
    */
   env.addFilter('markdown', (md) => new nunjucks.runtime.SafeString(renderMarkdown(md)));
+  // For seeding the rich-text editor: tables as editable markdown text.
+  env.addFilter('editormarkdown', (md) => new nunjucks.runtime.SafeString(renderMarkdownForEditor(md)));
 
   /** Markdown -> plain text, for card blurbs where markup would show through. */
   env.addFilter('plain', (md) => excerpt(md, 100000));

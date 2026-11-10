@@ -54,6 +54,20 @@ turndown.addRule('underline', {
   replacement: (content) => content,
 });
 
+// A table is edited as markdown text, one row per line (the editor cannot
+// hold a real one; see renderMarkdownForEditor). Turndown would escape the
+// markdown in those lines (\* \_ \[ ...), so a row would gain backslashes on
+// every save. Rows are passed through as typed; nothing reaches here that the
+// input sanitiser has not already cleaned, and the output is sanitised again
+// when it is rendered.
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
+const escapeText = turndown.escape.bind(turndown);
+turndown.escape = (text) =>
+  text
+    .split('\n')
+    .map((line) => (TABLE_ROW.test(line) ? line : escapeText(line)))
+    .join('\n');
+
 /** Editor HTML -> markdown, for storage. */
 export function htmlToMarkdown(html) {
   const raw = String(html ?? '').trim();

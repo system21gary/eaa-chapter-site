@@ -1,4 +1,4 @@
-import { marked } from 'marked';
+import { marked, Marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
 
 marked.setOptions({ gfm: true, breaks: true, headerIds: false, mangle: false });
@@ -20,7 +20,10 @@ const SANITIZE_OPTIONS = {
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
   ],
   allowedAttributes: {
-    a: ['href', 'title'],
+    // target and rel are set by the transform below, never taken from the
+    // author: sanitize-html filters attributes *after* transformTags, so they
+    // have to be on this list or the transform's work is thrown away.
+    a: ['href', 'title', 'target', 'rel'],
     img: ['src', 'alt', 'title', 'loading', 'width', 'height'],
     th: ['colspan', 'rowspan'],
     td: ['colspan', 'rowspan'],
@@ -32,16 +35,20 @@ const SANITIZE_OPTIONS = {
   allowProtocolRelative: false,
   disallowedTagsMode: 'discard',
   transformTags: {
-    // Untrusted outbound links must not be able to reach back through
-    // window.opener, and should not pass PageRank from a members' blog.
+    // Links to other sites open in a new tab, so the reader keeps their place
+    // here. Untrusted outbound links must not be able to reach back through
+    // window.opener, and should not pass PageRank from a members' blog. Links
+    // within the site open in place; any target or rel an author typed is
+    // dropped either way.
     a: (tagName, attribs) => {
-      const href = attribs.href || '';
+      const { target, rel, ...rest } = attribs;
+      const href = rest.href || '';
       const external = /^https?:\/\//i.test(href);
       return {
         tagName: 'a',
         attribs: external
-          ? { ...attribs, target: '_blank', rel: 'noopener noreferrer nofollow ugc' }
-          : attribs,
+          ? { ...rest, target: '_blank', rel: 'noopener noreferrer nofollow ugc' }
+          : rest,
       };
     },
     img: (tagName, attribs) => ({
@@ -54,6 +61,35 @@ const SANITIZE_OPTIONS = {
 export function renderMarkdown(md) {
   if (!md) return '';
   const raw = marked.parse(String(md), { async: false });
+  return sanitizeHtml(raw, SANITIZE_OPTIONS);
+}
+
+/**
+ * Markdown -> HTML for loading into the rich-text editor.
+ *
+ * The editor (Trix) has no tables: given a <table> it flattens the cells into
+ * one line of text, and saving would then lose the table for good. So here a
+ * table is shown as its markdown source, one row per line, which the member
+ * can edit as text and which converts straight back to the same table on save
+ * (see richtext.js). Everything else renders exactly as on the page.
+ */
+const editorMarked = new Marked({ gfm: true, breaks: true });
+editorMarked.use({
+  renderer: {
+    table(token) {
+      const lines = token.raw.trim().split('\n').map((l) => escapeText(l.trim()));
+      return `<p>${lines.join('<br>')}</p>\n`;
+    },
+  },
+});
+
+function escapeText(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+export function renderMarkdownForEditor(md) {
+  if (!md) return '';
+  const raw = editorMarked.parse(String(md), { async: false });
   return sanitizeHtml(raw, SANITIZE_OPTIONS);
 }
 

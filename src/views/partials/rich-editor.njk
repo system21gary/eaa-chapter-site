@@ -25,8 +25,9 @@
             aria-invalid="{{ 'true' if error }}">{{ value or '' }}</textarea>
 
   {# The editor's starting content, already rendered and sanitised server-side.
-     A <template> is inert: the browser does not execute or render it. #}
-  <template data-rich-initial>{{ value | markdown | safe }}</template>
+     A <template> is inert: the browser does not execute or render it. Tables
+     come through as their markdown text, since the editor cannot hold one. #}
+  <template data-rich-initial>{{ value | editormarkdown | safe }}</template>
 
   <input type="hidden" name="{{ name }}_format" value="markdown" data-rich-format>
 
@@ -34,6 +35,10 @@
   <span class="hint" data-rich-hint hidden>
     Formatting: select text and use the buttons, or press
     <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>B</kbd> for bold.
+    Links: select the words, press the link button (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>K</kbd>)
+    and paste the address; links to other sites open in a new tab.
+    Table: inserts a starter table to edit as text, one row per line with cells
+    between <code>|</code> bars; it shows as a table once saved.
   </span>
   {% if error %}<span class="err">{{ error }}</span>{% endif %}
 </div>

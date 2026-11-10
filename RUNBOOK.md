@@ -149,7 +149,7 @@ src/views/                 Nunjucks templates and filters
 public/                    css, js, images, vendored Trix editor (served /assets)
 scripts/                   start.sh, smoke.mjs, members-audit.mjs,
                            mail-check.mjs, backup-report.mjs, fix-times.mjs,
-                           borrow-notify-test.mjs
+                           rerender-html.mjs, borrow-notify-test.mjs
 litestream.yml             continuous backup configuration
 fly.toml, Dockerfile       Fly app and image
 outreach/                  a short walkthrough brochure for the chapter
@@ -586,6 +586,7 @@ the server goes through `/app/scripts/start.sh`.
 | Mail check | `fly ssh console -C "/app/scripts/start.sh npm run mail:check -- you@example.org"` |
 | Backup check | `fly ssh console -C "/app/scripts/start.sh npm run backup:report -- --send"` |
 | Correct pre-fix times | `fly ssh console -C "/app/scripts/start.sh npm run fix:times"` to preview; add ` -- --apply` inside the quotes to apply |
+| Re-render stored post/event/build HTML | After a change to how markdown renders (e.g. links to other sites opening in a new tab): `fly ssh console -C "/app/scripts/start.sh npm run rerender"` to preview; add ` -- --apply` inside the quotes to apply. Markdown is not touched; safe to repeat |
 | Seed demo content | `fly ssh console -C "/app/scripts/start.sh npm run seed"` (only on an empty database; `FORCE_SEED=1` would duplicate and fails on the admin's unique email) |
 | Download a copy of the database | Copying the live file alone can miss its latest changes (they sit in the `-wal`). Restore the backup to a side file, then download that: `fly ssh console -C "/app/scripts/start.sh litestream restore -config /app/litestream.yml -o /tmp/copy.sqlite /data/eaa1699.sqlite"`, then `fly ssh sftp get /tmp/copy.sqlite .\eaa1699-copy.sqlite`. It holds members' details: keep it safe and delete it after use |
 

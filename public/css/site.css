@@ -997,6 +997,13 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
   color: #fff;
 }
 .rich-field trix-toolbar .trix-button:disabled { opacity: .3; }
+/* Our own text button (Table): sized to its label, not to an icon. */
+.rich-field trix-toolbar .trix-button--text {
+  width: auto;
+  padding: 0 .55rem;
+  font-size: .85rem;
+  font-weight: 600;
+}
 
 /* Attachment and quote-level buttons we do not support are hidden rather than
    left to fail: uploads go through the dedicated photo fields, which run the
