@@ -179,6 +179,76 @@ const eventSlugs = [...new Set([...eventsHtml.matchAll(/href="[^"]*\/events\/([a
 console.log(`\nEvent detail pages (${eventSlugs.length} found)`);
 for (const slug of eventSlugs) await req(`/events/${slug}`, { expect: 200 });
 
+/* ------------------------------------------------ search and sharing */
+console.log('\nSearch engines and sharing');
+{
+  const prefix = config.basePath;
+  const ld = (html) =>
+    [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map((m) => {
+      try { return JSON.parse(m[1]); } catch { return { parseError: true }; }
+    });
+  const canonicalOf = (html) => html.match(/<link rel="canonical" href="([^"]+)"/)?.[1] ?? null;
+  const titleOf = (html) => html.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
+
+  const home = (await req('/')).text;
+  record(canonicalOf(home) === `${config.site.baseUrl.replace(/\/+$/, '')}${prefix}/`, 'the home page names its canonical URL', `-> ${canonicalOf(home)}`);
+  record(/South Albany Airport \(4B0\)/.test(titleOf(home)) && !/^Welcome/.test(titleOf(home)), 'the home title says who and where, not "Welcome"', `-> ${titleOf(home)}`);
+  const homeLd = ld(home);
+  record(homeLd.some((x) => x['@type'] === 'NGO' && x.address?.postalCode === config.site.airport.zip) && !homeLd.some((x) => x.parseError), 'the home page describes the chapter as structured data');
+  record(/<h1>[\s\S]*Experimental Aircraft Association[\s\S]*<\/h1>/.test(home), 'the home H1 names the chapter, not only the slogan');
+  record(!/trix/.test(home), 'public pages do not load the rich-text editor');
+  record(home.includes('property="og:url"') && home.includes('property="og:image:alt"'), 'share tags include og:url and image alt text');
+
+  // One address per page.
+  let r = await req('/Events/?view=compact');
+  record(r.status === 301 && (r.res.headers.get('location') ?? '').endsWith(`${prefix}/events?view=compact`), 'an uppercase or trailing-slash address redirects permanently to the clean one, keeping the query', `-> ${r.status} ${r.res.headers.get('location')}`);
+  r = await req('/events?view=compact');
+  record(Boolean(canonicalOf(r.text)?.endsWith(`${prefix}/events`)), 'a view switch is not part of the canonical address');
+  r = await req('/events/past?year=2026');
+  record(Boolean(canonicalOf(r.text)?.endsWith(`${prefix}/events/past?year=2026`)), 'the year filter is part of the past-events canonical address');
+  r = await req('/reset/AbCdEf');
+  record(r.status !== 301, 'token URLs are never lower-cased by the redirect', `-> ${r.status}`);
+  r = await req('/no-such-page-anywhere');
+  record(r.status === 404 && /name="robots" content="noindex"/.test(r.text) && !canonicalOf(r.text), 'a 404 page is noindex and names no canonical URL');
+  r = await req('/favicon.ico');
+  record(r.status === 301 && /\/assets\/img\/favicon\.png$/.test(r.res.headers.get('location') ?? ''), '/favicon.ico points at the real icon', `-> ${r.status}`);
+  // req() only reads text/* bodies; the sitemap is application/xml.
+  const sitemap = await (await fetch(`${BASE}/sitemap.xml`)).text();
+  record(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/.test(sitemap), 'the sitemap gives last-modified dates');
+
+  // Events: a unique title, a description with the facts, and Event markup.
+  if (eventSlugs[0]) {
+    const ev = get('SELECT * FROM events WHERE slug = ?', [eventSlugs[0]]);
+    const html = (await req(`/events/${ev.slug}`)).text;
+    const e = ld(html).find((x) => x['@type'] === 'Event');
+    record(Boolean(e) && e.name === ev.title && /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2})?$/.test(e.startDate) && Boolean(e.location?.address), 'an event page carries Event markup with a local start time and an address', e ? `-> ${e.startDate}` : '');
+    record(/\d{4} · EAA Chapter 1699$/.test(titleOf(html)), 'an event title includes its date, so two meetings never share one', `-> ${titleOf(html)}`);
+    record(ld(html).some((x) => x['@type'] === 'BreadcrumbList'), 'and a breadcrumb trail');
+  }
+
+  // A hostile event title cannot close the JSON-LD script early.
+  const stamp = Date.now();
+  const nasty = `Fly-in </script><script>alert(1)</script> ${stamp}`;
+  const evId = Number(run(
+    `INSERT INTO events (slug, title, starts_at, kind, status, created_at, updated_at) VALUES (?, ?, ?, 'meeting', 'published', ?, ?)`,
+    [`smoke-ld-${stamp}`, nasty, new Date(Date.now() + 5 * 86_400_000).toISOString(), new Date().toISOString(), new Date().toISOString()]
+  ).lastInsertRowid);
+  const nastyHtml = (await req(`/events/smoke-ld-${stamp}`)).text;
+  const nastyLd = ld(nastyHtml).find((x) => x['@type'] === 'Event');
+  record(nastyLd?.name === nasty && !nastyHtml.includes('<script>alert(1)'), 'markup in an event title stays inside the JSON-LD as text');
+  run('DELETE FROM events WHERE id = ?', [evId]);
+
+  // Build logs: Article markup, and every log photo described.
+  if (uniqueBuilds[0]) {
+    const html = (await req(`/builds/${uniqueBuilds[0]}`)).text;
+    const a = ld(html).find((x) => x['@type'] === 'Article');
+    record(Boolean(a?.headline) && Boolean(a?.datePublished) && a?.author?.['@type'] === 'Person', 'a build page carries Article markup');
+    record(!/"lastName"|"familyName"/.test(JSON.stringify(a ?? {})), 'the markup names the builder no more fully than the page does');
+    const slides = [...html.matchAll(/<div class="carousel-slide"[\s\S]*?<img[\s\S]*?alt="([^"]*)"/g)].map((m) => m[1]);
+    record(slides.length === 0 || slides.every(Boolean), 'every build-log photo has alt text', `${slides.filter((x) => !x).length} of ${slides.length} empty`);
+  }
+}
+
 /* --------------------------------------------------------- gated access */
 console.log('\nAccess control (signed out)');
 for (const p of ['/members', '/members/blog', '/members/locker', '/members/builds', '/members/directory', '/members/admin/members', '/members/admin/log']) {

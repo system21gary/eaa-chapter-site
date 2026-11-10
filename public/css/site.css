@@ -84,7 +84,7 @@ body {
 h1, h2, h3, h4 { font-family: var(--display); line-height: 1.15; letter-spacing: -.02em; margin: 0 0 .5em; }
 h1 { font-size: clamp(2.1rem, 1.4rem + 2.6vw, 3.4rem); font-weight: 800; }
 h2 { font-size: clamp(1.5rem, 1.2rem + 1.1vw, 2.1rem); font-weight: 750; }
-h3 { font-size: 1.22rem; font-weight: 700; }
+h3, .h3 { font-size: 1.22rem; font-weight: 700; }
 p { margin: 0 0 1.1em; }
 
 a { color: var(--blue-600); text-decoration-color: color-mix(in srgb, var(--blue-600) 35%, transparent); text-underline-offset: 3px; }
@@ -232,6 +232,8 @@ a:hover { color: var(--navy-800); }
 }
 .hero h1 { color: #fff; margin-bottom: .3em; font-size: clamp(2rem, 1.2rem + 2.2vw, 2.9rem); line-height: 1.1; }
 .hero .eyebrow { margin-bottom: .7rem; }
+/* The eyebrow sits inside the hero H1 (so the headline names the chapter): keep it looking like the eyebrow, on its own line. */
+.hero h1 .eyebrow { display: flex; width: fit-content; font-family: var(--sans); line-height: 1.65; letter-spacing: .16em; }
 .hero h1 em { color: var(--amber-500); font-style: normal; }
 .hero-lede { font-size: 1.05rem; color: #c8e0f0; max-width: 56ch; margin-bottom: .9em; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.2rem; }
@@ -837,7 +839,7 @@ table.data input[type="text"] { min-width: 10rem; }
 
 hr.rule { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
 
-.footer-title { font-size: .8rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--amber-500); margin-bottom: .8rem; }
+.footer-title { font-family: var(--display); line-height: 1.15; font-size: .8rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--amber-500); margin-bottom: .8rem; }
 .site-footer { background: var(--navy-900); color: #a8c4d6; padding: 3.5rem 0 2rem; margin-top: 4rem; }
 .site-footer a { color: #dbe9f3; }
 .site-footer a:hover { color: var(--amber-500); }

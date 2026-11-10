@@ -104,6 +104,7 @@
                   {% if entry.photos.length %}
                     {% set carouselId = 'log-' ~ entry.id %}
                     {% set photos = entry.photos %}
+                    {% set photoAlt = (entry.title | replace(r/[.!?\s]+$/, '')) ~ ' — ' ~ build.title %}
                     {% include "partials/carousel.njk" %}
                   {% endif %}
 

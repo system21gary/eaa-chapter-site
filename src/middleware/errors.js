@@ -49,6 +49,7 @@ export function errorHandler(err, req, res, next) {
       'pages/error.njk',
       {
         title: `${status}`,
+        robots: 'noindex',
         status,
         message,
         detail: config.isDev && status >= 500 ? err.stack : null,

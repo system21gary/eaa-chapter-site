@@ -3,24 +3,35 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if title %}{{ title }} · {% endif %}EAA Chapter 1699</title>
+  <title>{% if fullTitle %}{{ fullTitle }}{% else %}{% if title %}{{ title }} · {% endif %}EAA Chapter 1699{% endif %}</title>
   <meta name="description" content="{{ metaDescription or site.tagline }}">
   {% if robots %}<meta name="robots" content="{{ robots }}">{% endif %}
+  {# One address per page for search engines: the clean path (plus any query that changes the content, set by the route), never /Events or /events/ or ?view=. #}
+  {% set pageUrl = (canonicalPath or currentPath) | absolute %}
+  {% if not robots or 'noindex' not in robots %}<link rel="canonical" href="{{ pageUrl }}">{% endif %}
   <meta name="theme-color" content="#03283f">
   {% if statsEnabled %}<meta name="eaa-stats" content="{{ '/stats/ping' | url }}" data-base="{{ basePath }}">{% endif %}
 
   <meta property="og:site_name" content="EAA Chapter 1699">
-  <meta property="og:title" content="{{ title or site.name }}">
+  <meta property="og:title" content="{{ ogTitle or title or site.name }}">
   <meta property="og:description" content="{{ metaDescription or site.tagline }}">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="{{ ogType or 'website' }}">
+  <meta property="og:url" content="{{ pageUrl }}">
+  <meta property="og:locale" content="en_US">
   <meta property="og:image" content="{{ (ogImage or '/assets/img/pancake-breakfast-2026.webp') | absolute }}">
+  <meta property="og:image:alt" content="{{ ogImageAlt or 'Cartoon of a yellow and blue taildragger flying over a pancake breakfast at South Albany Airport' }}">
   <meta name="twitter:card" content="summary_large_image">
 
-  <link rel="stylesheet" href="{{ 'vendor/trix/trix.css' | asset }}">
+  {# The rich-text editor is only ever used inside the Members Corner; public pages do not need its 57 KB. #}
+  {% set editorAssets = currentPath.startsWith('/members') %}
+  {% if editorAssets %}<link rel="stylesheet" href="{{ 'vendor/trix/trix.css' | asset }}">{% endif %}
   <link rel="stylesheet" href="{{ 'css/site.css' | asset }}">
   <link rel="icon" href="{{ 'img/favicon.png' | asset }}" type="image/png">
   <link rel="apple-touch-icon" href="{{ 'img/apple-touch-icon.png' | asset }}">
   <link rel="alternate" type="text/calendar" href="{{ '/events/calendar.ics' | url }}" title="EAA 1699 events">
+  {% for item in jsonLd %}{% if item %}
+  <script type="application/ld+json" nonce="{{ cspNonce }}">{{ item | jsonld }}</script>
+  {% endif %}{% endfor %}
 </head>
 <body class="{% block bodyClass %}{% endblock %}">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -35,7 +46,7 @@
   {% include "partials/footer.njk" %}
 
   {# Trix must load before site.js, which upgrades textareas into editors. #}
-  <script src="{{ 'vendor/trix/trix.umd.min.js' | asset }}" nonce="{{ cspNonce }}" defer></script>
+  {% if editorAssets %}<script src="{{ 'vendor/trix/trix.umd.min.js' | asset }}" nonce="{{ cspNonce }}" defer></script>{% endif %}
   <script src="{{ 'js/site.js' | asset }}" nonce="{{ cspNonce }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>

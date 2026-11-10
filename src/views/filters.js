@@ -152,6 +152,12 @@ export function registerFilters(env) {
 
   env.addFilter('absolute', (p) => absoluteUrl(p));
 
+  // JSON-LD inside a <script>: escape every "<" so text such as "</script>" in an
+  // event title can never close the tag early.
+  env.addFilter('jsonld', (obj) =>
+    new nunjucks.runtime.SafeString(JSON.stringify(obj).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029'))
+  );
+
   env.addFilter('maplink', (obj) => mapUrl(obj));
 
   env.addGlobal('now', () => new Date().toISOString());

@@ -1,7 +1,7 @@
 <footer class="site-footer">
   <div class="wrap footer-grid">
     <div>
-      <h2 class="footer-title">EAA Chapter 1699</h2>
+      <p class="footer-title">EAA Chapter 1699</p>
       <p class="muted">
         {{ site.airport.name }} ({{ site.airport.ident }})<br>
         {{ site.airport.street }}<br>
@@ -12,7 +12,7 @@
     </div>
 
     <div>
-      <h2 class="footer-title">Visit</h2>
+      <p class="footer-title">Visit</p>
       <ul class="plain">
         <li><a href="{{ '/events' | url }}">Upcoming events</a></li>
         <li><a href="{{ '/events/past' | url }}">Past events</a></li>
@@ -23,7 +23,7 @@
     </div>
 
     <div>
-      <h2 class="footer-title">Members</h2>
+      <p class="footer-title">Members</p>
       <ul class="plain">
         {% if currentUser %}
           <li><a href="{{ '/members' | url }}">Members Corner</a></li>
@@ -39,7 +39,7 @@
     </div>
 
     <div>
-      <h2 class="footer-title">The airport</h2>
+      <p class="footer-title">The airport</p>
       <p class="muted small">
         Runway: {{ site.airport.runway }}<br>
         Fuel: {{ site.airport.fuel }}<br>

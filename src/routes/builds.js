@@ -1,4 +1,5 @@
 import express from 'express';
+import * as Seo from '../lib/seo.js';
 import * as Builds from '../models/builds.js';
 
 const router = express.Router();
@@ -39,13 +40,20 @@ router.get('/:slug', (req, res, next) => {
   const isOwner = req.user && Number(req.user.id) === Number(build.owner_id);
   const canManage = isOwner || req.user?.role === 'admin';
 
+  // Drafts are visible to the owner (and admins) so they can preview.
+  const updates = Builds.listUpdates(build.id, { viewer: canManage });
   res.render('pages/build-detail.njk', {
     title: build.title,
-    metaDescription: build.summary,
+    metaDescription: Seo.clip(build.summary || `${build.aircraft_type}: a build log by a member of EAA Chapter 1699 at South Albany Airport (4B0), Selkirk, NY.`),
     ogImage: build.cover_path ? `/media/${build.cover_path}` : null,
+    ogImageAlt: build.cover_alt || `${build.aircraft_type} project`,
+    ogType: 'article',
+    jsonLd: [
+      Seo.buildLd(build, { updates }),
+      Seo.breadcrumbLd([['Home', '/'], ["Members' builds", '/builds'], [build.title, `/builds/${build.slug}`]]),
+    ],
     build,
-    // Drafts are visible to the owner (and admins) so they can preview.
-    updates: Builds.listUpdates(build.id, { viewer: canManage }),
+    updates,
     totals: Builds.buildTotals(build.id),
     cheers: Builds.cheerInfo(build.id, req.user?.id),
     statusLabels: Builds.STATUS_LABELS,

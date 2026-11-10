@@ -1,7 +1,9 @@
 {#
   Accessible image carousel.
   Expects `photos` (array with full_path / thumb_path / caption or alt) and a
-  unique `carouselId`. Works without JavaScript: the track simply shows the
+  unique `carouselId`. Optional `photoAlt` describes uncaptioned photos
+  ("Wings closed, Marta's RV-7A") so they are not invisible to screen readers
+  and image search. Works without JavaScript: the track simply shows the
   first slide and the thumbnails below link to the full images.
 #}
 <div class="carousel" data-carousel id="{{ carouselId }}" tabindex="0"
@@ -13,7 +15,7 @@
         <div class="carousel-slide" role="group" aria-roledescription="slide"
              aria-label="Photo {{ loop.index }} of {{ photos.length }}">
           <img src="{{ photo.full_path | media }}"
-               alt="{{ photo.caption or photo.alt or '' }}"
+               alt="{{ photo.caption or photo.alt or ((photoAlt ~ ', photo ' ~ loop.index ~ ' of ' ~ photos.length) if photoAlt else '') }}"
                loading="{{ 'eager' if loop.first else 'lazy' }}">
         </div>
       {% endfor %}

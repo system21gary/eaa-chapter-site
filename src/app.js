@@ -9,6 +9,7 @@ import { SqliteSessionStore } from './lib/session-store.js';
 import { csrfProtection, auditDeferredCsrf } from './lib/csrf.js';
 import { cspNonce, securityHeaders, extraHeaders, verifyOrigin, bodyLimits } from './middleware/security.js';
 import { basePathMiddleware } from './middleware/base-path.js';
+import { canonicalRedirect } from './middleware/canonical.js';
 import { generalLimiter } from './middleware/rate-limit.js';
 import { loadUser, flashMiddleware } from './middleware/auth.js';
 import { notFound, errorHandler } from './middleware/errors.js';
@@ -85,6 +86,7 @@ export function createApp() {
     res.locals.pendingToolRequests = 0;
     next();
   });
+  app.use(canonicalRedirect);
   app.use(compression());
   app.use(generalLimiter);
 

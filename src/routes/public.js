@@ -20,6 +20,7 @@ import { hashIp } from '../lib/tokens.js';
 import { audit } from '../lib/audit.js';
 import { recordEvent, humanRequest, markAction } from '../lib/stats.js';
 import { mapUrl } from '../views/filters.js';
+import * as Seo from '../lib/seo.js';
 
 const router = express.Router();
 
@@ -32,8 +33,13 @@ router.get('/', (req, res) => {
 
   res.render('pages/home.njk', {
     title: 'Welcome',
+    // Says who and where in the words people search with; "Welcome" said neither.
+    fullTitle: 'EAA Chapter 1699 · South Albany Airport (4B0), Selkirk, NY',
+    ogTitle: 'EAA Chapter 1699: Experimental Aircraft Association at South Albany Airport',
     metaDescription:
-      'EAA Chapter 1699 is a community of builders, pilots and dreamers at South Albany Airport (4B0) in Selkirk, New York. Fly-in breakfasts, Young Eagles rides, and a hangar full of people happy to help.',
+      'EAA Chapter 1699: aircraft builders, pilots and aviation fans at South Albany Airport (4B0), Selkirk, NY. Fly-in breakfasts, Young Eagles flights and more.',
+    ogImageAlt: 'Cartoon of a yellow and blue taildragger flying over a pancake breakfast at South Albany Airport',
+    jsonLd: [Seo.organizationLd(), Seo.websiteLd()],
     nextEvent: next,
     upcoming: upcoming.filter((e) => e.id !== next?.id).slice(0, 3),
     recentEvents: recent,
@@ -49,6 +55,7 @@ router.get('/about', (req, res) => {
     title: 'Who we are',
     metaDescription:
       'Who we are: EAA Chapter 1699, the Experimental Aircraft Association chapter at South Albany Airport in Selkirk, NY.',
+    jsonLd: [Seo.organizationLd(), Seo.breadcrumbLd([['Home', '/'], ['Who we are', '/about']])],
   });
 });
 
@@ -72,7 +79,11 @@ router.get('/events/past', (req, res) => {
   const events = Events.pastEvents({ limit: 40, year });
   res.render('pages/events-past.njk', {
     title: 'Past events',
-    metaDescription: 'Photos and write-ups from EAA Chapter 1699 events gone by.',
+    metaDescription: year
+      ? `Photos and write-ups from EAA Chapter 1699 events in ${year} at South Albany Airport (4B0), Selkirk, NY.`
+      : 'Photos and write-ups from past EAA Chapter 1699 fly-ins, Young Eagles rallies, meetings and workshops at South Albany Airport (4B0).',
+    // The year filter changes what is listed, so it is part of the address.
+    canonicalPath: year ? `/events/past?year=${year}` : '/events/past',
     events,
     years: Events.pastEventYears(),
     activeYear: year,
@@ -110,14 +121,22 @@ router.get('/events/:slug/directions', (req, res, next) => {
 router.get('/events/:slug', (req, res, next) => {
   const event = Events.getEventBySlug(req.params.slug, { viewer: req.user });
   if (!event) return next();
+  const isPast = new Date(event.ends_at || event.starts_at) < new Date();
   res.render('pages/event-detail.njk', {
-    title: event.title,
-    metaDescription: event.summary,
+    // The date makes the title unique: chapter meetings all share a name.
+    title: Seo.eventPageTitle(event),
+    ogTitle: event.title,
+    metaDescription: Seo.eventDescription(event),
     ogImage: event.poster_path ? `/media/${event.poster_path}` : null,
+    ogImageAlt: event.poster_alt || null,
+    jsonLd: [
+      Seo.eventLd(event, { photos: event.photos || [] }),
+      Seo.breadcrumbLd([['Home', '/'], isPast ? ['Past events', '/events/past'] : ['Upcoming events', '/events'], [event.title, `/events/${event.slug}`]]),
+    ],
     event,
-    isPast: new Date(event.ends_at || event.starts_at) < new Date(),
+    isPast,
     // Which tab to light up: a past event belongs under Past Events.
-    navSection: new Date(event.ends_at || event.starts_at) < new Date() ? 'past' : 'upcoming',
+    navSection: isPast ? 'past' : 'upcoming',
   });
 });
 
@@ -321,7 +340,14 @@ router.get('/robots.txt', (req, res) => {
   );
 });
 
+/** Browsers and some crawlers ask for /favicon.ico whatever the page says; send them the real icon. */
+router.get('/favicon.ico', (req, res) => {
+  res.redirect(301, `/assets/img/favicon.png`);
+});
+
 router.get('/sitemap.xml', (req, res) => {
+  const day = (v) => (v ? new Date(v).toISOString().slice(0, 10) : null);
+  const newest = (...vals) => vals.filter(Boolean).sort().at(-1) ?? null;
   const urls = [
     { loc: '/', priority: '1.0' },
     { loc: '/about', priority: '0.8' },
@@ -333,15 +359,16 @@ router.get('/sitemap.xml', (req, res) => {
     ...Builds.listBuilds({ viewer: null, limit: 200 }).map((b) => ({
       loc: `/builds/${b.slug}`,
       priority: '0.6',
+      lastmod: day(newest(b.updated_at, b.last_update_at)),
     })),
-    ...Events.upcomingEvents({ limit: 100 }).map((e) => ({ loc: `/events/${e.slug}`, priority: '0.8' })),
-    ...Events.pastEvents({ limit: 100 }).map((e) => ({ loc: `/events/${e.slug}`, priority: '0.4' })),
+    ...Events.upcomingEvents({ limit: 100 }).map((e) => ({ loc: `/events/${e.slug}`, priority: '0.8', lastmod: day(e.updated_at) })),
+    ...Events.pastEvents({ limit: 100 }).map((e) => ({ loc: `/events/${e.slug}`, priority: '0.4', lastmod: day(e.updated_at) })),
   ];
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ...urls.map(
-      (u) => `  <url><loc>${absoluteUrl(u.loc)}</loc><priority>${u.priority}</priority></url>`
+      (u) => `  <url><loc>${absoluteUrl(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}<priority>${u.priority}</priority></url>`
     ),
     '</urlset>',
   ].join('\n');
