@@ -62,7 +62,14 @@
             {% if mailHealth.abandoned %}
               <div class="notice" style="margin:1rem 0">
                 <strong>{{ mailHealth.abandoned }} message{{ 's' if mailHealth.abandoned != 1 }} could not be delivered</strong>
-                after every retry. Fix the cause, then use Retry below.
+                after every retry. Fix the cause and use Retry, or — if the
+                address was never meant to work, such as a sample member —
+                Dismiss it. Dismissed failures stop appearing here and in the
+                nightly backup email; only new ones are reported.
+                <form method="post" action="{{ '' | url }}/members/admin/log/mail/dismiss-failed" style="margin-top:.6rem">
+                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                  <button type="submit" class="btn btn-outline btn-sm">Dismiss all {{ mailHealth.abandoned }}</button>
+                </form>
               </div>
             {% endif %}
 
@@ -73,31 +80,42 @@
                   <span class="tiny muted mono">{{ m.to_addr }}</span><br>
                   <span class="tiny muted">
                     {{ m.created_at | relative }} ·
-                    {% if m.sent_at %}
+                    {% if m.state == 'sent' %}
                       sent
-                    {% elif m.error and m.next_attempt_at %}
+                    {% elif m.state == 'skipped' %}
+                      not sent (sample address)
+                    {% elif m.state == 'retrying' %}
                       <span style="color:var(--red)">attempt {{ m.attempts }} failed, retrying</span>
-                    {% elif m.error %}
+                    {% elif m.state == 'dismissed' %}
+                      gave up after {{ m.attempts }} attempts · dismissed
+                    {% elif m.state == 'failed' %}
                       <span style="color:var(--red)">gave up after {{ m.attempts }} attempts</span>
-                    {% elif m.next_attempt_at %}
+                    {% elif m.state == 'queued' %}
                       queued
                     {% else %}
                       held (no transport when it was written)
                     {% endif %}
                   </span>
 
-                  {% if m.error %}
+                  {% if m.error and m.state != 'skipped' %}
                     {# The reason, which is a server message and never contains a
                        credential — the mailer strips those before storing. #}
                     <br><span class="tiny mono muted">{{ m.error }}</span>
                   {% endif %}
 
-                  {% if not m.sent_at %}
-                    <form method="post" action="{{ '' | url }}/members/admin/log/mail/{{ m.id }}/retry"
-                          style="margin-top:.4rem">
-                      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                      <button type="submit" class="btn btn-outline btn-sm">Retry now</button>
-                    </form>
+                  {% if not m.sent_at and m.state != 'skipped' %}
+                    <div style="margin-top:.4rem; display:flex; gap:.4rem; flex-wrap:wrap">
+                      <form method="post" action="{{ '' | url }}/members/admin/log/mail/{{ m.id }}/retry">
+                        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                        <button type="submit" class="btn btn-outline btn-sm">Retry now</button>
+                      </form>
+                      {% if m.state == 'failed' %}
+                        <form method="post" action="{{ '' | url }}/members/admin/log/mail/{{ m.id }}/dismiss">
+                          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                          <button type="submit" class="btn btn-outline btn-sm">Dismiss</button>
+                        </form>
+                      {% endif %}
+                    </div>
                   {% endif %}
                 </li>
               {% else %}

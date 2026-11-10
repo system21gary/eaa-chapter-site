@@ -22,6 +22,9 @@ import {
   recentOutbox,
   requeueMail,
   outboxHealth,
+  dismissMail,
+  dismissAllFailed,
+  SUPPRESSED_ERROR,
 } from '../lib/mailer.js';
 import { recentAudit } from '../lib/audit.js';
 import { systemInfo } from '../lib/sysinfo.js';
@@ -912,12 +915,23 @@ router.get('/stats', requireAdmin, (req, res) => {
   });
 });
 
+/** What happened to a queued message, as one word the templates can switch on. */
+function mailState(m) {
+  if (m.sent_at) return 'sent';
+  if (m.error === SUPPRESSED_ERROR) return 'skipped';
+  if (m.error && m.next_attempt_at) return 'retrying';
+  if (m.error && m.dismissed_at) return 'dismissed';
+  if (m.error) return 'failed';
+  if (m.next_attempt_at) return 'queued';
+  return 'held';
+}
+
 router.get('/log', requireAdmin, (req, res) => {
   res.render('admin/log.njk', {
     title: 'Activity log',
     robots: 'noindex',
     entries: recentAudit(200),
-    outbox: recentOutbox(50),
+    outbox: recentOutbox(50).map((m) => ({ ...m, state: mailState(m) })),
     mailHealth: outboxHealth(),
     mailLive: config.mail.transport === 'smtp',
     sys: systemInfo(),
@@ -925,20 +939,57 @@ router.get('/log', requireAdmin, (req, res) => {
 });
 
 /**
+ * One queued message: who it was for, when, and what happened to it.
+ *
+ * The body is shown only outside production, or with ALLOW_OUTBOX_VIEW=1.
  * During setup (before SMTP exists) an admin needs to read the invite and
- * reset links the site generated. Admin-only, and never shown in production
- * unless explicitly enabled, because these bodies contain live tokens.
+ * reset links the site generated, but those bodies contain live tokens, so a
+ * production site keeps them to itself. The rest -- recipient, subject,
+ * status, the delivery error -- reveals nothing and is what an admin needs to
+ * decide between Retry and Dismiss, so it is always shown. (This page used to
+ * refuse outright in production, which made every link in the mail queue an
+ * error page.)
  */
 router.get('/log/mail/:id', requireAdmin, (req, res, next) => {
-  if (config.isProd && process.env.ALLOW_OUTBOX_VIEW !== '1') {
-    const err = new Error('Reading queued mail is disabled in production.');
-    err.status = 403;
-    return next(err);
-  }
   const mail = get('SELECT * FROM email_outbox WHERE id = ?', [Number(req.params.id)]);
   if (!mail) return next();
-  audit(req, 'admin.outbox.viewed', { entity: 'email', entityId: mail.id });
-  res.render('admin/mail.njk', { title: 'Queued message', robots: 'noindex', mail });
+  const showBody = !config.isProd || process.env.ALLOW_OUTBOX_VIEW === '1';
+  if (showBody) audit(req, 'admin.outbox.viewed', { entity: 'email', entityId: mail.id });
+  res.render('admin/mail.njk', {
+    title: 'Queued message',
+    robots: 'noindex',
+    mail: showBody ? mail : { ...mail, body_text: null, body_html: null },
+    state: mailState(mail),
+    showBody,
+  });
+});
+
+/**
+ * Accept a failed message without retrying it, so it stops being reported.
+ *
+ * For mail that will never go through and does not need to: a sample address
+ * while the site is being tried out, or a typo already corrected on the
+ * member's record. The row and its error are kept as a record.
+ */
+router.post('/log/mail/dismiss-failed', requireAdmin, writeLimiter, (req, res) => {
+  const n = dismissAllFailed(req.user.id);
+  if (n) {
+    audit(req, 'admin.outbox.dismissed', { entity: 'email', detail: `${n} failed message(s)` });
+    req.flash('success', `Dismissed ${n} failed message${n === 1 ? '' : 's'}. Only new failures will be reported.`);
+  } else {
+    req.flash('error', 'There were no failed messages to dismiss.');
+  }
+  return req.session.save(() => res.redirect('/members/admin/log'));
+});
+
+router.post('/log/mail/:id/dismiss', requireAdmin, writeLimiter, (req, res) => {
+  if (dismissMail(req.params.id, req.user.id)) {
+    audit(req, 'admin.outbox.dismissed', { entity: 'email', entityId: Number(req.params.id) });
+    req.flash('success', 'Dismissed. It will no longer be reported as a problem.');
+  } else {
+    req.flash('error', 'That message is not a failed delivery, or was already dismissed.');
+  }
+  return req.session.save(() => res.redirect('/members/admin/log'));
 });
 
 /**

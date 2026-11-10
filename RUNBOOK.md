@@ -381,6 +381,14 @@ which contain live password-reset links.
   1, 5, 15, 60 and 240 minutes (six attempts in all), then gives up. Rows are claimed
   atomically, so two drains never double-send. Admins see status and can retry
   in the activity log.
+- **Failed mail:** a message given up on is reported on the activity log, the
+  members dashboard and in the nightly backup email until an admin acts on it:
+  **Retry** (after fixing the cause) or **Dismiss** (the address was never
+  meant to work, e.g. a sample member). Dismissed rows keep their error as a
+  record but are not reported again, so only new failures show up. Clicking a
+  message opens its details (recipient, status, error); the body itself is
+  shown only outside production or with `ALLOW_OUTBOX_VIEW=1`, because it can
+  hold a live invitation or reset link.
 - **Suppressed domains:** mail to `example.com/.org/.net`, `.test`,
   `.invalid` and `localhost` is never attempted (the demo members use these).
   `MAIL_SUPPRESS_DOMAINS` overrides the list.

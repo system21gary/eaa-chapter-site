@@ -1021,6 +1021,21 @@ const migrations = [
     ALTER TABLE posts DROP COLUMN visibility;
     `,
   },
+  {
+    version: 25,
+    name: 'dismiss undeliverable mail',
+    sql: `
+    -- A message the worker gave up on stays a warning -- on the activity log
+    -- and in the nightly backup email -- until somebody deals with it. Retry
+    -- was the only way to deal with it, which is no help for mail to an
+    -- address that will never work (a sample member while the site is being
+    -- tried out, a typo since corrected). Dismissing records that an admin
+    -- has seen the failure and accepted it: the row and its error are kept,
+    -- but it no longer counts as a problem, so only new failures are reported.
+    ALTER TABLE email_outbox ADD COLUMN dismissed_at TEXT;
+    ALTER TABLE email_outbox ADD COLUMN dismissed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    `,
+  },
 ];
 
 export function migrate({ quiet = false } = {}) {

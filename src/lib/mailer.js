@@ -40,6 +40,19 @@ const BACKOFF_MINUTES = [1, 5, 15, 60, 240];
 
 const isLive = () => config.mail.transport === 'smtp';
 
+/**
+ * The error recorded for mail held back because of a reserved domain. It is a
+ * deliberate skip, not a failure, so it is never counted as one.
+ */
+export const SUPPRESSED_ERROR = 'not sent: address is a reserved documentation domain';
+
+/**
+ * Rows the worker gave up on that still need an admin's attention: failed,
+ * not retrying, not a deliberate skip, and not dismissed.
+ */
+const NEEDS_ATTENTION = `sent_at IS NULL AND next_attempt_at IS NULL AND error IS NOT NULL
+  AND error <> '${SUPPRESSED_ERROR}' AND dismissed_at IS NULL`;
+
 /** True for addresses at a domain that cannot receive mail by definition. */
 function isSuppressed(address) {
   const domain = String(address).split('@').pop()?.trim().toLowerCase() ?? '';
@@ -119,7 +132,7 @@ export async function deliverOutbox({ limit = 25 } = {}) {
           `UPDATE email_outbox
               SET next_attempt_at = NULL, last_attempt_at = ?, error = ?
             WHERE id = ?`,
-          [nowIso(), 'not sent: address is a reserved documentation domain', row.id]
+          [nowIso(), SUPPRESSED_ERROR, row.id]
         );
         continue;
       }
@@ -199,7 +212,9 @@ export function requeueMail(id) {
   const row = get('SELECT id, sent_at FROM email_outbox WHERE id = ?', [Number(id)]);
   if (!row || row.sent_at) return false;
   run(
-    'UPDATE email_outbox SET attempts = 0, next_attempt_at = ?, error = NULL WHERE id = ?',
+    `UPDATE email_outbox
+        SET attempts = 0, next_attempt_at = ?, error = NULL, dismissed_at = NULL, dismissed_by = NULL
+      WHERE id = ?`,
     [nowIso(), row.id]
   );
   if (isLive()) {
@@ -208,6 +223,31 @@ export function requeueMail(id) {
     }, 0).unref();
   }
   return true;
+}
+
+/**
+ * Accepts a failure without retrying it: the row and its error stay as a
+ * record, but it stops counting as undelivered mail on the activity log and in
+ * the nightly backup report. For mail that will never go through and does not
+ * need to (a sample address while the site is being tried out). A later
+ * failure is a new row, so it is reported afresh. Returns false if the message
+ * does not exist or is not a failure that has stopped retrying.
+ */
+export function dismissMail(id, userId = null) {
+  const info = run(
+    `UPDATE email_outbox SET dismissed_at = ?, dismissed_by = ?
+      WHERE id = ? AND ${NEEDS_ATTENTION}`,
+    [nowIso(), userId, Number(id)]
+  );
+  return info.changes > 0;
+}
+
+/** Dismisses every failure that is still waiting for attention. Returns how many. */
+export function dismissAllFailed(userId = null) {
+  return Number(
+    run(`UPDATE email_outbox SET dismissed_at = ?, dismissed_by = ? WHERE ${NEEDS_ATTENTION}`, [nowIso(), userId])
+      .changes
+  );
 }
 
 let workerTimer = null;
@@ -240,7 +280,7 @@ export function outboxHealth() {
   return get(`
     SELECT
       COUNT(*) FILTER (WHERE sent_at IS NULL AND next_attempt_at IS NOT NULL) AS pending,
-      COUNT(*) FILTER (WHERE sent_at IS NULL AND next_attempt_at IS NULL AND error IS NOT NULL) AS abandoned,
+      COUNT(*) FILTER (WHERE ${NEEDS_ATTENTION}) AS abandoned,
       COUNT(*) FILTER (WHERE sent_at IS NOT NULL) AS sent
     FROM email_outbox`);
 }
@@ -363,7 +403,7 @@ function redact(text) {
 
 export function recentOutbox(limit = 50) {
   return all(
-    `SELECT id, to_addr, subject, sent_at, error, created_at, attempts, next_attempt_at
+    `SELECT id, to_addr, subject, sent_at, error, created_at, attempts, next_attempt_at, dismissed_at
        FROM email_outbox ORDER BY id DESC LIMIT ?`,
     [Math.min(Number(limit) || 50, 200)]
   );

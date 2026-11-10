@@ -6,13 +6,15 @@
     <p class="crumbs"><a href="{{ '/members/admin/log' | url }}">Activity log</a> <span aria-hidden="true">›</span> Queued message</p>
     <h1>{{ mail.subject }}</h1>
 
-    <div class="notice" style="margin:1.5rem 0">
-      <strong>This message may contain a live invitation or reset link.</strong>
-      Anyone who can read it can set that member's password. Reading queued
-      mail is disabled in production unless explicitly re-enabled.
-    </div>
+    {% if showBody %}
+      <div class="notice" style="margin:1.5rem 0">
+        <strong>This message may contain a live invitation or reset link.</strong>
+        Anyone who can read it can set that member's password. Reading queued
+        mail is disabled in production unless explicitly re-enabled.
+      </div>
+    {% endif %}
 
-    <div class="card">
+    <div class="card" style="margin-top:1.5rem">
       <div class="card-body">
         <ul class="factlist">
           <li><span class="label">To</span><span class="mono">{{ mail.to_addr }}</span></li>
@@ -20,18 +22,44 @@
           <li><span class="label">Queued</span><span>{{ mail.created_at | datetime }}</span></li>
           <li><span class="label">Status</span>
             <span>
-              {%- if mail.sent_at %}Sent {{ mail.sent_at | relative }}
-              {%- elif mail.error and mail.next_attempt_at %}Attempt {{ mail.attempts }} failed, retrying {{ mail.next_attempt_at | relative }} — {{ mail.error }}
-              {%- elif mail.error %}Gave up after {{ mail.attempts }} attempts — {{ mail.error }}
-              {%- elif mail.next_attempt_at %}Queued for delivery
+              {%- if state == 'sent' %}Sent {{ mail.sent_at | relative }}
+              {%- elif state == 'skipped' %}Not sent — the address is on a sample domain (such as example.com) that cannot receive mail
+              {%- elif state == 'retrying' %}Attempt {{ mail.attempts }} failed, retrying {{ mail.next_attempt_at | relative }} — {{ mail.error }}
+              {%- elif state == 'dismissed' %}Gave up after {{ mail.attempts }} attempts, dismissed {{ mail.dismissed_at | relative }} — {{ mail.error }}
+              {%- elif state == 'failed' %}Gave up after {{ mail.attempts }} attempts — {{ mail.error }}
+              {%- elif state == 'queued' %}Queued for delivery
               {%- else %}Held — written while no SMTP transport was configured, so it will not be delivered unless you retry it
               {%- endif %}
             </span>
           </li>
+          {% if mail.last_attempt_at %}<li><span class="label">Last attempt</span><span>{{ mail.last_attempt_at | datetime }}</span></li>{% endif %}
         </ul>
 
         <hr class="rule" style="margin:1.5rem 0">
-        <pre class="prose" style="white-space:pre-wrap; font-size:.85rem">{{ mail.body_text }}</pre>
+        {% if showBody %}
+          <pre class="prose" style="white-space:pre-wrap; font-size:.85rem">{{ mail.body_text }}</pre>
+        {% else %}
+          <p class="small muted">
+            The message itself is not shown on the live site: it may hold a
+            live invitation or password-reset link, and anyone who could read
+            it could use that link.
+          </p>
+        {% endif %}
+
+        {% if not mail.sent_at and state != 'skipped' %}
+          <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap">
+            <form method="post" action="{{ '' | url }}/members/admin/log/mail/{{ mail.id }}/retry">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+              <button type="submit" class="btn btn-outline btn-sm">Retry now</button>
+            </form>
+            {% if state == 'failed' %}
+              <form method="post" action="{{ '' | url }}/members/admin/log/mail/{{ mail.id }}/dismiss">
+                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                <button type="submit" class="btn btn-outline btn-sm">Dismiss — stop reporting this failure</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endif %}
       </div>
     </div>
 

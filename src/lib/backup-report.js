@@ -281,7 +281,8 @@ export async function buildReport() {
   if (mail.abandoned > 0) {
     report.warnings.push(
       `${mail.abandoned} email(s) could not be delivered and were given up on. ` +
-        'See Members Corner > Admin > Activity log.'
+        'See Members Corner > Admin > Activity log, where each can be retried, or ' +
+        'dismissed if the address was never meant to work; dismissed ones are not reported again.'
     );
   }
 

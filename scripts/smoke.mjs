@@ -1735,6 +1735,60 @@ console.log('\nChapter time');
   else process.env.TZ = saved;
 }
 
+/* -------------------------------------------- failed mail: view, dismiss */
+console.log('\nFailed mail can be opened, dismissed and is then no longer reported');
+{
+  // Rows the worker gave up on, written directly: the suite runs with no
+  // transport, so nothing can actually fail. Addresses are on reserved domains.
+  const stamp = new Date().toISOString();
+  const failRow = (to, error) =>
+    Number(
+      run(
+        `INSERT INTO email_outbox (to_addr, subject, body_text, created_at, attempts, last_attempt_at, error)
+         VALUES (?, 'Smoke failed mail', 'SECRET-BODY-TOKEN', ?, 6, ?, ?)`,
+        [to, stamp, stamp, error]
+      ).lastInsertRowid
+    );
+  const baseline = Mail.outboxHealth().abandoned;
+  // Failures already in this database, so "dismiss all" can be undone after.
+  const already = all(
+    'SELECT id FROM email_outbox WHERE sent_at IS NULL AND next_attempt_at IS NULL AND error IS NOT NULL AND dismissed_at IS NULL'
+  ).map((r) => r.id);
+  const a = failRow('smoke.fail.a@example.invalid', '550 mailbox unavailable');
+  const b = failRow('smoke.fail.b@example.invalid', '550 mailbox unavailable');
+  const skipped = failRow('smoke.fail.c@example.invalid', Mail.SUPPRESSED_ERROR);
+  record(Mail.outboxHealth().abandoned === baseline + 2, 'two failures counted; a reserved-domain skip is not');
+
+  const log = await req('/members/admin/log');
+  record(log.text.includes(`/members/admin/log/mail/${a}/dismiss`), 'the log offers Dismiss on a failed message');
+  record(!log.text.includes(`/members/admin/log/mail/${skipped}/retry`), 'a reserved-domain skip offers no Retry');
+
+  const view = await req(`/members/admin/log/mail/${a}`);
+  record(view.status === 200 && view.text.includes('550 mailbox unavailable'), 'the message page opens and shows the error', `→ ${view.status}`);
+
+  const one = await req(`/members/admin/log/mail/${a}/dismiss`, { method: 'POST', body: { _csrf: csrfFrom(log.text) } });
+  record(one.status === 302, 'dismiss one failure', `→ ${one.status}`);
+  record(Mail.outboxHealth().abandoned === baseline + 1, 'it is no longer counted');
+
+  const log2 = await req('/members/admin/log');
+  const all1 = await req('/members/admin/log/mail/dismiss-failed', { method: 'POST', body: { _csrf: csrfFrom(log2.text) } });
+  record(all1.status === 302, 'dismiss all failures', `→ ${all1.status}`);
+  record(Mail.outboxHealth().abandoned === 0, 'none are counted any more');
+  const me = Users.findByEmail(EMAIL);
+  record(!todosFor(me).some((t) => t.kind === 'Email'), 'the dashboard no longer lists undelivered email');
+
+  const log3 = await req('/members/admin/log');
+  record(!log3.text.includes('could not be delivered'), 'the activity log warning is gone');
+
+  // Retrying a dismissed message puts it back in play; failing again would report it.
+  Mail.requeueMail(b);
+  record(get('SELECT dismissed_at FROM email_outbox WHERE id = ?', [b]).dismissed_at === null, 'retry clears the dismissal');
+
+  run('DELETE FROM email_outbox WHERE id IN (?, ?, ?)', [a, b, skipped]);
+  for (const id of already) run('UPDATE email_outbox SET dismissed_at = NULL, dismissed_by = NULL WHERE id = ?', [id]);
+  record(Mail.outboxHealth().abandoned === baseline, 'failures that were already here are left as they were');
+}
+
 console.log('\nCleanup');
 {
   const { text } = await req('/members/builds');

@@ -7,6 +7,7 @@ import * as Notices from './notices.js';
 import * as Minutes from './minutes.js';
 import { isPaused } from './scheduler.js';
 import { whenOf } from './event-format.js';
+import { outboxHealth } from './mailer.js';
 
 /**
  * A person's to-do list for the dashboard: things only they can act on, and
@@ -155,10 +156,11 @@ export function todosFor(user, { now = new Date() } = {}) {
     if (pending) {
       items.push({ kind: 'Requests', title: `${plural(pending, 'membership request')} to review`, detail: 'People asking for an account.', href: '/members/admin/applications', tone: 'normal' });
     }
-    // "Not sent: reserved domain" rows are the demo content, not a fault.
-    const failed = get("SELECT COUNT(*) AS n FROM email_outbox WHERE sent_at IS NULL AND next_attempt_at IS NULL AND error IS NOT NULL AND error NOT LIKE 'not sent:%'").n;
+    // Same count as the activity log and the backup report: reserved-domain
+    // skips are the demo content, not a fault, and dismissed failures are done.
+    const failed = outboxHealth().abandoned;
     if (failed) {
-      items.push({ kind: 'Email', title: `${plural(failed, 'email')} could not be delivered`, detail: 'Delivery was tried and given up on. Retry from the activity log.', href: '/members/admin/log', tone: 'late' });
+      items.push({ kind: 'Email', title: `${plural(failed, 'email')} could not be delivered`, detail: 'Delivery was tried and given up on. Retry or dismiss from the activity log.', href: '/members/admin/log', tone: 'late' });
     }
     if (isPaused()) {
       items.push({ kind: 'Automation', title: 'Scheduled sending is paused', detail: 'Reminders and meeting notices will not go out until it is resumed.', href: '/members/admin/schedule', tone: 'late' });
