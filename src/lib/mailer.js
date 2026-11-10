@@ -814,11 +814,15 @@ export function contactReplyEmail({ name, topic, body, signedBy, original }) {
 }
 
 /** A board member has sent a document for a President or Vice President to review. */
-export function documentSubmittedEmail({ reviewerName, submitterName, title, kind, version, link }) {
+export function documentSubmittedEmail({ reviewerName, submitterName, title, kind, version, replaces = null, link }) {
+  // A replacement uploaded mid-review: say so, so nobody approves the file they opened last time.
+  const what = replaces
+    ? `${submitterName} has uploaded version ${version} of ${kind.toLowerCase()} "${title}". It replaces version ${replaces}, which was waiting for your review, so please look at the new version instead.`
+    : `${submitterName} has sent ${kind.toLowerCase()} "${title}" (version ${version}) for review.`;
   const text = [
     `Hi ${reviewerName},`,
     '',
-    `${submitterName} has sent ${kind.toLowerCase()} "${title}" (version ${version}) for review.`,
+    what,
     '',
     'Open it on the chapter site to read it and approve it, or ask for changes:',
     '',
@@ -830,20 +834,24 @@ export function documentSubmittedEmail({ reviewerName, submitterName, title, kin
     'EAA Chapter 1699',
   ].join('\n');
   const html = renderEmail({
-    preheader: `${submitterName} sent "${title}" for your review.`,
-    eyebrow: 'Needs your review',
+    preheader: replaces ? `"${title}" has a new version for your review.` : `${submitterName} sent "${title}" for your review.`,
+    eyebrow: replaces ? 'Updated for your review' : 'Needs your review',
     title,
     subtitle: `${kind}, version ${version}`,
     bodyHtml: [
       para(`Hi ${esc(reviewerName)},`),
-      para(`${esc(submitterName)} has sent ${esc(kind.toLowerCase())} &ldquo;${esc(title)}&rdquo; (version ${esc(version)}) for review. Open it to read it and approve it, or ask for changes.`),
+      para(
+        replaces
+          ? `${esc(submitterName)} has uploaded version ${esc(version)} of ${esc(kind.toLowerCase())} &ldquo;${esc(title)}&rdquo;. It replaces version ${esc(replaces)}, which was waiting for your review, so please look at the new version instead. Open it to read it and approve it, or ask for changes.`
+          : `${esc(submitterName)} has sent ${esc(kind.toLowerCase())} &ldquo;${esc(title)}&rdquo; (version ${esc(version)}) for review. Open it to read it and approve it, or ask for changes.`
+      ),
       button('Open the document', link),
       para('Either the President or the Vice President can approve. Nothing is shared with members until it has been approved and published.', 'font-size:14px; color:#4a5b6b;'),
       sign('EAA Chapter 1699'),
     ].join(''),
     footerHtml: plainFooter('You are getting this because you are the chapter&rsquo;s President or Vice President. Messages about approvals are not optional.'),
   });
-  return { subject: `For your review: ${title}`, text, html };
+  return { subject: replaces ? `Updated for your review: ${title}` : `For your review: ${title}`, text, html };
 }
 
 /** The decision on a document, for whoever sent it for review. */

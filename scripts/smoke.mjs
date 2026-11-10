@@ -831,16 +831,46 @@ console.log('\nChapter documents');
   r = await req('/members/documents');
   record(!r.text.includes(title), 'it is not in the members archive');
 
-  // Review: the secretary cannot approve, and nothing can change mid-review.
+  // Review: the secretary cannot approve.
   const page = await req(`/members/documents/${doc.id}`);
   r = await req(`/members/documents/${doc.id}/submit`, { method: 'POST', body: { _csrf: csrfFrom(page.text) } });
   record(Docs_status(doc.id) === 'in_review', 'sending for review moves it to in review');
   record(Boolean(get('SELECT 1 AS x FROM email_outbox WHERE to_addr = ? AND subject LIKE ?', [vp.email, `%${title}%`])), 'the Vice President is emailed');
   r = await req(`/members/documents/${doc.id}/review`, { method: 'POST', body: { _csrf: csrfFrom(page.text), version: '1', decision: 'approved' } });
   record(r.status === 403 && Docs_status(doc.id) === 'in_review', 'the secretary cannot approve', `-> ${r.status}`);
-  const again = await req(`/members/documents/${doc.id}`);
-  await multipart(`/members/documents/${doc.id}/versions`, { _csrf: csrfFrom(again.text), file: upload('v2.pdf', pdf('v2')) });
-  record(get('SELECT COUNT(*) AS n FROM document_versions WHERE document_id = ?', [doc.id]).n === 1, 'no new version while a review is under way');
+
+  // A correction mid-review takes the old version's place, so nobody is stuck waiting on the approvers.
+  // A separate document, so the one above carries on through approval untouched.
+  const fixTitle = `${title} replaced`;
+  const fixForm = await req('/members/documents/board/new');
+  await multipart('/members/documents/board', { _csrf: csrfFrom(fixForm.text), kind: 'other', title: fixTitle, note: 'n', file: upload('guide.pdf', pdf(`g1 ${stamp}`)) });
+  const fix = get('SELECT * FROM documents WHERE title = ?', [fixTitle]);
+  let fp = await req(`/members/documents/${fix.id}`);
+  await req(`/members/documents/${fix.id}/submit`, { method: 'POST', body: { _csrf: csrfFrom(fp.text) } });
+  fp = await req(`/members/documents/${fix.id}`);
+  record(Docs_status(fix.id) === 'in_review' && fp.text.includes('Upload a replacement') && fp.text.includes(`/members/documents/${fix.id}/withdraw`), 'while it is in review, an officer is offered a replacement upload and Withdraw');
+  r = await multipart(`/members/documents/${fix.id}/versions`, { _csrf: csrfFrom(fp.text), file: upload('guide-v2.pdf', pdf(`g2 ${stamp}`)), note: 'fixed a typo' });
+  const fix2 = get('SELECT * FROM document_versions WHERE document_id = ? AND number = 2', [fix.id]);
+  record(r.status === 302 && Docs_status(fix.id) === 'in_review' && fix2?.submitted_by === admin.id, 'a version uploaded mid-review replaces the one under review and stays in review', `-> ${r.status}`);
+  record(Boolean(get('SELECT 1 AS x FROM email_outbox WHERE to_addr = ? AND subject = ?', [vp.email, `Updated for your review: ${fixTitle}`])), 'the approvers are told it replaces the earlier version');
+  Users.setBoardRole(admin.id, 'president');
+  fp = await req(`/members/documents/${fix.id}`);
+  r = await req(`/members/documents/${fix.id}/review`, { method: 'POST', body: { _csrf: csrfFrom(fp.text), version: '1', decision: 'approved' } });
+  record(Docs_status(fix.id) === 'in_review' && !get('SELECT 1 AS x FROM document_reviews r JOIN document_versions v ON v.id = r.version_id WHERE v.document_id = ?', [fix.id]), 'the replaced version can no longer be approved');
+  record(fp.text.includes('Replaced before a decision') && fp.text.includes('Takes the place of version 1, which had not been decided.'), 'the page labels the replaced version and the history records the swap');
+  Users.setBoardRole(admin.id, 'secretary');
+  fp = await req(`/members/documents/${fix.id}`);
+  r = await req(`/members/documents/${fix.id}/withdraw`, { method: 'POST', body: { _csrf: csrfFrom(fp.text) } });
+  fp = await req(`/members/documents/${fix.id}`);
+  record(Docs_status(fix.id) === 'draft' && /withdrew version 2 from review/.test(fp.text) && fp.text.includes('Send version 2 for review'), 'withdrawing takes it out of review, back to a draft that can be sent again');
+  r = await req(`/members/documents/${fix.id}/withdraw`, { method: 'POST', body: { _csrf: csrfFrom(fp.text) } });
+  record(Docs_status(fix.id) === 'draft', 'a draft cannot be withdrawn again');
+  Users.setBoardRole(admin.id, null);
+  r = await req(`/members/documents/${fix.id}/withdraw`, { method: 'POST', body: { _csrf: csrfFrom(fp.text) } });
+  record(r.status === 403, 'only an officer can withdraw', `-> ${r.status}`);
+  Users.setBoardRole(admin.id, 'secretary');
+  for (const v of all('SELECT stored_name FROM document_versions WHERE document_id = ?', [fix.id])) fs.rmSync(documentPath(v.stored_name), { force: true });
+  run('DELETE FROM documents WHERE id = ?', [fix.id]);
 
   // The President approves (Vice President would do equally well).
   Users.setBoardRole(admin.id, 'president');

@@ -5,7 +5,13 @@ import { BOARD_ROLES, canApprove, displayName } from './users.js';
  * Chapter documents and their approval trail.
  *
  *   draft -> in_review -> approved            (a President or Vice President approves)
- *               \-> changes_requested -> (new version) -> draft ...
+ *               |   \-> changes_requested -> (new version) -> draft ...
+ *               |-> (new version) -> in_review   the new version replaces the one under review
+ *               \-> (withdrawn)   -> draft
+ *
+ * An officer can replace the file while it waits for a decision, or withdraw it
+ * from review, so a correction never has to wait on the approvers. A replaced
+ * version can no longer be decided on: recordReview only accepts the latest.
  *
  * An approval belongs to one version. Approved documents are not edited:
  * uploading again starts a revision (status back to draft) and the last
@@ -157,20 +163,41 @@ function insertVersion(documentId, number, { note, file, userId, ts }) {
   );
 }
 
-/** Adds a version. Not while a review is under way. An approved document goes back to draft. */
+/**
+ * Adds a version. Usually the document goes back to draft (an approved one
+ * starts a revision). While a review is under way, the new version takes the
+ * old one's place in the review instead: it is sent for review at once, and
+ * `replaced` says which version it displaced so the approvers can be told.
+ */
 export function addVersion(documentId, { note, file, user }) {
   return transaction(() => {
     const doc = getDocument(documentId);
     if (!doc) throw new DocumentStateError('That document no longer exists.');
-    if (doc.status === 'in_review') {
-      throw new DocumentStateError('This document is waiting for a decision. Wait for the reviewer, or ask them to request changes.');
-    }
     const number = doc.next_version;
     const ts = nowIso();
     insertVersion(doc.id, number, { note, file, userId: user.id, ts });
-    run("UPDATE documents SET status = 'draft', next_version = ?, updated_at = ? WHERE id = ?", [number + 1, ts, doc.id]);
     logEvent(doc.id, { version: number, action: 'version_added', user, detail: file.originalName });
-    return number;
+    if (doc.status === 'in_review') {
+      const replaced = doc.latest_number;
+      run('UPDATE document_versions SET submitted_by = ?, submitted_at = ? WHERE document_id = ? AND number = ?', [user.id, ts, doc.id, number]);
+      run('UPDATE documents SET next_version = ?, updated_at = ? WHERE id = ?', [number + 1, ts, doc.id]);
+      logEvent(doc.id, { version: number, action: 'replaced_in_review', user, detail: `Takes the place of version ${replaced}, which had not been decided.` });
+      return { number, replaced };
+    }
+    run("UPDATE documents SET status = 'draft', next_version = ?, updated_at = ? WHERE id = ?", [number + 1, ts, doc.id]);
+    return { number, replaced: null };
+  });
+}
+
+/** Takes a document out of review without a decision, back to draft. Any officer may. */
+export function withdrawFromReview(documentId, user) {
+  return transaction(() => {
+    const doc = getDocument(documentId);
+    if (!doc) throw new DocumentStateError('That document no longer exists.');
+    if (doc.status !== 'in_review') throw new DocumentStateError('This document is not waiting for a decision.');
+    run("UPDATE documents SET status = 'draft', updated_at = ? WHERE id = ?", [nowIso(), doc.id]);
+    logEvent(doc.id, { version: doc.latest_number, action: 'withdrawn', user });
+    return doc;
   });
 }
 
@@ -267,7 +294,7 @@ export function deletionBlocker(doc, versions, version, user) {
     return 'Members can read this version. Take the document down from members first.';
   }
   if (doc.status === 'in_review' && version.number === doc.latest_number) {
-    return 'This version is waiting for a decision. Ask the reviewer to decide first.';
+    return 'This version is waiting for a decision. Upload a replacement or withdraw it from review first.';
   }
   if (wasApproved(version.id) && !canApprove(user)) {
     return 'Only the President or Vice President can delete an approved version.';

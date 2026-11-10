@@ -46,6 +46,8 @@
                   <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:baseline">
                     <h3 style="margin:0">Version {{ v.number }}
                       {% if doc.published_version_id == v.id %}<span class="pill pill-green">Published</span>{% endif %}
+                      {% if doc.status == 'in_review' and v.number == doc.latest_number %}<span class="pill pill-amber">In review</span>
+                      {% elif v.submitted_at and not v.reviews.length and v.number != doc.latest_number %}<span class="pill pill-grey">Replaced before a decision</span>{% endif %}
                     </h3>
                     <div class="row-actions" style="max-width:none; flex-wrap:nowrap">
                       <a class="btn btn-outline btn-sm" href="{{ ('/members/documents/' ~ doc.id ~ '/versions/' ~ v.number ~ '/download') | url }}">Download</a>
@@ -88,6 +90,8 @@
                         {% if e.action == 'created' %}added the document with version {{ e.version_number }}
                         {% elif e.action == 'version_added' %}uploaded version {{ e.version_number }}
                         {% elif e.action == 'submitted' %}sent version {{ e.version_number }} for review
+                        {% elif e.action == 'replaced_in_review' %}sent version {{ e.version_number }} for review
+                        {% elif e.action == 'withdrawn' %}withdrew version {{ e.version_number }} from review
                         {% elif e.action == 'approved' %}approved version {{ e.version_number }}
                         {% elif e.action == 'changes_requested' %}asked for changes to version {{ e.version_number }}
                         {% elif e.action == 'published' %}published version {{ e.version_number }} to members
@@ -176,12 +180,31 @@
             </div>
           {% endif %}
 
+          {% if doc.status == 'in_review' and not can.review %}
+            <div class="notice">
+              Waiting for the President or Vice President to review version {{ doc.latest_number }}.
+              {% if can.withdraw %}
+                <span class="small" style="display:block; margin-top:.5rem">Need it back? Upload a corrected file below, or withdraw it to make it a draft again.</span>
+              {% endif %}
+            </div>
+          {% endif %}
+
+          {% if can.withdraw %}
+            <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/withdraw') | url }}" style="margin-top:.8rem"
+                  data-confirm="Withdraw version {{ doc.latest_number }} from review? It becomes a draft again, and the President and Vice President can no longer approve it until it is sent again.">
+              <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+              <button type="submit" class="btn btn-outline btn-block btn-sm">Withdraw from review</button>
+            </form>
+          {% endif %}
+
           {% if can.edit %}
             <div class="card">
               <div class="card-body">
-                <h3>{{ 'Start a revision' if doc.status == 'approved' else 'Upload a new version' }}</h3>
+                <h3>{% if doc.status == 'approved' %}Start a revision{% elif doc.status == 'in_review' %}Upload a replacement{% else %}Upload a new version{% endif %}</h3>
                 <p class="small muted">
-                  {% if doc.status == 'approved' %}Approved versions are never changed. A revision is a new draft that needs approval again; members keep seeing the published version meanwhile.{% else %}Replaces the draft with a corrected file. Earlier versions are kept.{% endif %}
+                  {% if doc.status == 'approved' %}Approved versions are never changed. A revision is a new draft that needs approval again; members keep seeing the published version meanwhile.
+                  {% elif doc.status == 'in_review' %}Version {{ doc.latest_number }} is waiting for a decision. A new file takes its place in the review straight away: the President and Vice President are emailed, and version {{ doc.latest_number }} can no longer be approved by mistake. Earlier versions are kept.
+                  {% else %}Replaces the draft with a corrected file. Earlier versions are kept.{% endif %}
                 </p>
                 <form method="post" action="{{ ('/members/documents/' ~ doc.id ~ '/versions') | url }}" enctype="multipart/form-data">
                   <input type="hidden" name="_csrf" value="{{ csrfToken }}">
@@ -194,12 +217,10 @@
                     <label for="note">What changed <span class="muted">(optional)</span></label>
                     <textarea id="note" name="note" rows="2" maxlength="500"></textarea>
                   </div>
-                  <button type="submit" class="btn btn-outline btn-block btn-sm">Upload</button>
+                  <button type="submit" class="btn btn-outline btn-block btn-sm">{{ 'Upload and send for review' if doc.status == 'in_review' else 'Upload' }}</button>
                 </form>
               </div>
             </div>
-          {% elif doc.status == 'in_review' and not can.review %}
-            <div class="notice">Waiting for the President or Vice President to review version {{ doc.latest_number }}.</div>
           {% endif %}
         </aside>
       </div>

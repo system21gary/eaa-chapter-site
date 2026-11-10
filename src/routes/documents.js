@@ -248,7 +248,9 @@ router.get('/:id', (req, res, next) => {
     maxMb: Math.round(config.documents.maxBytes / 1024 / 1024),
     allowed: ALLOWED_LABEL,
     can: {
-      edit: isOfficer(req.user) && doc.status !== 'in_review',
+      // While a review is under way, an upload replaces the version being reviewed.
+      edit: isOfficer(req.user),
+      withdraw: isOfficer(req.user) && doc.status === 'in_review',
       submit: isOfficer(req.user) && ['draft', 'changes_requested'].includes(doc.status),
       review: Users.canApprove(req.user) && doc.status === 'in_review',
       // Not offered when the approved version is the one already published.
@@ -310,17 +312,59 @@ router.post(
       throw err;
     }
     const note = f.optionalString({ max: 500 })(req.body.note, 'note');
+    let added;
     try {
-      const number = Docs.addVersion(doc.id, { note, file: stored, user: req.user });
-      audit(req, 'document.version.added', { entity: 'document', entityId: doc.id, detail: `v${number} (${stored.sha256.slice(0, 12)})` });
-      return back(req, res, doc.id, 'success', `Version ${number} saved as a draft.`);
+      added = Docs.addVersion(doc.id, { note, file: stored, user: req.user });
     } catch (err) {
       await deleteDocumentFile(stored.storedName);
       if (err instanceof Docs.DocumentStateError) return back(req, res, doc.id, 'error', err.message);
       throw err;
     }
+    const { number, replaced } = added;
+    audit(req, 'document.version.added', { entity: 'document', entityId: doc.id, detail: `v${number} (${stored.sha256.slice(0, 12)})` });
+    if (!replaced) return back(req, res, doc.id, 'success', `Version ${number} saved as a draft.`);
+
+    // It went straight into the review in place of the old one: tell the approvers.
+    audit(req, 'document.submitted', { entity: 'document', entityId: doc.id, detail: `v${number} replaces v${replaced}` });
+    const reviewers = await emailReviewers(req.user, doc, number, replaced);
+    return back(
+      req, res, doc.id, 'success',
+      `Version ${number} uploaded and sent for review in place of version ${replaced}.${reviewers ? ' The President and Vice President have been emailed.' : ''}`
+    );
   })
 );
+
+/** Emails the approvers (other than whoever did it) that a version awaits them. Returns how many. */
+async function emailReviewers(user, doc, version, replaces = null) {
+  const reviewers = Users.listBoard().filter((u) => Users.canApprove(u) && u.id !== user.id);
+  for (const r of reviewers) {
+    await sendMail({
+      to: r.email,
+      ...documentSubmittedEmail({
+        reviewerName: r.first_name,
+        submitterName: Users.displayName(user),
+        title: doc.title,
+        kind: Docs.KINDS[doc.kind],
+        version,
+        replaces,
+        link: absoluteUrl(`/members/documents/${doc.id}`),
+      }),
+    });
+  }
+  return reviewers.length;
+}
+
+router.post('/:id/withdraw', requireOfficer, writeLimiter, (req, res) => {
+  let doc;
+  try {
+    doc = Docs.withdrawFromReview(req.params.id, req.user);
+  } catch (err) {
+    if (err instanceof Docs.DocumentStateError) return back(req, res, req.params.id, 'error', err.message);
+    throw err;
+  }
+  audit(req, 'document.withdrawn', { entity: 'document', entityId: doc.id, detail: `v${doc.latest_number}` });
+  return back(req, res, doc.id, 'success', `Version ${doc.latest_number} withdrawn from review. It is a draft again.`);
+});
 
 router.post(
   '/:id/submit',
@@ -336,21 +380,8 @@ router.post(
     }
     audit(req, 'document.submitted', { entity: 'document', entityId: doc.id, detail: `v${doc.latest_number}` });
     // Tell the other approver(s). Someone who submits their own document does not need telling.
-    const reviewers = Users.listBoard().filter((u) => Users.canApprove(u) && u.id !== req.user.id);
-    for (const r of reviewers) {
-      await sendMail({
-        to: r.email,
-        ...documentSubmittedEmail({
-          reviewerName: r.first_name,
-          submitterName: Users.displayName(req.user),
-          title: doc.title,
-          kind: Docs.KINDS[doc.kind],
-          version: doc.latest_number,
-          link: absoluteUrl(`/members/documents/${doc.id}`),
-        }),
-      });
-    }
-    return back(req, res, doc.id, 'success', reviewers.length ? 'Sent for review. The President and Vice President have been emailed.' : 'Sent for review.');
+    const reviewers = await emailReviewers(req.user, doc, doc.latest_number);
+    return back(req, res, doc.id, 'success', reviewers ? 'Sent for review. The President and Vice President have been emailed.' : 'Sent for review.');
   })
 );
 
