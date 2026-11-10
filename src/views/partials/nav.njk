@@ -44,9 +44,15 @@
           Documents{% if documentsToReview %} <span class="nav-badge" title="{{ documentsToReview }} document{{ 's' if documentsToReview != 1 }} waiting for your review">{{ documentsToReview }}</span>{% endif %}
         </a>
         <a href="{{ '/members/directory' | url }}" {% if currentPath == '/members/directory' %}aria-current="page"{% endif %}>Directory</a>
-        {% if currentUser.role in ['editor', 'admin'] %}
-          {# Everything an officer needs beyond the member links lives behind one menu. <details> works without JavaScript; site.js only adds close-on-outside-click and Esc. #}
-          {% set moreBadge = (waitingMessages or 0) + ((pendingApplications or 0) if currentUser.role == 'admin' else 0) %}
+        {% if currentUser.role == 'editor' %}
+          {# An editor has only two officer pages, so they sit on the bar itself rather than behind a menu. #}
+          <a href="{{ '/members/admin/events' | url }}" {% if currentPath.startsWith('/members/admin/events') %}aria-current="page"{% endif %}>Events</a>
+          <a href="{{ '/members/admin/messages' | url }}" {% if currentPath.startsWith('/members/admin/messages') %}aria-current="page"{% endif %}>
+            Inbox{% if waitingMessages %} <span class="nav-badge" title="{{ waitingMessages }} message{{ 's' if waitingMessages != 1 }} waiting">{{ waitingMessages }}</span>{% endif %}
+          </a>
+        {% elif currentUser.role == 'admin' %}
+          {# Everything an admin needs beyond the member links lives behind one menu. <details> works without JavaScript; site.js only adds close-on-outside-click and Esc. #}
+          {% set moreBadge = (waitingMessages or 0) + (pendingApplications or 0) %}
           <details class="members-more">
             <summary {% if currentPath.startsWith('/members/admin') %}class="is-current"{% endif %} {% if moreBadge %}aria-label="Admin tools ({{ moreBadge }} waiting)"{% endif %}>
               <span class="members-more-icon" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -58,15 +64,13 @@
               <a href="{{ '/members/admin/messages' | url }}" {% if currentPath.startsWith('/members/admin/messages') %}aria-current="page"{% endif %}>
                 Inbox{% if waitingMessages %} <span class="nav-badge">{{ waitingMessages }}</span>{% endif %}
               </a>
-              {% if currentUser.role == 'admin' %}
-                <a href="{{ '/members/admin/applications' | url }}" {% if currentPath.startsWith('/members/admin/applications') %}aria-current="page"{% endif %}>
-                  Requests{% if pendingApplications %} <span class="nav-badge">{{ pendingApplications }}</span>{% endif %}
-                </a>
-                <a href="{{ '/members/admin/members' | url }}" {% if currentPath.startsWith('/members/admin/members') %}aria-current="page"{% endif %}>People</a>
-                <a href="{{ '/members/admin/schedule' | url }}" {% if currentPath.startsWith('/members/admin/schedule') %}aria-current="page"{% endif %}>Automation</a>
-                <a href="{{ '/members/admin/stats' | url }}" {% if currentPath.startsWith('/members/admin/stats') %}aria-current="page"{% endif %}>Stats</a>
-                <a href="{{ '/members/admin/log' | url }}" {% if currentPath.startsWith('/members/admin/log') %}aria-current="page"{% endif %}>Log</a>
-              {% endif %}
+              <a href="{{ '/members/admin/applications' | url }}" {% if currentPath.startsWith('/members/admin/applications') %}aria-current="page"{% endif %}>
+                Requests{% if pendingApplications %} <span class="nav-badge">{{ pendingApplications }}</span>{% endif %}
+              </a>
+              <a href="{{ '/members/admin/members' | url }}" {% if currentPath.startsWith('/members/admin/members') %}aria-current="page"{% endif %}>People</a>
+              <a href="{{ '/members/admin/schedule' | url }}" {% if currentPath.startsWith('/members/admin/schedule') %}aria-current="page"{% endif %}>Automation</a>
+              <a href="{{ '/members/admin/stats' | url }}" {% if currentPath.startsWith('/members/admin/stats') %}aria-current="page"{% endif %}>Stats</a>
+              <a href="{{ '/members/admin/log' | url }}" {% if currentPath.startsWith('/members/admin/log') %}aria-current="page"{% endif %}>Log</a>
             </div>
           </details>
         {% endif %}
